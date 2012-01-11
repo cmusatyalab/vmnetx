@@ -43,6 +43,11 @@ GQuark _vmnetfs_io_error_quark(void)
     return g_quark_from_string("vmnetfs-io-error-quark");
 }
 
+GQuark _vmnetfs_stream_error_quark(void)
+{
+    return g_quark_from_string("vmnetfs-stream-error-quark");
+}
+
 GQuark _vmnetfs_transport_error_quark(void)
 {
     return g_quark_from_string("vmnetfs-transport-error-quark");

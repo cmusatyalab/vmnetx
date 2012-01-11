@@ -109,7 +109,7 @@ void _vmnetfs_stream_free(struct vmnetfs_stream *strm)
 }
 
 uint64_t _vmnetfs_stream_read(struct vmnetfs_stream *strm, void *buf,
-        uint64_t count, bool blocking)
+        uint64_t count, bool blocking, GError **err)
 {
     void *block;
     uint64_t block_length;
@@ -121,10 +121,16 @@ uint64_t _vmnetfs_stream_read(struct vmnetfs_stream *strm, void *buf,
         g_assert(strm->head_read_offset < BLOCK_SIZE);
         block = g_queue_peek_head(strm->blocks);
         if (block == NULL) {
-            if (blocking && copied == 0) {
+            /* No more data at the moment. */
+            if (copied > 0) {
+                break;
+            } else if (blocking) {
                 g_cond_wait(strm->cond, strm->lock);
                 continue;
             } else {
+                g_set_error(err, VMNETFS_STREAM_ERROR,
+                        VMNETFS_STREAM_ERROR_NONBLOCKING,
+                        "No input available");
                 break;
             }
         }

@@ -100,6 +100,7 @@ struct vmnetfs_fuse_ops {
 
 #define VMNETFS_FUSE_ERROR _vmnetfs_fuse_error_quark()
 #define VMNETFS_IO_ERROR _vmnetfs_io_error_quark()
+#define VMNETFS_STREAM_ERROR _vmnetfs_stream_error_quark()
 #define VMNETFS_TRANSPORT_ERROR _vmnetfs_transport_error_quark()
 
 enum VMNetFSFUSEError {
@@ -110,6 +111,10 @@ enum VMNetFSFUSEError {
 enum VMNetFSIOError {
     VMNETFS_IO_ERROR_PREMATURE_EOF,
     VMNETFS_IO_ERROR_INVALID_CACHE,
+};
+
+enum VMNetFSStreamError {
+    VMNETFS_STREAM_ERROR_NONBLOCKING,
 };
 
 enum VMNetFSTransportError {
@@ -181,7 +186,7 @@ void _vmnetfs_stream_group_free(struct vmnetfs_stream_group *sgrp);
 struct vmnetfs_stream *_vmnetfs_stream_new(struct vmnetfs_stream_group *sgrp);
 void _vmnetfs_stream_free(struct vmnetfs_stream *strm);
 uint64_t _vmnetfs_stream_read(struct vmnetfs_stream *strm, void *buf,
-        uint64_t count, bool blocking);
+        uint64_t count, bool blocking, GError **err);
 void _vmnetfs_stream_write(struct vmnetfs_stream *strm, const char *fmt, ...);
 void _vmnetfs_stream_group_write(struct vmnetfs_stream_group *sgrp,
         const char *fmt, ...);
@@ -196,6 +201,7 @@ uint64_t _vmnetfs_u64_stat_get(struct vmnetfs_stat *stat);
 void _vmnetfs_set_error(struct vmnetfs *fs, const char *fmt, ...);
 GQuark _vmnetfs_fuse_error_quark(void);
 GQuark _vmnetfs_io_error_quark(void);
+GQuark _vmnetfs_stream_error_quark(void);
 GQuark _vmnetfs_transport_error_quark(void);
 bool _vmnetfs_safe_pread(const char *file, int fd, void *buf, uint64_t count,
         uint64_t offset, GError **err);

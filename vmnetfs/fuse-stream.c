@@ -36,13 +36,20 @@ static int stream_read(struct vmnetfs_fuse_fh *fh, void *buf,
         uint64_t start G_GNUC_UNUSED, uint64_t count)
 {
     struct vmnetfs_stream *strm = fh->data;
-    uint64_t cur;
+    GError *err = NULL;
+    int ret;
 
-    cur = _vmnetfs_stream_read(strm, buf, count, fh->blocking);
-    if (cur == 0 && !fh->blocking) {
-        return -EAGAIN;
+    ret = _vmnetfs_stream_read(strm, buf, count, fh->blocking, &err);
+    if (err) {
+        if (g_error_matches(err, VMNETFS_STREAM_ERROR,
+                VMNETFS_STREAM_ERROR_NONBLOCKING)) {
+            ret = -EAGAIN;
+        } else {
+            ret = -EIO;
+        }
+        g_clear_error(&err);
     }
-    return cur;
+    return ret;
 }
 
 static void stream_release(struct vmnetfs_fuse_fh *fh)
