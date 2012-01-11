@@ -39,7 +39,7 @@ static void populate_stream(struct vmnetfs_stream *strm, void *_map)
     for (byte = 0; byte < (map->count + 7) / 8; byte++) {
         if (map->bits[byte]) {
             for (bit = 0; bit < 8; bit++) {
-                if (map->bits[byte] & (1 << (7 - bit))) {
+                if (map->bits[byte] & (1 << bit)) {
                     _vmnetfs_stream_write(strm, "%"PRIu64"\n",
                             byte * 8 + bit);
                 }
@@ -75,8 +75,8 @@ void _vmnetfs_bit_set(struct bitmap *map, uint64_t bit)
 
     g_assert(bit < map->count);
     g_mutex_lock(map->lock);
-    is_new = !(map->bits[bit / 8] & (1 << (7 - (bit % 8))));
-    map->bits[bit / 8] |= 1 << (7 - (bit % 8));
+    is_new = !(map->bits[bit / 8] & (1 << (bit % 8)));
+    map->bits[bit / 8] |= 1 << (bit % 8);
     g_mutex_unlock(map->lock);
     if (is_new) {
         _vmnetfs_stream_group_write(map->sgrp, "%"PRIu64"\n", bit);
@@ -89,7 +89,7 @@ bool _vmnetfs_bit_test(struct bitmap *map, uint64_t bit)
 
     g_assert(bit < map->count);
     g_mutex_lock(map->lock);
-    ret = !!(map->bits[bit / 8] & (1 << (7 - (bit % 8))));
+    ret = !!(map->bits[bit / 8] & (1 << (bit % 8)));
     g_mutex_unlock(map->lock);
     return ret;
 }
