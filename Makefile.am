@@ -8,7 +8,7 @@ AM_LDFLAGS = -avoid-version $(libcurl_LIBS) $(glib_LIBS) $(gthread_LIBS) \
 
 pkglib_LTLIBRARIES = libvmnetfs.la
 libvmnetfs_la_SOURCES  = vmnetfs/bitmap.c vmnetfs/fuse.c \
-	vmnetfs/fuse-image.c vmnetfs/fuse-stats.c vmnetfs/io.c \
-	vmnetfs/ll-modified.c vmnetfs/ll-pristine.c vmnetfs/stats.c \
-	vmnetfs/transport.c vmnetfs/util.c vmnetfs/vmnetfs.c \
-	vmnetfs/vmnetfs.h vmnetfs/vmnetfs-private.h
+	vmnetfs/fuse-image.c vmnetfs/fuse-stats.c vmnetfs/fuse-stream.c \
+	vmnetfs/io.c vmnetfs/ll-modified.c vmnetfs/ll-pristine.c \
+	vmnetfs/stats.c vmnetfs/stream.c vmnetfs/transport.c vmnetfs/util.c \
+	vmnetfs/vmnetfs.c vmnetfs/vmnetfs.h vmnetfs/vmnetfs-private.h

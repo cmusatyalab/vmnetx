@@ -62,6 +62,7 @@ struct vmnetfs_image {
     struct bitmap *modified_map;
 
     /* stats */
+    struct vmnetfs_stream_group *io_stream;
     struct vmnetfs_stat *bytes_read;
     struct vmnetfs_stat *bytes_written;
     struct vmnetfs_stat *chunk_reads;
@@ -82,6 +83,7 @@ struct vmnetfs_fuse_fh {
     const struct vmnetfs_fuse_ops *ops;
     void *data;
     uint64_t length;
+    bool blocking;
 };
 
 struct vmnetfs_fuse_ops {
@@ -128,6 +130,8 @@ void _vmnetfs_fuse_image_populate(struct vmnetfs_fuse_dentry *dir,
         struct vmnetfs_image *img);
 void _vmnetfs_fuse_stats_populate(struct vmnetfs_fuse_dentry *dir,
         struct vmnetfs_image *img);
+void _vmnetfs_fuse_stream_populate(struct vmnetfs_fuse_dentry *dir,
+        struct vmnetfs_image *img);
 
 /* io */
 bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err);
@@ -166,6 +170,21 @@ struct bitmap *_vmnetfs_bit_new(uint64_t bits);
 void _vmnetfs_bit_free(struct bitmap *map);
 void _vmnetfs_bit_set(struct bitmap *map, uint64_t bit);
 bool _vmnetfs_bit_test(struct bitmap *map, uint64_t bit);
+struct vmnetfs_stream_group *_vmnetfs_bit_get_stream_group(struct bitmap *map);
+
+/* stream */
+struct vmnetfs_stream;
+typedef void (populate_stream_fn)(struct vmnetfs_stream *strm, void *data);
+struct vmnetfs_stream_group *_vmnetfs_stream_group_new(
+        populate_stream_fn *populate, void *populate_data);
+void _vmnetfs_stream_group_free(struct vmnetfs_stream_group *sgrp);
+struct vmnetfs_stream *_vmnetfs_stream_new(struct vmnetfs_stream_group *sgrp);
+void _vmnetfs_stream_free(struct vmnetfs_stream *strm);
+uint64_t _vmnetfs_stream_read(struct vmnetfs_stream *strm, void *buf,
+        uint64_t count, bool blocking);
+void _vmnetfs_stream_write(struct vmnetfs_stream *strm, const char *fmt, ...);
+void _vmnetfs_stream_group_write(struct vmnetfs_stream_group *sgrp,
+        const char *fmt, ...);
 
 /* stats */
 struct vmnetfs_stat *_vmnetfs_stat_new(void);

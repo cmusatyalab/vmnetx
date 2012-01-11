@@ -99,7 +99,8 @@ static int image_read(struct vmnetfs_fuse_fh *fh, void *buf, uint64_t start,
     struct io_cursor cur;
     GError *err = NULL;
 
-    g_debug("Read %"PRIu64" at %"PRIu64, count, start);
+    _vmnetfs_stream_group_write(img->io_stream, "read %"PRIu64"+%"PRIu64"\n",
+            start, count);
     for (io_start(img, &cur, start, count); io_chunk(&cur); ) {
         if (!_vmnetfs_io_read_chunk(img, buf + cur.buf_offset, cur.chunk,
                         cur.offset, cur.length, &err)) {
@@ -119,7 +120,8 @@ static int image_write(struct vmnetfs_fuse_fh *fh, const void *buf,
     struct io_cursor cur;
     GError *err = NULL;
 
-    g_debug("Write %"PRIu64" at %"PRIu64, count, start);
+    _vmnetfs_stream_group_write(img->io_stream, "write %"PRIu64"+%"PRIu64"\n",
+            start, count);
     for (io_start(img, &cur, start, count); io_chunk(&cur); ) {
         if (!_vmnetfs_io_write_chunk(img, buf + cur.buf_offset, cur.chunk,
                         cur.offset, cur.length, &err)) {

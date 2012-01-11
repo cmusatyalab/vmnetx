@@ -148,6 +148,7 @@ static int do_open(const char *path, struct fuse_file_info *fi)
 
     fh = g_slice_new0(struct vmnetfs_fuse_fh);
     fh->ops = dentry->ops;
+    fh->blocking = !(fi->flags & O_NONBLOCK);
     ret = dentry->ops->open(dentry->ctx, fh);
     if (ret) {
         g_slice_free(struct vmnetfs_fuse_fh, fh);
@@ -278,6 +279,7 @@ static void add_image(struct vmnetfs_fuse_dentry *parent,
     dir = _vmnetfs_fuse_add_dir(parent, name);
     _vmnetfs_fuse_image_populate(dir, img);
     _vmnetfs_fuse_stats_populate(dir, img);
+    _vmnetfs_fuse_stream_populate(dir, img);
 }
 
 struct vmnetfs_fuse *_vmnetfs_fuse_new(struct vmnetfs *fs,
