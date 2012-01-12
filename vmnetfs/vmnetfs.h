@@ -33,6 +33,8 @@ const char *vmnetfs_get_error(struct vmnetfs *fs);
 // runs until the filesystem is unmounted
 void vmnetfs_run(struct vmnetfs *fs);
 
+void vmnetfs_terminate(struct vmnetfs *fs);
+
 void vmnetfs_free(struct vmnetfs *fs);
 
 #endif

@@ -351,6 +351,15 @@ void _vmnetfs_fuse_run(struct vmnetfs_fuse *fuse)
     fuse_loop_mt(fuse->fuse);
 }
 
+void _vmnetfs_fuse_terminate(struct vmnetfs_fuse *fuse)
+{
+    char *argv[] = {"fusermount", "-uqz", "--", fuse->mountpoint, NULL};
+
+    /* swallow errors */
+    g_spawn_sync("/", argv, NULL, G_SPAWN_SEARCH_PATH, NULL, NULL, NULL,
+            NULL, NULL, NULL);
+}
+
 void _vmnetfs_fuse_free(struct vmnetfs_fuse *fuse)
 {
     if (fuse == NULL) {

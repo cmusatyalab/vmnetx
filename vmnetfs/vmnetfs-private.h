@@ -113,6 +113,7 @@ enum VMNetFSIOError {
 
 enum VMNetFSStreamError {
     VMNETFS_STREAM_ERROR_NONBLOCKING,
+    VMNETFS_STREAM_ERROR_CLOSED,
 };
 
 enum VMNetFSTransportError {
@@ -124,6 +125,7 @@ enum VMNetFSTransportError {
 struct vmnetfs_fuse *_vmnetfs_fuse_new(struct vmnetfs *fs,
         const char *mountpoint, GError **err);
 void _vmnetfs_fuse_run(struct vmnetfs_fuse *fuse);
+void _vmnetfs_fuse_terminate(struct vmnetfs_fuse *fuse);
 void _vmnetfs_fuse_free(struct vmnetfs_fuse *fuse);
 struct vmnetfs_fuse_dentry *_vmnetfs_fuse_add_dir(
         struct vmnetfs_fuse_dentry *parent, const char *name);
@@ -139,6 +141,7 @@ bool _vmnetfs_interrupted(void);
 
 /* io */
 bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err);
+void _vmnetfs_io_close(struct vmnetfs_image *img);
 void _vmnetfs_io_destroy(struct vmnetfs_image *img);
 bool _vmnetfs_io_read_chunk(struct vmnetfs_image *img, void *data,
         uint64_t chunk, uint32_t offset, uint32_t length, GError **err);
@@ -147,6 +150,7 @@ bool _vmnetfs_io_write_chunk(struct vmnetfs_image *img, const void *data,
 
 /* ll_pristine */
 bool _vmnetfs_ll_pristine_init(struct vmnetfs_image *img, GError **err);
+void _vmnetfs_ll_pristine_close(struct vmnetfs_image *img);
 void _vmnetfs_ll_pristine_destroy(struct vmnetfs_image *img);
 bool _vmnetfs_ll_pristine_read_chunk(struct vmnetfs_image *img, void *data,
         uint64_t chunk, uint32_t offset, uint32_t length, GError **err);
@@ -155,6 +159,7 @@ bool _vmnetfs_ll_pristine_write_chunk(struct vmnetfs_image *img, void *data,
 
 /* ll_modified */
 bool _vmnetfs_ll_modified_init(struct vmnetfs_image *img, GError **err);
+void _vmnetfs_ll_modified_close(struct vmnetfs_image *img);
 void _vmnetfs_ll_modified_destroy(struct vmnetfs_image *img);
 bool _vmnetfs_ll_modified_read_chunk(struct vmnetfs_image *img, void *data,
         uint64_t chunk, uint32_t offset, uint32_t length, GError **err);
@@ -181,6 +186,7 @@ struct vmnetfs_stream;
 typedef void (populate_stream_fn)(struct vmnetfs_stream *strm, void *data);
 struct vmnetfs_stream_group *_vmnetfs_stream_group_new(
         populate_stream_fn *populate, void *populate_data);
+void _vmnetfs_stream_group_close(struct vmnetfs_stream_group *sgrp);
 void _vmnetfs_stream_group_free(struct vmnetfs_stream_group *sgrp);
 struct vmnetfs_stream *_vmnetfs_stream_new(struct vmnetfs_stream_group *sgrp);
 void _vmnetfs_stream_free(struct vmnetfs_stream *strm);

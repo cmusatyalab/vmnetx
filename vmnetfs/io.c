@@ -150,6 +150,14 @@ bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err)
     return true;
 }
 
+void _vmnetfs_io_close(struct vmnetfs_image *img)
+{
+    _vmnetfs_stream_group_close(_vmnetfs_bit_get_stream_group(
+            img->accessed_map));
+    _vmnetfs_ll_pristine_close(img);
+    _vmnetfs_ll_modified_close(img);
+}
+
 void _vmnetfs_io_destroy(struct vmnetfs_image *img)
 {
     if (img == NULL) {

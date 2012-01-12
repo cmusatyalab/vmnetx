@@ -61,6 +61,12 @@ static struct vmnetfs_image *image_new(const char *url, const char *cache,
     return img;
 }
 
+static void image_close(struct vmnetfs_image *img)
+{
+    _vmnetfs_io_close(img);
+    _vmnetfs_stream_group_close(img->io_stream);
+}
+
 exported bool vmnetfs_init(void)
 {
     if (!g_thread_supported()) {
@@ -120,6 +126,22 @@ exported void vmnetfs_run(struct vmnetfs *fs)
         return;
     }
     _vmnetfs_fuse_run(fs->fuse);
+}
+
+/* Stop allowing blocking reads on streams (to prevent unmount from blocking
+   forever) and lazy-unmount the filesystem. */
+exported void vmnetfs_terminate(struct vmnetfs *fs)
+{
+   /* For complete correctness, this should disallow new image opens, wait
+      for existing image fds to close, disallow new stream opens and blocking
+      reads, then lazy unmount. */
+
+    if (vmnetfs_get_error(fs)) {
+        return;
+    }
+    image_close(fs->disk);
+    image_close(fs->memory);
+    _vmnetfs_fuse_terminate(fs->fuse);
 }
 
 exported void vmnetfs_free(struct vmnetfs *fs)

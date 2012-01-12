@@ -26,6 +26,7 @@ struct vmnetfs_stream_group {
     GList *streams;
     populate_stream_fn *populate;
     void *populate_data;
+    bool closed;
 };
 
 struct vmnetfs_stream {
@@ -37,6 +38,7 @@ struct vmnetfs_stream {
     GQueue *blocks;
     uint32_t head_read_offset;
     uint32_t tail_write_offset;
+    bool closed;
 };
 
 static void *block_new(void)
@@ -59,6 +61,28 @@ struct vmnetfs_stream_group *_vmnetfs_stream_group_new(
     sgrp->populate = populate;
     sgrp->populate_data = populate_data;
     return sgrp;
+}
+
+static void close_stream(struct vmnetfs_stream *strm,
+        void *user_data G_GNUC_UNUSED)
+{
+    g_mutex_lock(strm->lock);
+    strm->closed = true;
+    _vmnetfs_cond_broadcast(strm->cond);
+    g_mutex_unlock(strm->lock);
+}
+
+/* Cause streams in the stream group to return end-of-file rather than
+   VMNETFS_STREAM_ERROR_NONBLOCKING or blocking.  This tells stream readers
+   to close their file descriptors so the filesystem can be unmounted. */
+void _vmnetfs_stream_group_close(struct vmnetfs_stream_group *sgrp)
+{
+    g_mutex_lock(sgrp->lock);
+    if (!sgrp->closed) {
+        sgrp->closed = true;
+        g_list_foreach(sgrp->streams, (GFunc) close_stream, NULL);
+    }
+    g_mutex_unlock(sgrp->lock);
 }
 
 void _vmnetfs_stream_group_free(struct vmnetfs_stream_group *sgrp)
@@ -85,6 +109,7 @@ struct vmnetfs_stream *_vmnetfs_stream_new(struct vmnetfs_stream_group *sgrp)
     sgrp->streams = g_list_prepend(sgrp->streams, strm);
     strm->group = sgrp;
     strm->group_link = sgrp->streams;
+    strm->closed = sgrp->closed;
     g_mutex_unlock(sgrp->lock);
 
     return strm;
@@ -123,6 +148,10 @@ uint64_t _vmnetfs_stream_read(struct vmnetfs_stream *strm, void *buf,
         if (block == NULL) {
             /* No more data at the moment. */
             if (copied > 0) {
+                break;
+            } else if (strm->closed) {
+                g_set_error(err, VMNETFS_STREAM_ERROR,
+                        VMNETFS_STREAM_ERROR_CLOSED, "Stream closed");
                 break;
             } else if (blocking) {
                 if (_vmnetfs_cond_wait(strm->cond, strm->lock)) {

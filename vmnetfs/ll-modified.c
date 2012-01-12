@@ -39,6 +39,12 @@ bool _vmnetfs_ll_modified_init(struct vmnetfs_image *img, GError **err)
     return true;
 }
 
+void _vmnetfs_ll_modified_close(struct vmnetfs_image *img)
+{
+    _vmnetfs_stream_group_close(_vmnetfs_bit_get_stream_group(
+            img->modified_map));
+}
+
 void _vmnetfs_ll_modified_destroy(struct vmnetfs_image *img)
 {
     _vmnetfs_bit_free(img->modified_map);
