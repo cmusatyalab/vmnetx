@@ -154,7 +154,6 @@ static int do_open(const char *path, struct fuse_file_info *fi)
         g_slice_free(struct vmnetfs_fuse_fh, fh);
     } else {
         fi->fh = (uint64_t) fh;
-        fi->direct_io = fh->ops->direct;
         fi->nonseekable = fh->ops->nonseekable;
     }
     return ret;
@@ -311,9 +310,9 @@ struct vmnetfs_fuse *_vmnetfs_fuse_new(struct vmnetfs *fs,
     g_ptr_array_add(argv, g_strdup("-osubtype=vmnetx"));
     g_ptr_array_add(argv, g_strdup("-obig_writes"));
     g_ptr_array_add(argv, g_strdup("-ointr"));
-    /* Don't flush page cache on open().  Assumes that chunks in the
-       pristine cache will not be modified behind our back. */
-    g_ptr_array_add(argv, g_strdup("-okernel_cache"));
+    /* Avoid kernel page cache in order to preserve semantics of read()
+       and write() return values. */
+    g_ptr_array_add(argv, g_strdup("-odirect_io"));
     g_ptr_array_add(argv, NULL);
     args.argv = (gchar **) g_ptr_array_free(argv, FALSE);
     args.argc = g_strv_length(args.argv);

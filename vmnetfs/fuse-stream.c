@@ -67,7 +67,6 @@ static const struct vmnetfs_fuse_ops stream_ops = {
     .open = stream_open,
     .read = stream_read,
     .release = stream_release,
-    .direct = true,  /* ignore stated file size */
     .nonseekable = true,
 };
 

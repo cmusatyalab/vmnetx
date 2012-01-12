@@ -92,7 +92,6 @@ struct vmnetfs_fuse_ops {
     int (*write)(struct vmnetfs_fuse_fh *fh, const void *buf,
             uint64_t start, uint64_t count);
     void (*release)(struct vmnetfs_fuse_fh *fh);
-    bool direct;  /* don't cache in kernel; allow read past EOF */
     bool nonseekable;
 };
 

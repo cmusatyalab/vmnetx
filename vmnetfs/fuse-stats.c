@@ -71,7 +71,6 @@ static const struct vmnetfs_fuse_ops u64_stat_ops = {
     .open = u64_stat_open,
     .read = stat_read,
     .release = stat_release,
-    .direct = true,  /* ignore stated file size */
 };
 
 static const struct vmnetfs_fuse_ops chunk_size_ops = {
@@ -79,7 +78,6 @@ static const struct vmnetfs_fuse_ops chunk_size_ops = {
     .open = chunk_size_open,
     .read = stat_read,
     .release = stat_release,
-    .direct = true,  /* ignore stated file size */
 };
 
 void _vmnetfs_fuse_stats_populate(struct vmnetfs_fuse_dentry *dir,
