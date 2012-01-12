@@ -17,6 +17,7 @@
 
 #include <sys/types.h>
 #include <unistd.h>
+#include <poll.h>
 #include <errno.h>
 #define FUSE_USE_VERSION 26
 #include <fuse.h>
@@ -183,6 +184,26 @@ static int do_write(const char *path G_GNUC_UNUSED, const char *buf,
     }
 }
 
+static int do_poll(const char *path G_GNUC_UNUSED, struct fuse_file_info *fi,
+        struct fuse_pollhandle *ph, unsigned *reventsp)
+{
+    struct vmnetfs_fuse_fh *fh = (void *) fi->fh;
+    bool readable = false;
+    int ret;
+
+    if (fh->ops->poll) {
+        ret = fh->ops->poll(fh, ph, &readable);
+        if (readable) {
+            *reventsp = POLLIN;
+        } else {
+            *reventsp = 0;
+        }
+        return ret;
+    } else {
+        return -ENOSYS;
+    }
+}
+
 static int do_release(const char *path G_GNUC_UNUSED,
         struct fuse_file_info *fi)
 {
@@ -263,6 +284,7 @@ static const struct fuse_operations fuse_ops = {
     .open = do_open,
     .read = do_read,
     .write = do_write,
+    .poll = do_poll,
     .release = do_release,
     .opendir = do_opendir,
     .readdir = do_readdir,
@@ -378,4 +400,15 @@ void _vmnetfs_fuse_free(struct vmnetfs_fuse *fuse)
 bool _vmnetfs_interrupted(void)
 {
     return fuse_interrupted();
+}
+
+void _vmnetfs_finish_poll(struct fuse_pollhandle *ph, bool notify)
+{
+    if (ph == NULL) {
+        return;
+    }
+    if (notify) {
+        fuse_notify_poll(ph);
+    }
+    fuse_pollhandle_destroy(ph);
 }

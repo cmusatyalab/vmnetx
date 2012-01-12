@@ -58,6 +58,18 @@ static int stream_read(struct vmnetfs_fuse_fh *fh, void *buf,
     return ret;
 }
 
+static int stream_poll(struct vmnetfs_fuse_fh *fh, struct fuse_pollhandle *ph,
+        bool *readable)
+{
+    struct vmnetfs_stream *strm = fh->data;
+
+    if (ph != NULL) {
+        _vmnetfs_stream_set_poll(strm, ph);
+    }
+    *readable = _vmnetfs_stream_can_read(strm);
+    return 0;
+}
+
 static void stream_release(struct vmnetfs_fuse_fh *fh)
 {
     struct vmnetfs_stream *strm = fh->data;
@@ -69,6 +81,7 @@ static const struct vmnetfs_fuse_ops stream_ops = {
     .getattr = stream_getattr,
     .open = stream_open,
     .read = stream_read,
+    .poll = stream_poll,
     .release = stream_release,
     .nonseekable = true,
 };

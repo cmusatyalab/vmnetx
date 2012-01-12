@@ -84,6 +84,7 @@ struct vmnetfs_fuse_fh {
     bool blocking;
 };
 
+struct fuse_pollhandle;
 struct vmnetfs_fuse_ops {
     int (*getattr)(void *dentry_ctx, struct stat *st);
     int (*open)(void *dentry_ctx, struct vmnetfs_fuse_fh *fh);
@@ -91,6 +92,8 @@ struct vmnetfs_fuse_ops {
             uint64_t count);
     int (*write)(struct vmnetfs_fuse_fh *fh, const void *buf,
             uint64_t start, uint64_t count);
+    int (*poll)(struct vmnetfs_fuse_fh *fh, struct fuse_pollhandle *ph,
+            bool *readable);
     void (*release)(struct vmnetfs_fuse_fh *fh);
     bool nonseekable;
 };
@@ -138,6 +141,7 @@ void _vmnetfs_fuse_stats_populate(struct vmnetfs_fuse_dentry *dir,
 void _vmnetfs_fuse_stream_populate(struct vmnetfs_fuse_dentry *dir,
         struct vmnetfs_image *img);
 bool _vmnetfs_interrupted(void);
+void _vmnetfs_finish_poll(struct fuse_pollhandle *ph, bool notify);
 
 /* io */
 bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err);
@@ -190,11 +194,14 @@ void _vmnetfs_stream_group_close(struct vmnetfs_stream_group *sgrp);
 void _vmnetfs_stream_group_free(struct vmnetfs_stream_group *sgrp);
 struct vmnetfs_stream *_vmnetfs_stream_new(struct vmnetfs_stream_group *sgrp);
 void _vmnetfs_stream_free(struct vmnetfs_stream *strm);
+bool _vmnetfs_stream_can_read(struct vmnetfs_stream *strm);
 uint64_t _vmnetfs_stream_read(struct vmnetfs_stream *strm, void *buf,
         uint64_t count, bool blocking, GError **err);
 void _vmnetfs_stream_write(struct vmnetfs_stream *strm, const char *fmt, ...);
 void _vmnetfs_stream_group_write(struct vmnetfs_stream_group *sgrp,
         const char *fmt, ...);
+void _vmnetfs_stream_set_poll(struct vmnetfs_stream *strm,
+        struct fuse_pollhandle *ph);
 
 /* stats */
 struct vmnetfs_stat *_vmnetfs_stat_new(void);
