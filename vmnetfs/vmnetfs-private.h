@@ -135,6 +135,7 @@ void _vmnetfs_fuse_stats_populate(struct vmnetfs_fuse_dentry *dir,
         struct vmnetfs_image *img);
 void _vmnetfs_fuse_stream_populate(struct vmnetfs_fuse_dentry *dir,
         struct vmnetfs_image *img);
+bool _vmnetfs_interrupted(void);
 
 /* io */
 bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err);

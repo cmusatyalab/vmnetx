@@ -31,8 +31,6 @@
 
 #include <signal.h>
 #include <pthread.h>
-#define FUSE_USE_VERSION 26
-#include <fuse.h>
 #include "vmnetfs-private.h"
 
 struct vmnetfs_cond {
@@ -78,7 +76,7 @@ bool _vmnetfs_cond_wait(struct vmnetfs_cond *cond, GMutex *lock)
 
     /* Wait for event, provided that FUSE was not already interrupted
        before we blocked signals */
-    if (!fuse_interrupted()) {
+    if (!_vmnetfs_interrupted()) {
         sigdelset(&mask, SIGUSR1);
         sigsuspend(&mask);
     }
@@ -92,7 +90,7 @@ bool _vmnetfs_cond_wait(struct vmnetfs_cond *cond, GMutex *lock)
     /* Re-acquire parent lock */
     g_mutex_lock(lock);
 
-    return fuse_interrupted();
+    return _vmnetfs_interrupted();
 }
 
 static void signal_cond(void *data, void *user_data G_GNUC_UNUSED)
