@@ -33,9 +33,11 @@ static int stat_getattr(void *dentry_ctx G_GNUC_UNUSED, struct stat *st)
 static int u64_stat_open(void *dentry_ctx, struct vmnetfs_fuse_fh *fh)
 {
     struct vmnetfs_stat *stat = dentry_ctx;
+    struct vmnetfs_stat_handle *hdl;
 
-    fh->data = format_u64(_vmnetfs_u64_stat_get(stat));
-    fh->length = strlen(fh->data);
+    fh->buf = format_u64(_vmnetfs_u64_stat_get(stat, &hdl));
+    fh->length = strlen(fh->buf);
+    fh->data = hdl;
     return 0;
 }
 
@@ -43,8 +45,8 @@ static int chunk_size_open(void *dentry_ctx, struct vmnetfs_fuse_fh *fh)
 {
     struct vmnetfs_image *img = dentry_ctx;
 
-    fh->data = format_u64(img->chunk_size);
-    fh->length = strlen(fh->data);
+    fh->buf = format_u64(img->chunk_size);
+    fh->length = strlen(fh->buf);
     return 0;
 }
 
@@ -57,19 +59,34 @@ static int stat_read(struct vmnetfs_fuse_fh *fh, void *buf, uint64_t start,
         return 0;
     }
     cur = MIN(count, fh->length - start);
-    memcpy(buf, fh->data + start, cur);
+    memcpy(buf, fh->buf + start, cur);
     return cur;
+}
+
+static int stat_poll(struct vmnetfs_fuse_fh *fh, struct fuse_pollhandle *ph,
+        bool *readable)
+{
+    struct vmnetfs_stat_handle *hdl = fh->data;
+
+    g_assert(hdl != NULL);
+    if (ph != NULL) {
+        _vmnetfs_stat_handle_set_poll(hdl, ph);
+    }
+    *readable = _vmnetfs_stat_handle_is_changed(hdl);
+    return 0;
 }
 
 static void stat_release(struct vmnetfs_fuse_fh *fh)
 {
-    g_free(fh->data);
+    _vmnetfs_stat_handle_free(fh->data);
+    g_free(fh->buf);
 }
 
 static const struct vmnetfs_fuse_ops u64_stat_ops = {
     .getattr = stat_getattr,
     .open = u64_stat_open,
     .read = stat_read,
+    .poll = stat_poll,
     .release = stat_release,
 };
 

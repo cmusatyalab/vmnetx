@@ -80,6 +80,7 @@ struct vmnetfs_fuse {
 struct vmnetfs_fuse_fh {
     const struct vmnetfs_fuse_ops *ops;
     void *data;
+    void *buf;
     uint64_t length;
     bool blocking;
 };
@@ -204,10 +205,16 @@ void _vmnetfs_stream_set_poll(struct vmnetfs_stream *strm,
         struct fuse_pollhandle *ph);
 
 /* stats */
+struct vmnetfs_stat_handle;
 struct vmnetfs_stat *_vmnetfs_stat_new(void);
 void _vmnetfs_stat_free(struct vmnetfs_stat *stat);
+void _vmnetfs_stat_handle_free(struct vmnetfs_stat_handle *hdl);
+void _vmnetfs_stat_handle_set_poll(struct vmnetfs_stat_handle *hdl,
+        struct fuse_pollhandle *ph);
+bool _vmnetfs_stat_handle_is_changed(struct vmnetfs_stat_handle *hdl);
 void _vmnetfs_u64_stat_increment(struct vmnetfs_stat *stat, uint64_t val);
-uint64_t _vmnetfs_u64_stat_get(struct vmnetfs_stat *stat);
+uint64_t _vmnetfs_u64_stat_get(struct vmnetfs_stat *stat,
+        struct vmnetfs_stat_handle **hdl);
 
 /* cond */
 struct vmnetfs_cond *_vmnetfs_cond_new(void);
