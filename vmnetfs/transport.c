@@ -38,7 +38,7 @@ struct connection {
     uint64_t length;
 };
 
-static size_t curl_callback(void *data, size_t size, size_t nmemb,
+static size_t write_callback(void *data, size_t size, size_t nmemb,
         void *private)
 {
     struct connection *conn = private;
@@ -47,6 +47,13 @@ static size_t curl_callback(void *data, size_t size, size_t nmemb,
     memcpy(conn->buf + conn->offset, data, count);
     conn->offset += count;
     return count;
+}
+
+static int progress_callback(void *private G_GNUC_UNUSED,
+        double dltotal G_GNUC_UNUSED, double dlnow G_GNUC_UNUSED,
+        double ultotal G_GNUC_UNUSED, double ulnow G_GNUC_UNUSED)
+{
+    return _vmnetfs_interrupted();
 }
 
 static void conn_free(struct connection *conn)
@@ -71,10 +78,10 @@ static struct connection *conn_new(struct connection_pool *pool,
                 "Couldn't initialize CURL handle");
         goto bad;
     }
-    if (curl_easy_setopt(conn->curl, CURLOPT_NOPROGRESS, 1)) {
+    if (curl_easy_setopt(conn->curl, CURLOPT_NOPROGRESS, 0)) {
         g_set_error(err, VMNETFS_TRANSPORT_ERROR,
                 VMNETFS_TRANSPORT_ERROR_FATAL,
-                "Couldn't disable curl progress meter");
+                "Couldn't enable curl progress meter");
         goto bad;
     }
     if (curl_easy_setopt(conn->curl, CURLOPT_NOSIGNAL, 1)) {
@@ -83,7 +90,7 @@ static struct connection *conn_new(struct connection_pool *pool,
                 "Couldn't disable signals");
         goto bad;
     }
-    if (curl_easy_setopt(conn->curl, CURLOPT_WRITEFUNCTION, curl_callback)) {
+    if (curl_easy_setopt(conn->curl, CURLOPT_WRITEFUNCTION, write_callback)) {
         g_set_error(err, VMNETFS_TRANSPORT_ERROR,
                 VMNETFS_TRANSPORT_ERROR_FATAL,
                 "Couldn't set write callback");
@@ -93,6 +100,13 @@ static struct connection *conn_new(struct connection_pool *pool,
         g_set_error(err, VMNETFS_TRANSPORT_ERROR,
                 VMNETFS_TRANSPORT_ERROR_FATAL,
                 "Couldn't set write callback data");
+        goto bad;
+    }
+    if (curl_easy_setopt(conn->curl, CURLOPT_PROGRESSFUNCTION,
+            progress_callback)) {
+        g_set_error(err, VMNETFS_TRANSPORT_ERROR,
+                VMNETFS_TRANSPORT_ERROR_FATAL,
+                "Couldn't set progress callback");
         goto bad;
     }
     if (curl_easy_setopt(conn->curl, CURLOPT_ERRORBUFFER, conn->errbuf)) {
@@ -221,6 +235,10 @@ static bool fetch(struct connection_pool *cpool, const char *url, void *buf,
         g_set_error(err, VMNETFS_TRANSPORT_ERROR,
                 VMNETFS_TRANSPORT_ERROR_NETWORK,
                 "curl error %d: %s", code, conn->errbuf);
+        break;
+    case CURLE_ABORTED_BY_CALLBACK:
+        g_set_error(err, VMNETFS_IO_ERROR, VMNETFS_IO_ERROR_INTERRUPTED,
+                "Operation interrupted");
         break;
     default:
         g_set_error(err, VMNETFS_TRANSPORT_ERROR,

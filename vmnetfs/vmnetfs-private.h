@@ -200,6 +200,7 @@ uint64_t _vmnetfs_u64_stat_get(struct vmnetfs_stat *stat);
 struct vmnetfs_cond *_vmnetfs_cond_new(void);
 void _vmnetfs_cond_free(struct vmnetfs_cond *cond);
 bool _vmnetfs_cond_wait(struct vmnetfs_cond *cond, GMutex *lock);
+void _vmnetfs_cond_signal(struct vmnetfs_cond *cond);
 void _vmnetfs_cond_broadcast(struct vmnetfs_cond *cond);
 
 /* utility */

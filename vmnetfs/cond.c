@@ -38,6 +38,11 @@ struct vmnetfs_cond {
     GList *threads;
 };
 
+struct cond_waiter {
+    pthread_t thr;
+    bool signaled;
+};
+
 struct vmnetfs_cond *_vmnetfs_cond_new(void)
 {
     struct vmnetfs_cond *cond;
@@ -54,12 +59,15 @@ void _vmnetfs_cond_free(struct vmnetfs_cond *cond)
     g_slice_free(struct vmnetfs_cond, cond);
 }
 
-/* Similar to g_cond_wait().  Returns when _vmnetfs_cond_broadcast() is
-   called or the current FUSE request is interrupted.  Returns true if the
-   request was interrupted, false otherwise. */
+/* Similar to g_cond_wait().  Returns when _vmnetfs_cond_signal() or
+   _vmnetfs_cond_broadcast() is called or the current FUSE request is
+   interrupted.  Returns true if the request was interrupted, false
+   otherwise. */
 bool _vmnetfs_cond_wait(struct vmnetfs_cond *cond, GMutex *lock)
 {
-    pthread_t thr = pthread_self();
+    struct cond_waiter waiter = {
+        .thr = pthread_self(),
+    };
     GList *el;
     sigset_t mask;
     sigset_t orig;
@@ -68,7 +76,7 @@ bool _vmnetfs_cond_wait(struct vmnetfs_cond *cond, GMutex *lock)
     sigfillset(&mask);
     pthread_sigmask(SIG_SETMASK, &mask, &orig);
     g_mutex_lock(cond->lock);
-    el = cond->threads = g_list_prepend(cond->threads, &thr);
+    el = cond->threads = g_list_prepend(cond->threads, &waiter);
     g_mutex_unlock(cond->lock);
 
     /* Permit lock-protected events to occur */
@@ -93,16 +101,31 @@ bool _vmnetfs_cond_wait(struct vmnetfs_cond *cond, GMutex *lock)
     return _vmnetfs_interrupted();
 }
 
-static void signal_cond(void *data, void *user_data G_GNUC_UNUSED)
+static void signal_cond(struct cond_waiter *waiter, int32_t *max)
 {
-    pthread_t *thr = data;
+    if (!waiter->signaled && *max != 0) {
+        pthread_kill(waiter->thr, SIGUSR1);
+        waiter->signaled = true;
+        if (*max != -1) {
+            --*max;
+        }
+    }
+}
 
-    pthread_kill(*thr, SIGUSR1);
+void _vmnetfs_cond_signal(struct vmnetfs_cond *cond)
+{
+    int32_t max = 1;
+
+    g_mutex_lock(cond->lock);
+    g_list_foreach(cond->threads, (GFunc) signal_cond, &max);
+    g_mutex_unlock(cond->lock);
 }
 
 void _vmnetfs_cond_broadcast(struct vmnetfs_cond *cond)
 {
+    int32_t max = -1;
+
     g_mutex_lock(cond->lock);
-    g_list_foreach(cond->threads, signal_cond, NULL);
+    g_list_foreach(cond->threads, (GFunc) signal_cond, &max);
     g_mutex_unlock(cond->lock);
 }

@@ -104,9 +104,15 @@ static int image_read(struct vmnetfs_fuse_fh *fh, void *buf, uint64_t start,
     for (io_start(img, &cur, start, count); io_chunk(&cur); ) {
         if (!_vmnetfs_io_read_chunk(img, buf + cur.buf_offset, cur.chunk,
                         cur.offset, cur.length, &err)) {
-            g_warning("%s", err->message);
-            g_clear_error(&err);
-            return (int) cur.buf_offset ?: -EIO;
+            if (g_error_matches(err, VMNETFS_IO_ERROR,
+                    VMNETFS_IO_ERROR_INTERRUPTED)) {
+                g_clear_error(&err);
+                return (int) cur.buf_offset ?: -EINTR;
+            } else {
+                g_warning("%s", err->message);
+                g_clear_error(&err);
+                return (int) cur.buf_offset ?: -EIO;
+            }
         }
         _vmnetfs_u64_stat_increment(img->bytes_read, cur.length);
     }
@@ -125,9 +131,15 @@ static int image_write(struct vmnetfs_fuse_fh *fh, const void *buf,
     for (io_start(img, &cur, start, count); io_chunk(&cur); ) {
         if (!_vmnetfs_io_write_chunk(img, buf + cur.buf_offset, cur.chunk,
                         cur.offset, cur.length, &err)) {
-            g_warning("%s", err->message);
-            g_clear_error(&err);
-            return (int) cur.buf_offset ?: -EIO;
+            if (g_error_matches(err, VMNETFS_IO_ERROR,
+                    VMNETFS_IO_ERROR_INTERRUPTED)) {
+                g_clear_error(&err);
+                return (int) cur.buf_offset ?: -EINTR;
+            } else {
+                g_warning("%s", err->message);
+                g_clear_error(&err);
+                return (int) cur.buf_offset ?: -EIO;
+            }
         }
         _vmnetfs_u64_stat_increment(img->bytes_written, cur.length);
     }

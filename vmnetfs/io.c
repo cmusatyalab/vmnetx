@@ -25,7 +25,7 @@ struct chunk_lock {
 
 struct chunk_lock_entry {
     uint64_t chunk;
-    GCond *available;
+    struct vmnetfs_cond *available;
     bool busy;
     uint32_t waiters;
 };
@@ -49,27 +49,38 @@ static void chunk_lock_free(struct chunk_lock *cl)
     g_slice_free(struct chunk_lock, cl);
 }
 
-static void chunk_lock_acquire(struct chunk_lock *cl, uint64_t chunk)
+/* Returns false if the lock was not acquired because the FUSE request
+   was interrupted. */
+static bool G_GNUC_WARN_UNUSED_RESULT chunk_lock_try_acquire(
+        struct chunk_lock *cl, uint64_t chunk)
 {
     struct chunk_lock_entry *ent;
+    bool ret = true;
 
     g_mutex_lock(cl->lock);
     ent = g_hash_table_lookup(cl->chunks, &chunk);
     if (ent != NULL) {
         ent->waiters++;
-        while (ent->busy) {
-            g_cond_wait(ent->available, cl->lock);
+        while (ent->busy &&
+                !_vmnetfs_cond_wait(ent->available, cl->lock)) {}
+        if (ent->busy) {
+            /* We were interrupted, give up.  If we were interrupted but
+               also acquired the lock, we pretend we weren't interrupted
+               so that we never have to free the lock in this path. */
+            ret = false;
+        } else {
+            ent->busy = true;
         }
-        ent->busy = true;
         ent->waiters--;
     } else {
         ent = g_slice_new0(struct chunk_lock_entry);
         ent->chunk = chunk;
-        ent->available = g_cond_new();
+        ent->available = _vmnetfs_cond_new();
         ent->busy = true;
         g_hash_table_replace(cl->chunks, &ent->chunk, ent);
     }
     g_mutex_unlock(cl->lock);
+    return ret;
 }
 
 static void chunk_lock_release(struct chunk_lock *cl, uint64_t chunk)
@@ -81,10 +92,10 @@ static void chunk_lock_release(struct chunk_lock *cl, uint64_t chunk)
     g_assert(ent != NULL);
     if (ent->waiters > 0) {
         ent->busy = false;
-        g_cond_signal(ent->available);
+        _vmnetfs_cond_signal(ent->available);
     } else {
         g_hash_table_remove(cl->chunks, &chunk);
-        g_cond_free(ent->available);
+        _vmnetfs_cond_free(ent->available);
         g_slice_free(struct chunk_lock_entry, ent);
     }
     g_mutex_unlock(cl->lock);
@@ -192,7 +203,11 @@ bool _vmnetfs_io_read_chunk(struct vmnetfs_image *img, void *data,
 {
     bool ret;
 
-    chunk_lock_acquire(img->chunk_locks, chunk);
+    if (!chunk_lock_try_acquire(img->chunk_locks, chunk)) {
+        g_set_error(err, VMNETFS_IO_ERROR, VMNETFS_IO_ERROR_INTERRUPTED,
+                "Operation interrupted");
+        return false;
+    }
     _vmnetfs_bit_set(img->accessed_map, chunk);
     ret = read_chunk_unlocked(img, data, chunk, offset, length, err);
     chunk_lock_release(img->chunk_locks, chunk);
@@ -208,7 +223,11 @@ bool _vmnetfs_io_write_chunk(struct vmnetfs_image *img, const void *data,
     g_assert(offset + length <= img->chunk_size);
     g_assert(chunk * img->chunk_size + offset + length <= img->size);
 
-    chunk_lock_acquire(img->chunk_locks, chunk);
+    if (!chunk_lock_try_acquire(img->chunk_locks, chunk)) {
+        g_set_error(err, VMNETFS_IO_ERROR, VMNETFS_IO_ERROR_INTERRUPTED,
+                "Operation interrupted");
+        return false;
+    }
     _vmnetfs_bit_set(img->accessed_map, chunk);
     if (!_vmnetfs_bit_test(img->modified_map, chunk)) {
         uint64_t count = MIN(img->size - chunk * img->chunk_size,
