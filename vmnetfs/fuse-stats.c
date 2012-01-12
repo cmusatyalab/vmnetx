@@ -91,10 +91,7 @@ void _vmnetfs_fuse_stats_populate(struct vmnetfs_fuse_dentry *dir,
 
 #define add_stat(n) _vmnetfs_fuse_add_file(stats, #n, &u64_stat_ops, img->n)
     add_stat(bytes_read);
-    add_stat(bytes_read);
     add_stat(bytes_written);
-    add_stat(chunk_reads);
-    add_stat(chunk_writes);
     add_stat(chunk_fetches);
     add_stat(chunk_dirties);
 #undef add_stat

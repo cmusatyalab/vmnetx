@@ -194,7 +194,6 @@ bool _vmnetfs_io_read_chunk(struct vmnetfs_image *img, void *data,
 
     chunk_lock_acquire(img->chunk_locks, chunk);
     _vmnetfs_bit_set(img->accessed_map, chunk);
-    _vmnetfs_u64_stat_increment(img->chunk_reads, 1);
     ret = read_chunk_unlocked(img, data, chunk, offset, length, err);
     chunk_lock_release(img->chunk_locks, chunk);
     return ret;
@@ -211,7 +210,6 @@ bool _vmnetfs_io_write_chunk(struct vmnetfs_image *img, const void *data,
 
     chunk_lock_acquire(img->chunk_locks, chunk);
     _vmnetfs_bit_set(img->accessed_map, chunk);
-    _vmnetfs_u64_stat_increment(img->chunk_writes, 1);
     if (!_vmnetfs_bit_test(img->modified_map, chunk)) {
         uint64_t count = MIN(img->size - chunk * img->chunk_size,
                 img->chunk_size);
