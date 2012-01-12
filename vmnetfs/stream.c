@@ -33,7 +33,7 @@ struct vmnetfs_stream {
     GList *group_link;
 
     GMutex *lock;
-    GCond *cond;
+    struct vmnetfs_cond *cond;
     GQueue *blocks;
     uint32_t head_read_offset;
     uint32_t tail_write_offset;
@@ -74,7 +74,7 @@ struct vmnetfs_stream *_vmnetfs_stream_new(struct vmnetfs_stream_group *sgrp)
 
     strm = g_slice_new0(struct vmnetfs_stream);
     strm->lock = g_mutex_new();
-    strm->cond = g_cond_new();
+    strm->cond = _vmnetfs_cond_new();
     strm->blocks = g_queue_new();
     strm->tail_write_offset = BLOCK_SIZE;
     if (sgrp->populate != NULL) {
@@ -103,7 +103,7 @@ void _vmnetfs_stream_free(struct vmnetfs_stream *strm)
         block_free(block);
     }
     g_queue_free(strm->blocks);
-    g_cond_free(strm->cond);
+    _vmnetfs_cond_free(strm->cond);
     g_mutex_free(strm->lock);
     g_slice_free(struct vmnetfs_stream, strm);
 }
@@ -125,8 +125,14 @@ uint64_t _vmnetfs_stream_read(struct vmnetfs_stream *strm, void *buf,
             if (copied > 0) {
                 break;
             } else if (blocking) {
-                g_cond_wait(strm->cond, strm->lock);
-                continue;
+                if (_vmnetfs_cond_wait(strm->cond, strm->lock)) {
+                    g_set_error(err, VMNETFS_STREAM_ERROR,
+                            VMNETFS_STREAM_ERROR_INTERRUPTED,
+                            "Operation interrupted");
+                    break;
+                } else {
+                    continue;
+                }
             } else {
                 g_set_error(err, VMNETFS_STREAM_ERROR,
                         VMNETFS_STREAM_ERROR_NONBLOCKING,
@@ -180,7 +186,7 @@ static void stream_write(struct vmnetfs_stream *strm, const void *buf,
         copied += cur;
         strm->tail_write_offset += cur;
     }
-    g_cond_broadcast(strm->cond);
+    _vmnetfs_cond_broadcast(strm->cond);
     g_mutex_unlock(strm->lock);
 }
 

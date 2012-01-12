@@ -44,6 +44,9 @@ static int stream_read(struct vmnetfs_fuse_fh *fh, void *buf,
         if (g_error_matches(err, VMNETFS_STREAM_ERROR,
                 VMNETFS_STREAM_ERROR_NONBLOCKING)) {
             ret = -EAGAIN;
+        } else if (g_error_matches(err, VMNETFS_STREAM_ERROR,
+                VMNETFS_STREAM_ERROR_INTERRUPTED)) {
+            ret = -EINTR;
         } else {
             ret = -EIO;
         }

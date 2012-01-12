@@ -115,6 +115,7 @@ enum VMNetFSIOError {
 
 enum VMNetFSStreamError {
     VMNETFS_STREAM_ERROR_NONBLOCKING,
+    VMNETFS_STREAM_ERROR_INTERRUPTED,
 };
 
 enum VMNetFSTransportError {
@@ -196,6 +197,12 @@ struct vmnetfs_stat *_vmnetfs_stat_new(void);
 void _vmnetfs_stat_free(struct vmnetfs_stat *stat);
 void _vmnetfs_u64_stat_increment(struct vmnetfs_stat *stat, uint64_t val);
 uint64_t _vmnetfs_u64_stat_get(struct vmnetfs_stat *stat);
+
+/* cond */
+struct vmnetfs_cond *_vmnetfs_cond_new(void);
+void _vmnetfs_cond_free(struct vmnetfs_cond *cond);
+bool _vmnetfs_cond_wait(struct vmnetfs_cond *cond, GMutex *lock);
+void _vmnetfs_cond_broadcast(struct vmnetfs_cond *cond);
 
 /* utility */
 void _vmnetfs_set_error(struct vmnetfs *fs, const char *fmt, ...);

@@ -310,6 +310,7 @@ struct vmnetfs_fuse *_vmnetfs_fuse_new(struct vmnetfs *fs,
     g_ptr_array_add(argv, g_strdup_printf("-ofsname=vmnetx#%d", getpid()));
     g_ptr_array_add(argv, g_strdup("-osubtype=vmnetx"));
     g_ptr_array_add(argv, g_strdup("-obig_writes"));
+    g_ptr_array_add(argv, g_strdup("-ointr"));
     /* Don't flush page cache on open().  Assumes that chunks in the
        pristine cache will not be modified behind our back. */
     g_ptr_array_add(argv, g_strdup("-okernel_cache"));
