@@ -126,8 +126,8 @@ uint64_t _vmnetfs_stream_read(struct vmnetfs_stream *strm, void *buf,
                 break;
             } else if (blocking) {
                 if (_vmnetfs_cond_wait(strm->cond, strm->lock)) {
-                    g_set_error(err, VMNETFS_STREAM_ERROR,
-                            VMNETFS_STREAM_ERROR_INTERRUPTED,
+                    g_set_error(err, VMNETFS_IO_ERROR,
+                            VMNETFS_IO_ERROR_INTERRUPTED,
                             "Operation interrupted");
                     break;
                 } else {
