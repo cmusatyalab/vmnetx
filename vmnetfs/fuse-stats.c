@@ -17,6 +17,7 @@
 
 #include <string.h>
 #include <inttypes.h>
+#include <errno.h>
 #include "vmnetfs-private.h"
 
 static char *format_u64(uint64_t val)
@@ -35,6 +36,9 @@ static int u64_stat_open(void *dentry_ctx, struct vmnetfs_fuse_fh *fh)
     struct vmnetfs_stat *stat = dentry_ctx;
     struct vmnetfs_stat_handle *hdl;
 
+    if (_vmnetfs_stat_is_closed(stat)) {
+        return -EACCES;
+    }
     fh->buf = format_u64(_vmnetfs_u64_stat_get(stat, &hdl));
     fh->length = strlen(fh->buf);
     fh->data = hdl;

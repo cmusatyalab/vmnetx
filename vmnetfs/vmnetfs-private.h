@@ -207,6 +207,8 @@ void _vmnetfs_stream_set_poll(struct vmnetfs_stream *strm,
 /* stats */
 struct vmnetfs_stat_handle;
 struct vmnetfs_stat *_vmnetfs_stat_new(void);
+void _vmnetfs_stat_close(struct vmnetfs_stat *stat);
+bool _vmnetfs_stat_is_closed(struct vmnetfs_stat *stat);
 void _vmnetfs_stat_free(struct vmnetfs_stat *stat);
 void _vmnetfs_stat_handle_free(struct vmnetfs_stat_handle *hdl);
 void _vmnetfs_stat_handle_set_poll(struct vmnetfs_stat_handle *hdl,

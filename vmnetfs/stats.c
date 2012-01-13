@@ -20,6 +20,7 @@
 struct vmnetfs_stat {
     GMutex *lock;
     GList *unchanged_handles;
+    bool closed;
     uint64_t u64;
 };
 
@@ -41,6 +42,41 @@ struct vmnetfs_stat *_vmnetfs_stat_new(void)
     return stat;
 }
 
+/* stat lock must be held. */
+static void change_stat(struct vmnetfs_stat *stat)
+{
+    struct vmnetfs_stat_handle *hdl;
+    GList *el;
+
+    for (el = g_list_first(stat->unchanged_handles); el != NULL;
+            el = g_list_next(el)) {
+        hdl = el->data;
+        hdl->changed = true;
+        _vmnetfs_finish_poll(hdl->ph, true);
+        hdl->ph = NULL;
+    }
+    g_list_free(stat->unchanged_handles);
+    stat->unchanged_handles = NULL;
+}
+
+void _vmnetfs_stat_close(struct vmnetfs_stat *stat)
+{
+    g_mutex_lock(stat->lock);
+    stat->closed = true;
+    change_stat(stat);
+    g_mutex_unlock(stat->lock);
+}
+
+bool _vmnetfs_stat_is_closed(struct vmnetfs_stat *stat)
+{
+    bool ret;
+
+    g_mutex_lock(stat->lock);
+    ret = stat->closed;
+    g_mutex_unlock(stat->lock);
+    return ret;
+}
+
 void _vmnetfs_stat_free(struct vmnetfs_stat *stat)
 {
     if (stat == NULL) {
@@ -58,7 +94,11 @@ static struct vmnetfs_stat_handle *stat_handle_new(struct vmnetfs_stat *stat)
 
     hdl = g_slice_new0(struct vmnetfs_stat_handle);
     hdl->stat = stat;
-    stat->unchanged_handles = g_list_prepend(stat->unchanged_handles, hdl);
+    if (stat->closed) {
+        hdl->changed = true;
+    } else {
+        stat->unchanged_handles = g_list_prepend(stat->unchanged_handles, hdl);
+    }
     return hdl;
 }
 
@@ -88,23 +128,6 @@ void _vmnetfs_stat_handle_set_poll(struct vmnetfs_stat_handle *hdl,
         hdl->ph = ph;
     }
     g_mutex_unlock(hdl->stat->lock);
-}
-
-/* stat lock must be held. */
-static void change_stat(struct vmnetfs_stat *stat)
-{
-    struct vmnetfs_stat_handle *hdl;
-    GList *el;
-
-    for (el = g_list_first(stat->unchanged_handles); el != NULL;
-            el = g_list_next(el)) {
-        hdl = el->data;
-        hdl->changed = true;
-        _vmnetfs_finish_poll(hdl->ph, true);
-        hdl->ph = NULL;
-    }
-    g_list_free(stat->unchanged_handles);
-    stat->unchanged_handles = NULL;
 }
 
 bool _vmnetfs_stat_handle_is_changed(struct vmnetfs_stat_handle *hdl)

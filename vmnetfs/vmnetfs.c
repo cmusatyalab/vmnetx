@@ -64,6 +64,10 @@ static struct vmnetfs_image *image_new(const char *url, const char *cache,
 static void image_close(struct vmnetfs_image *img)
 {
     _vmnetfs_io_close(img);
+    _vmnetfs_stat_close(img->bytes_read);
+    _vmnetfs_stat_close(img->bytes_written);
+    _vmnetfs_stat_close(img->chunk_fetches);
+    _vmnetfs_stat_close(img->chunk_dirties);
     _vmnetfs_stream_group_close(img->io_stream);
 }
 
