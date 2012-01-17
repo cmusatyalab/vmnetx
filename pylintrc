@@ -1,0 +1,35 @@
+# Configuration file for pylint.
+
+[MASTER]
+# Don't store collected data.
+persistent=no
+
+[MESSAGES CONTROL]
+# C0111: Missing docstring
+# I0011: Test disabled via inline comment
+# R0201: Method could be a function
+# R0801: Code duplication
+# R0901: Too many ancestors
+# R0902: Too many instance attributes
+# R0903: Too few public methods
+# R0904: Too many public methods
+# R0911: Too many return statements
+# R0912: Too many branches
+# R0913: Too many arguments
+# R0914: Too many local variables
+# R0915: Too many statements
+# W0142: Used * or ** magic
+# W0622: Redefining a built-in function
+disable=C0111,I0011,R0201,R0801,R0901,R0902,R0903,R0904,R0911,R0912,R0913,R0914,R0915,W0142,W0622
+
+[REPORTS]
+# Disable reports
+reports=no
+# Include message IDs in output
+include-ids=yes
+
+[BASIC]
+# Don't enforce length restrictions on variable names
+variable-rgx=[a-z_][a-z0-9_]*$
+# Allow module-level variables prefixed by underscore
+const-rgx=(([A-Z_][A-Z0-9_]*)|(__.*__)|(_[a-z][a-z0-9_]+))$

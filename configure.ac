@@ -33,6 +33,9 @@ AC_PROG_LIBTOOL
 AM_PATH_PYTHON([2.6])
 PKG_PROG_PKG_CONFIG()
 
+AC_PATH_PROG([PYLINT], [pylint], [:])
+AC_ARG_VAR([PYLINT], [path to pylint])
+
 # Checks for compiler characteristics.
 gl_VISIBILITY
 
