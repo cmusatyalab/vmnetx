@@ -1,0 +1,1 @@
+vmnetfs_path = '@pkglibdir@/libvmnetfs.so'
