@@ -17,7 +17,12 @@
 
 from ctypes import cdll, c_void_p, c_char_p, c_uint64, c_uint32, c_bool
 
+# system.py is built at install time, so pylint may fail to import it.
+# Also avoid warning on variable name.
+# pylint: disable=F0401,C0103
+vmnetfs_path = ''
 from .system import vmnetfs_path
+# pylint: enable=F0401,C0103
 
 class VMNetFSError(Exception):
     pass

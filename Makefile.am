@@ -20,6 +20,7 @@ CLEANFILES = vmnetx/system.py
 EXTRA_DIST = vmnetx/system.py.in pylintrc
 
 vmnetx/system.py: vmnetx/system.py.in Makefile
+	$(MKDIR_P) vmnetx
 	$(AM_V_GEN) sed -e "s:@pkglibdir@:$(pkglibdir):g" $< > $@
 
 check-local:
