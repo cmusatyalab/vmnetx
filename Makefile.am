@@ -14,7 +14,8 @@ libvmnetfs_la_SOURCES  = vmnetfs/bitmap.c vmnetfs/cond.c vmnetfs/fuse.c \
 	vmnetfs/stats.c vmnetfs/stream.c vmnetfs/transport.c vmnetfs/util.c \
 	vmnetfs/vmnetfs.c vmnetfs/vmnetfs.h vmnetfs/vmnetfs-private.h
 
-nobase_python_PYTHON = vmnetx/__init__.py vmnetx/vmnetfs.py
+nobase_python_PYTHON = vmnetx/__init__.py vmnetx/vmnetfs.py \
+	vmnetx/status/__init__.py vmnetx/status/monitor.py
 nobase_nodist_python_PYTHON = vmnetx/system.py
 CLEANFILES = vmnetx/system.py
 EXTRA_DIST = vmnetx/system.py.in pylintrc
