@@ -170,13 +170,32 @@ void _vmnetfs_io_destroy(struct vmnetfs_image *img)
     _vmnetfs_transport_pool_free(img->cpool);
 }
 
+static bool constrain_io(struct vmnetfs_image *img, uint64_t chunk,
+        uint32_t offset, uint32_t *length, GError **err)
+{
+    g_assert(offset < img->chunk_size);
+    g_assert(offset + *length <= img->chunk_size);
+
+    /* If start is after EOF, return EOF. */
+    if (chunk * img->chunk_size + offset >= img->size) {
+        g_set_error(err, VMNETFS_IO_ERROR, VMNETFS_IO_ERROR_EOF,
+                "End of file");
+        return false;
+    }
+
+    /* If end is after EOF, constrain it to the valid length of the
+       image. */
+    *length = MIN(img->size - chunk * img->chunk_size, *length);
+    return true;
+}
+
 static bool read_chunk_unlocked(struct vmnetfs_image *img, void *data,
         uint64_t chunk, uint32_t offset, uint32_t length, GError **err)
 {
-    g_assert(offset < img->chunk_size);
-    g_assert(offset + length <= img->chunk_size);
-    g_assert(chunk * img->chunk_size + offset + length <= img->size);
-
+    if (!constrain_io(img, chunk, offset, &length, err)) {
+        return false;
+    }
+    _vmnetfs_bit_set(img->accessed_map, chunk);
     if (_vmnetfs_bit_test(img->modified_map, chunk)) {
         return _vmnetfs_ll_modified_read_chunk(img, data, chunk, offset,
                 length, err);
@@ -216,7 +235,6 @@ bool _vmnetfs_io_read_chunk(struct vmnetfs_image *img, void *data,
                 "Operation interrupted");
         return false;
     }
-    _vmnetfs_bit_set(img->accessed_map, chunk);
     ret = read_chunk_unlocked(img, data, chunk, offset, length, err);
     chunk_lock_release(img->chunk_locks, chunk);
     return ret;
@@ -227,10 +245,9 @@ bool _vmnetfs_io_write_chunk(struct vmnetfs_image *img, const void *data,
 {
     bool ret;
 
-    g_assert(offset < img->chunk_size);
-    g_assert(offset + length <= img->chunk_size);
-    g_assert(chunk * img->chunk_size + offset + length <= img->size);
-
+    if (!constrain_io(img, chunk, offset, &length, err)) {
+        return false;
+    }
     if (!chunk_lock_try_acquire(img->chunk_locks, chunk)) {
         g_set_error(err, VMNETFS_IO_ERROR, VMNETFS_IO_ERROR_INTERRUPTED,
                 "Operation interrupted");

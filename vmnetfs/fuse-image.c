@@ -26,7 +26,6 @@ struct io_cursor {
     uint64_t offset;
     uint64_t length;
     uint64_t buf_offset;
-    bool eof;  /* Tried to do I/O past the end of the disk */
 
     /* Private fields */
     struct vmnetfs_image *img;
@@ -47,12 +46,11 @@ static void io_start(struct vmnetfs_image *img, struct io_cursor *cur,
 
 /* Populate the public fields of the cursor with information on the next
    chunk in the I/O, starting from the first.  Returns true if we produced
-   a valid chunk, false if done with this I/O. */
+   a valid chunk, false if done with this I/O.  Assumes an infinite-size
+   image. */
 static bool io_chunk(struct io_cursor *cur)
 {
     uint64_t position;
-    uint64_t this_chunk_start;
-    uint64_t this_chunk_size;
 
     cur->buf_offset += cur->length;
     if (cur->buf_offset >= cur->count) {
@@ -60,17 +58,9 @@ static bool io_chunk(struct io_cursor *cur)
         return false;
     }
     position = cur->start + cur->buf_offset;
-    if (position >= cur->img->size) {
-        /* End of image */
-        cur->eof = true;
-        return false;
-    }
     cur->chunk = position / cur->img->chunk_size;
-    this_chunk_start = cur->chunk * cur->img->chunk_size;
-    this_chunk_size = MIN(cur->img->size - this_chunk_start,
-            cur->img->chunk_size);
-    cur->offset = position - this_chunk_start;
-    cur->length = MIN(this_chunk_size - cur->offset,
+    cur->offset = position - cur->chunk * cur->img->chunk_size;
+    cur->length = MIN(cur->img->chunk_size - cur->offset,
             cur->count - cur->buf_offset);
     return true;
 }
@@ -108,6 +98,10 @@ static int image_read(struct vmnetfs_fuse_fh *fh, void *buf, uint64_t start,
                     VMNETFS_IO_ERROR_INTERRUPTED)) {
                 g_clear_error(&err);
                 return (int) cur.buf_offset ?: -EINTR;
+            } else if (g_error_matches(err, VMNETFS_IO_ERROR,
+                    VMNETFS_IO_ERROR_EOF)) {
+                g_clear_error(&err);
+                return cur.buf_offset;
             } else {
                 g_warning("%s", err->message);
                 g_clear_error(&err);
@@ -135,6 +129,10 @@ static int image_write(struct vmnetfs_fuse_fh *fh, const void *buf,
                     VMNETFS_IO_ERROR_INTERRUPTED)) {
                 g_clear_error(&err);
                 return (int) cur.buf_offset ?: -EINTR;
+            } else if (g_error_matches(err, VMNETFS_IO_ERROR,
+                    VMNETFS_IO_ERROR_EOF)) {
+                g_clear_error(&err);
+                return (int) cur.buf_offset ?: -ENOSPC;
             } else {
                 g_warning("%s", err->message);
                 g_clear_error(&err);
@@ -142,9 +140,6 @@ static int image_write(struct vmnetfs_fuse_fh *fh, const void *buf,
             }
         }
         _vmnetfs_u64_stat_increment(img->bytes_written, cur.length);
-    }
-    if (cur.eof && !cur.buf_offset) {
-        return -ENOSPC;
     }
     return cur.buf_offset;
 }
