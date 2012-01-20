@@ -21,6 +21,7 @@
 struct chunk_state {
     GMutex *lock;
     GHashTable *chunk_locks;
+    uint64_t image_size;
 };
 
 struct chunk_lock {
@@ -30,13 +31,14 @@ struct chunk_lock {
     uint32_t waiters;
 };
 
-static struct chunk_state *chunk_state_new(void)
+static struct chunk_state *chunk_state_new(uint64_t initial_size)
 {
     struct chunk_state *cs;
 
     cs = g_slice_new0(struct chunk_state);
     cs->lock = g_mutex_new();
     cs->chunk_locks = g_hash_table_new(g_int64_hash, g_int64_equal);
+    cs->image_size = initial_size;
     return cs;
 }
 
@@ -50,13 +52,18 @@ static void chunk_state_free(struct chunk_state *cs)
 }
 
 /* Returns false if the lock was not acquired because the FUSE request
-   was interrupted. */
+   was interrupted.  Optionally stores the current image size in
+   *image_size; this will not be reduced to impinge on the specified chunk
+   while the chunk lock is held. */
 static bool G_GNUC_WARN_UNUSED_RESULT chunk_trylock(struct chunk_state *cs,
-        uint64_t chunk)
+        uint64_t chunk, uint64_t *image_size)
 {
     struct chunk_lock *cl;
     bool ret = true;
 
+    if (image_size) {
+        *image_size = 0;
+    }
     g_mutex_lock(cs->lock);
     cl = g_hash_table_lookup(cs->chunk_locks, &chunk);
     if (cl != NULL) {
@@ -78,6 +85,9 @@ static bool G_GNUC_WARN_UNUSED_RESULT chunk_trylock(struct chunk_state *cs,
         cl->available = _vmnetfs_cond_new();
         cl->busy = true;
         g_hash_table_replace(cs->chunk_locks, &cl->chunk, cl);
+    }
+    if (ret && image_size) {
+        *image_size = cs->image_size;
     }
     g_mutex_unlock(cs->lock);
     return ret;
@@ -146,7 +156,7 @@ bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err)
     }
     img->cpool = _vmnetfs_transport_pool_new();
     img->accessed_map = _vmnetfs_bit_new();
-    img->chunk_state = chunk_state_new();
+    img->chunk_state = chunk_state_new(img->initial_size);
     return true;
 }
 
@@ -170,14 +180,14 @@ void _vmnetfs_io_destroy(struct vmnetfs_image *img)
     _vmnetfs_transport_pool_free(img->cpool);
 }
 
-static bool constrain_io(struct vmnetfs_image *img, uint64_t chunk,
-        uint32_t offset, uint32_t *length, GError **err)
+static bool constrain_io(struct vmnetfs_image *img, uint64_t image_size,
+        uint64_t chunk, uint32_t offset, uint32_t *length, GError **err)
 {
     g_assert(offset < img->chunk_size);
     g_assert(offset + *length <= img->chunk_size);
 
     /* If start is after EOF, return EOF. */
-    if (chunk * img->chunk_size + offset >= img->size) {
+    if (chunk * img->chunk_size + offset >= image_size) {
         g_set_error(err, VMNETFS_IO_ERROR, VMNETFS_IO_ERROR_EOF,
                 "End of file");
         return false;
@@ -185,27 +195,28 @@ static bool constrain_io(struct vmnetfs_image *img, uint64_t chunk,
 
     /* If end is after EOF, constrain it to the valid length of the
        image. */
-    *length = MIN(img->size - chunk * img->chunk_size, *length);
+    *length = MIN(image_size - chunk * img->chunk_size, *length);
     return true;
 }
 
-static bool read_chunk_unlocked(struct vmnetfs_image *img, void *data,
-        uint64_t chunk, uint32_t offset, uint32_t length, GError **err)
+static bool read_chunk_unlocked(struct vmnetfs_image *img,
+        uint64_t image_size, void *data, uint64_t chunk, uint32_t offset,
+        uint32_t length, GError **err)
 {
-    if (!constrain_io(img, chunk, offset, &length, err)) {
+    if (!constrain_io(img, image_size, chunk, offset, &length, err)) {
         return false;
     }
     _vmnetfs_bit_set(img->accessed_map, chunk);
     if (_vmnetfs_bit_test(img->modified_map, chunk)) {
-        return _vmnetfs_ll_modified_read_chunk(img, data, chunk, offset,
-                length, err);
+        return _vmnetfs_ll_modified_read_chunk(img, image_size, data, chunk,
+                offset, length, err);
     } else {
         /* If two vmnetfs instances are working out of the same pristine
            cache, they will redundantly fetch chunks due to our failure to
            keep the present map up to date. */
         if (!_vmnetfs_bit_test(img->present_map, chunk)) {
             uint64_t start = chunk * img->chunk_size;
-            uint64_t count = MIN(img->size - start, img->chunk_size);
+            uint64_t count = MIN(image_size - start, img->chunk_size);
             void *buf = g_malloc(count);
 
             _vmnetfs_u64_stat_increment(img->chunk_fetches, 1);
@@ -228,14 +239,16 @@ static bool read_chunk_unlocked(struct vmnetfs_image *img, void *data,
 bool _vmnetfs_io_read_chunk(struct vmnetfs_image *img, void *data,
         uint64_t chunk, uint32_t offset, uint32_t length, GError **err)
 {
+    uint64_t image_size;
     bool ret;
 
-    if (!chunk_trylock(img->chunk_state, chunk)) {
+    if (!chunk_trylock(img->chunk_state, chunk, &image_size)) {
         g_set_error(err, VMNETFS_IO_ERROR, VMNETFS_IO_ERROR_INTERRUPTED,
                 "Operation interrupted");
         return false;
     }
-    ret = read_chunk_unlocked(img, data, chunk, offset, length, err);
+    ret = read_chunk_unlocked(img, image_size, data, chunk, offset, length,
+            err);
     chunk_unlock(img->chunk_state, chunk);
     return ret;
 }
@@ -243,38 +256,50 @@ bool _vmnetfs_io_read_chunk(struct vmnetfs_image *img, void *data,
 bool _vmnetfs_io_write_chunk(struct vmnetfs_image *img, const void *data,
         uint64_t chunk, uint32_t offset, uint32_t length, GError **err)
 {
+    uint64_t image_size;
     bool ret;
 
-    if (!constrain_io(img, chunk, offset, &length, err)) {
-        return false;
-    }
-    if (!chunk_trylock(img->chunk_state, chunk)) {
+    if (!chunk_trylock(img->chunk_state, chunk, &image_size)) {
         g_set_error(err, VMNETFS_IO_ERROR, VMNETFS_IO_ERROR_INTERRUPTED,
                 "Operation interrupted");
         return false;
     }
+    ret = constrain_io(img, image_size, chunk, offset, &length, err);
+    if (!ret) {
+        goto out;
+    }
     _vmnetfs_bit_set(img->accessed_map, chunk);
     if (!_vmnetfs_bit_test(img->modified_map, chunk)) {
-        uint64_t count = MIN(img->size - chunk * img->chunk_size,
+        uint64_t count = MIN(image_size - chunk * img->chunk_size,
                 img->chunk_size);
         void *buf = g_malloc(count);
 
         _vmnetfs_u64_stat_increment(img->chunk_dirties, 1);
-        ret = read_chunk_unlocked(img, buf, chunk, 0, count, err);
+        ret = read_chunk_unlocked(img, image_size, buf, chunk, 0, count, err);
         if (!ret) {
             g_free(buf);
             goto out;
         }
-        ret = _vmnetfs_ll_modified_write_chunk(img, buf, chunk, 0, count,
-                err);
+        ret = _vmnetfs_ll_modified_write_chunk(img, image_size, buf, chunk,
+                0, count, err);
         g_free(buf);
         if (!ret) {
             goto out;
         }
     }
-    ret = _vmnetfs_ll_modified_write_chunk(img, data, chunk, offset, length,
-            err);
+    ret = _vmnetfs_ll_modified_write_chunk(img, image_size, data, chunk,
+            offset, length, err);
 out:
     chunk_unlock(img->chunk_state, chunk);
+    return ret;
+}
+
+uint64_t _vmnetfs_io_get_image_size(struct vmnetfs_image *img)
+{
+    uint64_t ret;
+
+    g_mutex_lock(img->chunk_state->lock);
+    ret = img->chunk_state->image_size;
+    g_mutex_unlock(img->chunk_state->lock);
     return ret;
 }

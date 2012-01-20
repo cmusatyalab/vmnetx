@@ -273,7 +273,8 @@ static int do_statfs(const char *path G_GNUC_UNUSED, struct statvfs *st)
     struct vmnetfs_fuse *fuse = fuse_get_context()->private_data;
 
     st->f_bsize = 512;
-    st->f_blocks = (fuse->fs->memory->size + fuse->fs->disk->size) / 512;
+    st->f_blocks = (_vmnetfs_io_get_image_size(fuse->fs->memory) +
+            _vmnetfs_io_get_image_size(fuse->fs->disk)) / 512;
     st->f_bfree = st->f_bavail = 0;
     st->f_namemax = 256;
     return 0;

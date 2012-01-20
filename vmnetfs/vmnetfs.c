@@ -42,10 +42,9 @@ static struct vmnetfs_image *image_new(const char *url, const char *cache,
     img = g_slice_new0(struct vmnetfs_image);
     img->url = g_strdup(url);
     img->read_base = g_strdup(cache);
-    img->size = size;
+    img->initial_size = size;
     img->segment_size = segment_size;
     img->chunk_size = chunk_size;
-    img->chunks = (size + chunk_size - 1) / chunk_size;
 
     img->io_stream = _vmnetfs_stream_group_new(NULL, NULL);
     img->bytes_read = _vmnetfs_stat_new();

@@ -58,15 +58,17 @@ static bool set_present_from_directory(struct vmnetfs_image *img,
     GDir *dir;
     const char *file;
     uint64_t chunk;
+    uint64_t chunks;
     char *endptr;
 
+    chunks = (img->initial_size + img->chunk_size - 1) / img->chunk_size;
     dir = g_dir_open(path, 0, err);
     if (dir == NULL) {
         return false;
     }
     while ((file = g_dir_read_name(dir)) != NULL) {
         chunk = g_ascii_strtoull(file, &endptr, 10);
-        if (*file == 0 || *endptr != 0 || chunk > img->chunks ||
+        if (*file == 0 || *endptr != 0 || chunk > chunks ||
                 dir_num != get_dir_num(chunk)) {
             g_set_error(err, VMNETFS_IO_ERROR, VMNETFS_IO_ERROR_INVALID_CACHE,
                     "Invalid cache entry %s/%s", path, file);
@@ -135,7 +137,7 @@ bool _vmnetfs_ll_pristine_read_chunk(struct vmnetfs_image *img, void *data,
     g_assert(_vmnetfs_bit_test(img->present_map, chunk));
     g_assert(offset < img->chunk_size);
     g_assert(offset + length <= img->chunk_size);
-    g_assert(chunk * img->chunk_size + offset + length <= img->size);
+    g_assert(chunk * img->chunk_size + offset + length <= img->initial_size);
 
     file = get_file(img, chunk);
     fd = open(file, O_RDONLY);
@@ -159,7 +161,7 @@ bool _vmnetfs_ll_pristine_write_chunk(struct vmnetfs_image *img, void *data,
     bool ret;
 
     g_assert(length <= img->chunk_size);
-    g_assert(chunk * img->chunk_size + length <= img->size);
+    g_assert(chunk * img->chunk_size + length <= img->initial_size);
 
     dir = get_dir(img, chunk);
     file = get_file(img, chunk);

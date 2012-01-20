@@ -54,6 +54,18 @@ static int u64_fixed_open(void *dentry_ctx, struct vmnetfs_fuse_fh *fh)
     return 0;
 }
 
+static int chunks_open(void *dentry_ctx, struct vmnetfs_fuse_fh *fh)
+{
+    struct vmnetfs_image *img = dentry_ctx;
+    uint64_t len;
+
+    len = (_vmnetfs_io_get_image_size(img) + img->chunk_size - 1) /
+            img->chunk_size;
+    fh->buf = format_u64(len);
+    fh->length = strlen(fh->buf);
+    return 0;
+}
+
 static int stat_read(struct vmnetfs_fuse_fh *fh, void *buf, uint64_t start,
         uint64_t count)
 {
@@ -101,6 +113,13 @@ static const struct vmnetfs_fuse_ops u64_fixed_ops = {
     .release = stat_release,
 };
 
+static const struct vmnetfs_fuse_ops chunks_ops = {
+    .getattr = stat_getattr,
+    .open = chunks_open,
+    .read = stat_read,
+    .release = stat_release,
+};
+
 void _vmnetfs_fuse_stats_populate(struct vmnetfs_fuse_dentry *dir,
         struct vmnetfs_image *img)
 {
@@ -116,7 +135,8 @@ void _vmnetfs_fuse_stats_populate(struct vmnetfs_fuse_dentry *dir,
 #undef add_stat
 
 #define add_fixed(n) _vmnetfs_fuse_add_file(stats, #n, &u64_fixed_ops, &img->n)
-    add_fixed(chunks);
     add_fixed(chunk_size);
 #undef add_fixed
+
+    _vmnetfs_fuse_add_file(stats, "chunks", &chunks_ops, img);
 }

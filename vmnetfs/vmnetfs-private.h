@@ -43,8 +43,7 @@ struct vmnetfs {
 struct vmnetfs_image {
     char *url;
     char *read_base;
-    uint64_t size;
-    uint64_t chunks;
+    uint64_t initial_size;
     /* if nonzero, server file is divided into segments of this size */
     uint64_t segment_size;
     uint32_t chunk_size;
@@ -153,6 +152,7 @@ bool _vmnetfs_io_read_chunk(struct vmnetfs_image *img, void *data,
         uint64_t chunk, uint32_t offset, uint32_t length, GError **err);
 bool _vmnetfs_io_write_chunk(struct vmnetfs_image *img, const void *data,
         uint64_t chunk, uint32_t offset, uint32_t length, GError **err);
+uint64_t _vmnetfs_io_get_image_size(struct vmnetfs_image *img);
 
 /* ll_pristine */
 bool _vmnetfs_ll_pristine_init(struct vmnetfs_image *img, GError **err);
@@ -167,11 +167,12 @@ bool _vmnetfs_ll_pristine_write_chunk(struct vmnetfs_image *img, void *data,
 bool _vmnetfs_ll_modified_init(struct vmnetfs_image *img, GError **err);
 void _vmnetfs_ll_modified_close(struct vmnetfs_image *img);
 void _vmnetfs_ll_modified_destroy(struct vmnetfs_image *img);
-bool _vmnetfs_ll_modified_read_chunk(struct vmnetfs_image *img, void *data,
-        uint64_t chunk, uint32_t offset, uint32_t length, GError **err);
+bool _vmnetfs_ll_modified_read_chunk(struct vmnetfs_image *img,
+        uint64_t image_size, void *data, uint64_t chunk, uint32_t offset,
+        uint32_t length, GError **err);
 bool _vmnetfs_ll_modified_write_chunk(struct vmnetfs_image *img,
-        const void *data, uint64_t chunk, uint32_t offset, uint32_t length,
-        GError **err);
+        uint64_t image_size, const void *data, uint64_t chunk,
+        uint32_t offset, uint32_t length, GError **err);
 
 /* transport */
 bool _vmnetfs_transport_init(void);

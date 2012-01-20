@@ -51,28 +51,29 @@ void _vmnetfs_ll_modified_destroy(struct vmnetfs_image *img)
     close(img->write_fd);
 }
 
-bool _vmnetfs_ll_modified_read_chunk(struct vmnetfs_image *img, void *data,
-        uint64_t chunk, uint32_t offset, uint32_t length, GError **err)
+bool _vmnetfs_ll_modified_read_chunk(struct vmnetfs_image *img,
+        uint64_t image_size, void *data, uint64_t chunk, uint32_t offset,
+        uint32_t length, GError **err)
 {
     g_assert(_vmnetfs_bit_test(img->modified_map, chunk));
     g_assert(offset < img->chunk_size);
     g_assert(offset + length <= img->chunk_size);
-    g_assert(chunk * img->chunk_size + offset + length <= img->size);
+    g_assert(chunk * img->chunk_size + offset + length <= image_size);
 
     return _vmnetfs_safe_pread("image", img->write_fd, data, length,
             chunk * img->chunk_size + offset, err);
 }
 
 bool _vmnetfs_ll_modified_write_chunk(struct vmnetfs_image *img,
-        const void *data, uint64_t chunk, uint32_t offset, uint32_t length,
-        GError **err)
+        uint64_t image_size, const void *data, uint64_t chunk,
+        uint32_t offset, uint32_t length, GError **err)
 {
     g_assert(_vmnetfs_bit_test(img->modified_map, chunk) ||
             (offset == 0 && length == MIN(img->chunk_size,
-            img->size - chunk * img->chunk_size)));
+            image_size - chunk * img->chunk_size)));
     g_assert(offset < img->chunk_size);
     g_assert(offset + length <= img->chunk_size);
-    g_assert(chunk * img->chunk_size + offset + length <= img->size);
+    g_assert(chunk * img->chunk_size + offset + length <= image_size);
 
     if (_vmnetfs_safe_pwrite("image", img->write_fd, data, length,
             chunk * img->chunk_size + offset, err)) {
