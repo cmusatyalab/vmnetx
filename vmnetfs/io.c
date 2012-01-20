@@ -18,87 +18,87 @@
 #include <inttypes.h>
 #include "vmnetfs-private.h"
 
-struct chunk_lock {
+struct chunk_state {
     GMutex *lock;
-    GHashTable *chunks;
+    GHashTable *chunk_locks;
 };
 
-struct chunk_lock_entry {
+struct chunk_lock {
     uint64_t chunk;
     struct vmnetfs_cond *available;
     bool busy;
     uint32_t waiters;
 };
 
-static struct chunk_lock *chunk_lock_new(void)
+static struct chunk_state *chunk_state_new(void)
 {
-    struct chunk_lock *cl;
+    struct chunk_state *cs;
 
-    cl = g_slice_new0(struct chunk_lock);
-    cl->lock = g_mutex_new();
-    cl->chunks = g_hash_table_new(g_int64_hash, g_int64_equal);
-    return cl;
+    cs = g_slice_new0(struct chunk_state);
+    cs->lock = g_mutex_new();
+    cs->chunk_locks = g_hash_table_new(g_int64_hash, g_int64_equal);
+    return cs;
 }
 
-static void chunk_lock_free(struct chunk_lock *cl)
+static void chunk_state_free(struct chunk_state *cs)
 {
-    g_assert(g_hash_table_size(cl->chunks) == 0);
+    g_assert(g_hash_table_size(cs->chunk_locks) == 0);
 
-    g_hash_table_destroy(cl->chunks);
-    g_mutex_free(cl->lock);
-    g_slice_free(struct chunk_lock, cl);
+    g_hash_table_destroy(cs->chunk_locks);
+    g_mutex_free(cs->lock);
+    g_slice_free(struct chunk_state, cs);
 }
 
 /* Returns false if the lock was not acquired because the FUSE request
    was interrupted. */
-static bool G_GNUC_WARN_UNUSED_RESULT chunk_lock_try_acquire(
-        struct chunk_lock *cl, uint64_t chunk)
+static bool G_GNUC_WARN_UNUSED_RESULT chunk_trylock(struct chunk_state *cs,
+        uint64_t chunk)
 {
-    struct chunk_lock_entry *ent;
+    struct chunk_lock *cl;
     bool ret = true;
 
-    g_mutex_lock(cl->lock);
-    ent = g_hash_table_lookup(cl->chunks, &chunk);
-    if (ent != NULL) {
-        ent->waiters++;
-        while (ent->busy &&
-                !_vmnetfs_cond_wait(ent->available, cl->lock)) {}
-        if (ent->busy) {
+    g_mutex_lock(cs->lock);
+    cl = g_hash_table_lookup(cs->chunk_locks, &chunk);
+    if (cl != NULL) {
+        cl->waiters++;
+        while (cl->busy &&
+                !_vmnetfs_cond_wait(cl->available, cs->lock)) {}
+        if (cl->busy) {
             /* We were interrupted, give up.  If we were interrupted but
                also acquired the lock, we pretend we weren't interrupted
                so that we never have to free the lock in this path. */
             ret = false;
         } else {
-            ent->busy = true;
+            cl->busy = true;
         }
-        ent->waiters--;
+        cl->waiters--;
     } else {
-        ent = g_slice_new0(struct chunk_lock_entry);
-        ent->chunk = chunk;
-        ent->available = _vmnetfs_cond_new();
-        ent->busy = true;
-        g_hash_table_replace(cl->chunks, &ent->chunk, ent);
+        cl = g_slice_new0(struct chunk_lock);
+        cl->chunk = chunk;
+        cl->available = _vmnetfs_cond_new();
+        cl->busy = true;
+        g_hash_table_replace(cs->chunk_locks, &cl->chunk, cl);
     }
-    g_mutex_unlock(cl->lock);
+    g_mutex_unlock(cs->lock);
     return ret;
 }
 
-static void chunk_lock_release(struct chunk_lock *cl, uint64_t chunk)
+static void chunk_unlock(struct chunk_state *cs, uint64_t chunk)
 {
-    struct chunk_lock_entry *ent;
+    struct chunk_lock *cl;
 
-    g_mutex_lock(cl->lock);
-    ent = g_hash_table_lookup(cl->chunks, &chunk);
-    g_assert(ent != NULL);
-    if (ent->waiters > 0) {
-        ent->busy = false;
-        _vmnetfs_cond_signal(ent->available);
+    g_mutex_lock(cs->lock);
+    cl = g_hash_table_lookup(cs->chunk_locks, &chunk);
+    g_assert(cl != NULL);
+    if (cl->waiters > 0) {
+        cl->busy = false;
+        _vmnetfs_cond_signal(cl->available);
     } else {
-        g_hash_table_remove(cl->chunks, &chunk);
-        _vmnetfs_cond_free(ent->available);
-        g_slice_free(struct chunk_lock_entry, ent);
+        g_hash_table_remove(cs->chunk_locks, &chunk);
+        _vmnetfs_cond_free(cl->available);
+        g_slice_free(struct chunk_lock, cl);
     }
-    g_mutex_unlock(cl->lock);
+    g_mutex_unlock(cs->lock);
 }
 
 /* Fetch the specified byte range from the image, accounting for possible
@@ -146,7 +146,7 @@ bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err)
     }
     img->cpool = _vmnetfs_transport_pool_new();
     img->accessed_map = _vmnetfs_bit_new();
-    img->chunk_locks = chunk_lock_new();
+    img->chunk_state = chunk_state_new();
     return true;
 }
 
@@ -165,7 +165,7 @@ void _vmnetfs_io_destroy(struct vmnetfs_image *img)
     }
     _vmnetfs_ll_modified_destroy(img);
     _vmnetfs_ll_pristine_destroy(img);
-    chunk_lock_free(img->chunk_locks);
+    chunk_state_free(img->chunk_state);
     _vmnetfs_bit_free(img->accessed_map);
     _vmnetfs_transport_pool_free(img->cpool);
 }
@@ -230,13 +230,13 @@ bool _vmnetfs_io_read_chunk(struct vmnetfs_image *img, void *data,
 {
     bool ret;
 
-    if (!chunk_lock_try_acquire(img->chunk_locks, chunk)) {
+    if (!chunk_trylock(img->chunk_state, chunk)) {
         g_set_error(err, VMNETFS_IO_ERROR, VMNETFS_IO_ERROR_INTERRUPTED,
                 "Operation interrupted");
         return false;
     }
     ret = read_chunk_unlocked(img, data, chunk, offset, length, err);
-    chunk_lock_release(img->chunk_locks, chunk);
+    chunk_unlock(img->chunk_state, chunk);
     return ret;
 }
 
@@ -248,7 +248,7 @@ bool _vmnetfs_io_write_chunk(struct vmnetfs_image *img, const void *data,
     if (!constrain_io(img, chunk, offset, &length, err)) {
         return false;
     }
-    if (!chunk_lock_try_acquire(img->chunk_locks, chunk)) {
+    if (!chunk_trylock(img->chunk_state, chunk)) {
         g_set_error(err, VMNETFS_IO_ERROR, VMNETFS_IO_ERROR_INTERRUPTED,
                 "Operation interrupted");
         return false;
@@ -275,6 +275,6 @@ bool _vmnetfs_io_write_chunk(struct vmnetfs_image *img, const void *data,
     ret = _vmnetfs_ll_modified_write_chunk(img, data, chunk, offset, length,
             err);
 out:
-    chunk_lock_release(img->chunk_locks, chunk);
+    chunk_unlock(img->chunk_state, chunk);
     return ret;
 }

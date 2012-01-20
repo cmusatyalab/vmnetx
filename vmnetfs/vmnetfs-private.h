@@ -51,7 +51,7 @@ struct vmnetfs_image {
 
     /* io */
     struct connection_pool *cpool;
-    struct chunk_lock *chunk_locks;
+    struct chunk_state *chunk_state;
     struct bitmap *accessed_map;
 
     /* ll_pristine */
