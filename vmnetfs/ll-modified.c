@@ -35,7 +35,7 @@ bool _vmnetfs_ll_modified_init(struct vmnetfs_image *img, GError **err)
     }
     unlink(file);
     g_free(file);
-    img->modified_map = _vmnetfs_bit_new(img->chunks);
+    img->modified_map = _vmnetfs_bit_new();
     return true;
 }
 

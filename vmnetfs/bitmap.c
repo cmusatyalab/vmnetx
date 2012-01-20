@@ -15,17 +15,16 @@
  * for more details.
  */
 
+#include <string.h>
 #include <inttypes.h>
 #include "vmnetfs-private.h"
 
 /* struct bitmap requires external serialization to ensure that the bits
-   don't change while the caller requires them to be consistent. The
-   internal serialization ensures independent stores from different threads
-   don't cause corruption. */
+   don't change while the caller requires them to be consistent. */
 struct bitmap {
     GMutex *lock;
     uint8_t *bits;
-    uint64_t count;
+    uint64_t allocated_bytes;
     struct vmnetfs_stream_group *sgrp;
 };
 
@@ -36,7 +35,7 @@ static void populate_stream(struct vmnetfs_stream *strm, void *_map)
     uint8_t bit;
 
     g_mutex_lock(map->lock);
-    for (byte = 0; byte < (map->count + 7) / 8; byte++) {
+    for (byte = 0; byte < map->allocated_bytes; byte++) {
         if (map->bits[byte]) {
             for (bit = 0; bit < 8; bit++) {
                 if (map->bits[byte] & (1 << bit)) {
@@ -49,14 +48,12 @@ static void populate_stream(struct vmnetfs_stream *strm, void *_map)
     g_mutex_unlock(map->lock);
 }
 
-struct bitmap *_vmnetfs_bit_new(uint64_t bits)
+struct bitmap *_vmnetfs_bit_new(void)
 {
     struct bitmap *map;
 
     map = g_slice_new0(struct bitmap);
     map->lock = g_mutex_new();
-    map->bits = g_malloc0((bits + 7) / 8);
-    map->count = bits;
     map->sgrp = _vmnetfs_stream_group_new(populate_stream, map);
     return map;
 }
@@ -73,8 +70,15 @@ void _vmnetfs_bit_set(struct bitmap *map, uint64_t bit)
 {
     bool is_new;
 
-    g_assert(bit < map->count);
     g_mutex_lock(map->lock);
+    if (bit >= map->allocated_bytes * 8) {
+        /* Resize to the next larger power of two. */
+        uint64_t new_size = 1 << g_bit_storage((bit + 7) / 8);
+        map->bits = g_realloc(map->bits, new_size);
+        memset(map->bits + map->allocated_bytes, 0,
+                new_size - map->allocated_bytes);
+        map->allocated_bytes = new_size;
+    }
     is_new = !(map->bits[bit / 8] & (1 << (bit % 8)));
     map->bits[bit / 8] |= 1 << (bit % 8);
     g_mutex_unlock(map->lock);
@@ -85,11 +89,12 @@ void _vmnetfs_bit_set(struct bitmap *map, uint64_t bit)
 
 bool _vmnetfs_bit_test(struct bitmap *map, uint64_t bit)
 {
-    bool ret;
+    bool ret = false;
 
-    g_assert(bit < map->count);
     g_mutex_lock(map->lock);
-    ret = !!(map->bits[bit / 8] & (1 << (bit % 8)));
+    if (bit < map->allocated_bytes * 8) {
+        ret = !!(map->bits[bit / 8] & (1 << (bit % 8)));
+    }
     g_mutex_unlock(map->lock);
     return ret;
 }

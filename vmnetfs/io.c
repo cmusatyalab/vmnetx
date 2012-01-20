@@ -145,7 +145,7 @@ bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err)
         return false;
     }
     img->cpool = _vmnetfs_transport_pool_new();
-    img->accessed_map = _vmnetfs_bit_new(img->chunks);
+    img->accessed_map = _vmnetfs_bit_new();
     img->chunk_locks = chunk_lock_new();
     return true;
 }

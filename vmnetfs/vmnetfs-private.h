@@ -181,7 +181,7 @@ bool _vmnetfs_transport_fetch(struct connection_pool *cpool, const char *url,
         void *buf, uint64_t offset, uint64_t length, GError **err);
 
 /* bitmap */
-struct bitmap *_vmnetfs_bit_new(uint64_t bits);
+struct bitmap *_vmnetfs_bit_new(void);
 void _vmnetfs_bit_free(struct bitmap *map);
 void _vmnetfs_bit_set(struct bitmap *map, uint64_t bit);
 bool _vmnetfs_bit_test(struct bitmap *map, uint64_t bit);
