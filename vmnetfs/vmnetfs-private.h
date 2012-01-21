@@ -148,9 +148,9 @@ void _vmnetfs_finish_poll(struct fuse_pollhandle *ph, bool notify);
 bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err);
 void _vmnetfs_io_close(struct vmnetfs_image *img);
 void _vmnetfs_io_destroy(struct vmnetfs_image *img);
-bool _vmnetfs_io_read_chunk(struct vmnetfs_image *img, void *data,
+uint64_t _vmnetfs_io_read_chunk(struct vmnetfs_image *img, void *data,
         uint64_t chunk, uint32_t offset, uint32_t length, GError **err);
-bool _vmnetfs_io_write_chunk(struct vmnetfs_image *img, const void *data,
+uint64_t _vmnetfs_io_write_chunk(struct vmnetfs_image *img, const void *data,
         uint64_t chunk, uint32_t offset, uint32_t length, GError **err);
 uint64_t _vmnetfs_io_get_image_size(struct vmnetfs_image *img);
 
