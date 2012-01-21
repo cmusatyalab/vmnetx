@@ -56,7 +56,7 @@ static void chunk_state_free(struct chunk_state *cs)
    *image_size; this will not be reduced to impinge on the specified chunk
    while the chunk lock is held. */
 static bool G_GNUC_WARN_UNUSED_RESULT chunk_trylock(struct chunk_state *cs,
-        uint64_t chunk, uint64_t *image_size)
+        uint64_t chunk, uint64_t *image_size, GError **err)
 {
     struct chunk_lock *cl;
     bool ret = true;
@@ -74,6 +74,8 @@ static bool G_GNUC_WARN_UNUSED_RESULT chunk_trylock(struct chunk_state *cs,
             /* We were interrupted, give up.  If we were interrupted but
                also acquired the lock, we pretend we weren't interrupted
                so that we never have to free the lock in this path. */
+            g_set_error(err, VMNETFS_IO_ERROR, VMNETFS_IO_ERROR_INTERRUPTED,
+                    "Operation interrupted");
             ret = false;
         } else {
             cl->busy = true;
@@ -247,9 +249,7 @@ uint64_t _vmnetfs_io_read_chunk(struct vmnetfs_image *img, void *data,
     uint64_t image_size;
     uint64_t ret;
 
-    if (!chunk_trylock(img->chunk_state, chunk, &image_size)) {
-        g_set_error(err, VMNETFS_IO_ERROR, VMNETFS_IO_ERROR_INTERRUPTED,
-                "Operation interrupted");
+    if (!chunk_trylock(img->chunk_state, chunk, &image_size, err)) {
         return false;
     }
     ret = read_chunk_unlocked(img, image_size, data, chunk, offset, length,
@@ -297,9 +297,7 @@ uint64_t _vmnetfs_io_write_chunk(struct vmnetfs_image *img, const void *data,
     uint64_t image_size;
     uint64_t ret = 0;
 
-    if (!chunk_trylock(img->chunk_state, chunk, &image_size)) {
-        g_set_error(err, VMNETFS_IO_ERROR, VMNETFS_IO_ERROR_INTERRUPTED,
-                "Operation interrupted");
+    if (!chunk_trylock(img->chunk_state, chunk, &image_size, err)) {
         return 0;
     }
     if (!constrain_io(img, image_size, chunk, offset, &length, err)) {
@@ -369,10 +367,7 @@ bool _vmnetfs_io_set_image_size(struct vmnetfs_image *img, uint64_t size,
                don't reveal the truncated part of the chunk. */
             g_mutex_unlock(cs->lock);
             chunk = (size - 1) / img->chunk_size;
-            if (!chunk_trylock(cs, chunk, &image_size)) {
-                g_set_error(err, VMNETFS_IO_ERROR,
-                        VMNETFS_IO_ERROR_INTERRUPTED,
-                        "Operation interrupted");
+            if (!chunk_trylock(cs, chunk, &image_size, err)) {
                 return false;
             }
             /* If this chunk is still unmodified, and has not been truncated
@@ -406,10 +401,7 @@ bool _vmnetfs_io_set_image_size(struct vmnetfs_image *img, uint64_t size,
                 if (!ret) {
                     return false;
                 }
-                if (!chunk_trylock(cs, chunk, NULL)) {
-                    g_set_error(err, VMNETFS_IO_ERROR,
-                            VMNETFS_IO_ERROR_INTERRUPTED,
-                            "Operation interrupted");
+                if (!chunk_trylock(cs, chunk, NULL, err)) {
                     return false;
                 }
                 chunk_unlock(cs, chunk);
