@@ -87,6 +87,7 @@ struct vmnetfs_fuse_fh {
 struct fuse_pollhandle;
 struct vmnetfs_fuse_ops {
     int (*getattr)(void *dentry_ctx, struct stat *st);
+    int (*truncate)(void *dentry_ctx, uint64_t length);
     int (*open)(void *dentry_ctx, struct vmnetfs_fuse_fh *fh);
     int (*read)(struct vmnetfs_fuse_fh *fh, void *buf, uint64_t start,
             uint64_t count);
@@ -153,6 +154,8 @@ uint64_t _vmnetfs_io_read_chunk(struct vmnetfs_image *img, void *data,
 uint64_t _vmnetfs_io_write_chunk(struct vmnetfs_image *img, const void *data,
         uint64_t chunk, uint32_t offset, uint32_t length, GError **err);
 uint64_t _vmnetfs_io_get_image_size(struct vmnetfs_image *img);
+bool _vmnetfs_io_set_image_size(struct vmnetfs_image *img, uint64_t size,
+        GError **err);
 
 /* ll_pristine */
 bool _vmnetfs_ll_pristine_init(struct vmnetfs_image *img, GError **err);
@@ -173,6 +176,8 @@ bool _vmnetfs_ll_modified_read_chunk(struct vmnetfs_image *img,
 bool _vmnetfs_ll_modified_write_chunk(struct vmnetfs_image *img,
         uint64_t image_size, const void *data, uint64_t chunk,
         uint32_t offset, uint32_t length, GError **err);
+bool _vmnetfs_ll_modified_set_size(struct vmnetfs_image *img,
+        uint64_t current_size, uint64_t new_size, GError **err);
 
 /* transport */
 bool _vmnetfs_transport_init(void);

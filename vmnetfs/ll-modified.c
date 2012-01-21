@@ -15,6 +15,7 @@
  * for more details.
  */
 
+#include <sys/types.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -82,4 +83,33 @@ bool _vmnetfs_ll_modified_write_chunk(struct vmnetfs_image *img,
     } else {
         return false;
     }
+}
+
+bool _vmnetfs_ll_modified_set_size(struct vmnetfs_image *img,
+        uint64_t current_size, uint64_t new_size, GError **err)
+{
+    uint64_t chunk;
+
+    /* If we're truncating the new last chunk, it must be in the modified
+       cache to ensure that subsequent expansions don't reveal the truncated
+       part. */
+    g_assert(new_size > current_size ||
+            new_size % img->chunk_size == 0 ||
+            _vmnetfs_bit_test(img->modified_map, new_size / img->chunk_size));
+
+    if (ftruncate(img->write_fd, new_size)) {
+        g_set_error(err, G_FILE_ERROR, g_file_error_from_errno(errno),
+                "Couldn't truncate image: %s", strerror(errno));
+        return false;
+    }
+
+    /* We've just modified all chunks between current_size and new_size.
+       Record that the modified cache has the current copy of those chunks. */
+    for (chunk = MIN(current_size, new_size) / img->chunk_size;
+            chunk < (MAX(current_size, new_size) + img->chunk_size - 1) /
+            img->chunk_size; chunk++) {
+        _vmnetfs_bit_set(img->modified_map, chunk);
+    }
+
+    return true;
 }

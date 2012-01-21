@@ -74,6 +74,25 @@ static int image_getattr(void *dentry_ctx, struct stat *st)
     return 0;
 }
 
+static int image_truncate(void *dentry_ctx, uint64_t size)
+{
+    struct vmnetfs_image *img = dentry_ctx;
+    GError *err = NULL;
+
+    if (!_vmnetfs_io_set_image_size(img, size, &err)) {
+        if (g_error_matches(err, VMNETFS_IO_ERROR,
+                VMNETFS_IO_ERROR_INTERRUPTED)) {
+            g_clear_error(&err);
+            return -EINTR;
+        } else {
+            g_warning("%s", err->message);
+            g_clear_error(&err);
+            return -EIO;
+        }
+    }
+    return 0;
+}
+
 static int image_open(void *dentry_ctx, struct vmnetfs_fuse_fh *fh)
 {
     struct vmnetfs_image *img = dentry_ctx;
@@ -150,6 +169,7 @@ static int image_write(struct vmnetfs_fuse_fh *fh, const void *buf,
 
 static const struct vmnetfs_fuse_ops image_ops = {
     .getattr = image_getattr,
+    .truncate = image_truncate,
     .open = image_open,
     .read = image_read,
     .write = image_write,

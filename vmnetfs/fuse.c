@@ -132,6 +132,25 @@ static int do_getattr(const char *path, struct stat *st)
     return ret;
 }
 
+static int do_truncate(const char *path, off_t length)
+{
+    struct vmnetfs_fuse *fuse = fuse_get_context()->private_data;
+    struct vmnetfs_fuse_dentry *dentry;
+
+    dentry = lookup(fuse, path);
+    if (dentry == NULL) {
+        return -ENOENT;
+    }
+    if (dentry->children != NULL) {
+        return -EISDIR;
+    }
+    if (dentry->ops->truncate) {
+        return dentry->ops->truncate(dentry->ctx, length);
+    } else {
+        return -ENOSYS;
+    }
+}
+
 static int do_open(const char *path, struct fuse_file_info *fi)
 {
     struct vmnetfs_fuse *fuse = fuse_get_context()->private_data;
@@ -282,6 +301,7 @@ static int do_statfs(const char *path G_GNUC_UNUSED, struct statvfs *st)
 
 static const struct fuse_operations fuse_ops = {
     .getattr = do_getattr,
+    .truncate = do_truncate,
     .open = do_open,
     .read = do_read,
     .write = do_write,

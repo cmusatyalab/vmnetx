@@ -258,6 +258,39 @@ uint64_t _vmnetfs_io_read_chunk(struct vmnetfs_image *img, void *data,
     return ret;
 }
 
+/* chunk lock must be held. */
+static bool copy_to_modified(struct vmnetfs_image *img, uint64_t image_size,
+        uint64_t chunk, GError **err)
+{
+    uint64_t count;
+    uint64_t read_count;
+    void *buf;
+    bool ret;
+    GError *my_err = NULL;
+
+    count = MIN(image_size - chunk * img->chunk_size, img->chunk_size);
+    buf = g_malloc(count);
+
+    _vmnetfs_u64_stat_increment(img->chunk_dirties, 1);
+    read_count = read_chunk_unlocked(img, image_size, buf, chunk, 0, count,
+            &my_err);
+    if (read_count != count) {
+        if (!my_err) {
+            g_set_error(err, VMNETFS_IO_ERROR, VMNETFS_IO_ERROR_PREMATURE_EOF,
+                    "Short count %"PRIu64"/%"PRIu64, read_count, count);
+        } else {
+            g_propagate_error(err, my_err);
+        }
+        g_free(buf);
+        return false;
+    }
+    ret = _vmnetfs_ll_modified_write_chunk(img, image_size, buf, chunk,
+            0, count, err);
+
+    g_free(buf);
+    return ret;
+}
+
 uint64_t _vmnetfs_io_write_chunk(struct vmnetfs_image *img, const void *data,
         uint64_t chunk, uint32_t offset, uint32_t length, GError **err)
 {
@@ -274,30 +307,7 @@ uint64_t _vmnetfs_io_write_chunk(struct vmnetfs_image *img, const void *data,
     }
     _vmnetfs_bit_set(img->accessed_map, chunk);
     if (!_vmnetfs_bit_test(img->modified_map, chunk)) {
-        uint64_t count = MIN(image_size - chunk * img->chunk_size,
-                img->chunk_size);
-        uint64_t read_count;
-        void *buf = g_malloc(count);
-        GError *my_err = NULL;
-
-        _vmnetfs_u64_stat_increment(img->chunk_dirties, 1);
-        read_count = read_chunk_unlocked(img, image_size, buf, chunk, 0,
-                count, &my_err);
-        if (read_count != count) {
-            if (!my_err) {
-                g_set_error(err, VMNETFS_IO_ERROR,
-                        VMNETFS_IO_ERROR_PREMATURE_EOF,
-                        "Short count %"PRIu64"/%"PRIu64, read_count, count);
-            } else {
-                g_propagate_error(err, my_err);
-            }
-            g_free(buf);
-            goto out;
-        }
-        bool ok = _vmnetfs_ll_modified_write_chunk(img, image_size, buf,
-                chunk, 0, count, err);
-        g_free(buf);
-        if (!ok) {
+        if (!copy_to_modified(img, image_size, chunk, err)) {
             goto out;
         }
     }
@@ -318,4 +328,103 @@ uint64_t _vmnetfs_io_get_image_size(struct vmnetfs_image *img)
     ret = img->chunk_state->image_size;
     g_mutex_unlock(img->chunk_state->lock);
     return ret;
+}
+
+/* chunk_state lock must be held. */
+static bool _set_image_size(struct vmnetfs_image *img, uint64_t new_size,
+        GError **err)
+{
+    if (!_vmnetfs_ll_modified_set_size(img, img->chunk_state->image_size,
+            new_size, err)) {
+        return false;
+    }
+    img->chunk_state->image_size = new_size;
+    return true;
+}
+
+bool _vmnetfs_io_set_image_size(struct vmnetfs_image *img, uint64_t size,
+        GError **err)
+{
+    struct chunk_state *cs = img->chunk_state;
+    uint64_t chunk;
+    uint64_t image_size;
+    bool ret;
+
+    g_mutex_lock(cs->lock);
+    if (size > cs->image_size) {
+        /* Expand image. */
+        ret = _set_image_size(img, size, err);
+        g_mutex_unlock(cs->lock);
+        return ret;
+
+    } else if (size < cs->image_size) {
+        /* Reduce image. */
+
+        if (size % img->chunk_size > 0 && size < img->initial_size &&
+                !_vmnetfs_bit_test(img->modified_map,
+                (size - 1) / img->chunk_size)) {
+            /* The new last chunk will be a partial chunk within the
+               boundaries of the pristine cache, and it is not in the
+               modified cache.  Copy it there so that subsequent expansions
+               don't reveal the truncated part of the chunk. */
+            g_mutex_unlock(cs->lock);
+            chunk = (size - 1) / img->chunk_size;
+            if (!chunk_trylock(cs, chunk, &image_size)) {
+                g_set_error(err, VMNETFS_IO_ERROR,
+                        VMNETFS_IO_ERROR_INTERRUPTED,
+                        "Operation interrupted");
+                return false;
+            }
+            /* If this chunk is still unmodified, and has not been truncated
+               away while we had the lock released, copy it to the
+               modified cache. */
+            if (chunk * img->chunk_size < image_size &&
+                    !_vmnetfs_bit_test(img->modified_map, chunk)) {
+                if (!copy_to_modified(img, image_size, chunk, err)) {
+                    chunk_unlock(cs, chunk);
+                    return false;
+                }
+            }
+            chunk_unlock(cs, chunk);
+
+            /* Image size may have changed; start over. */
+            return _vmnetfs_io_set_image_size(img, size, err);
+        }
+
+        /* We can't truncate a chunk currently being accessed.  Truncate
+           as far as we can until we hit a busy chunk, then wait for that
+           chunk's lock, then start over. */
+        chunk = (cs->image_size - 1) / img->chunk_size;
+        do {
+            if (g_hash_table_lookup(cs->chunk_locks, &chunk)) {
+                uint64_t new_size = (chunk + 1) * img->chunk_size;
+                ret = true;
+                if (new_size < cs->image_size) {
+                    ret = _set_image_size(img, new_size, err);
+                }
+                g_mutex_unlock(cs->lock);
+                if (!ret) {
+                    return false;
+                }
+                if (!chunk_trylock(cs, chunk, NULL)) {
+                    g_set_error(err, VMNETFS_IO_ERROR,
+                            VMNETFS_IO_ERROR_INTERRUPTED,
+                            "Operation interrupted");
+                    return false;
+                }
+                chunk_unlock(cs, chunk);
+                /* Start over */
+                return _vmnetfs_io_set_image_size(img, size, err);
+            }
+        } while (chunk > 0 && --chunk >= size / img->chunk_size);
+
+        ret = _set_image_size(img, size, err);
+        g_mutex_unlock(cs->lock);
+        return ret;
+
+    } else {
+        /* Size unchanged. */
+        g_mutex_unlock(cs->lock);
+        return true;
+    }
 }
