@@ -51,11 +51,34 @@ static void chunk_state_free(struct chunk_state *cs)
     g_slice_free(struct chunk_state, cs);
 }
 
-/* Returns false if the lock was not acquired because the FUSE request
+/* chunk_state lock must be held.  When reducing the image size, races
+   with other writers must have been avoided by the caller.  Do not call
+   this function directly! */
+static bool _set_image_size(struct vmnetfs_image *img, uint64_t new_size,
+        GError **err)
+{
+    if (!_vmnetfs_ll_modified_set_size(img, img->chunk_state->image_size,
+            new_size, err)) {
+        return false;
+    }
+    img->chunk_state->image_size = new_size;
+    return true;
+}
+
+/* chunk_state lock must be held. */
+static bool expand_image(struct vmnetfs_image *img, uint64_t new_size,
+        GError **err)
+{
+    g_assert(new_size > img->chunk_state->image_size);
+    return _set_image_size(img, new_size, err);
+}
+
+/* chunk_state lock must be held.
+   Returns false if the lock was not acquired because the FUSE request
    was interrupted.  Optionally stores the current image size in
    *image_size; this will not be reduced to impinge on the specified chunk
    while the chunk lock is held. */
-static bool G_GNUC_WARN_UNUSED_RESULT chunk_trylock(struct chunk_state *cs,
+static bool G_GNUC_WARN_UNUSED_RESULT _chunk_trylock(struct chunk_state *cs,
         uint64_t chunk, uint64_t *image_size, GError **err)
 {
     struct chunk_lock *cl;
@@ -64,7 +87,6 @@ static bool G_GNUC_WARN_UNUSED_RESULT chunk_trylock(struct chunk_state *cs,
     if (image_size) {
         *image_size = 0;
     }
-    g_mutex_lock(cs->lock);
     cl = g_hash_table_lookup(cs->chunk_locks, &chunk);
     if (cl != NULL) {
         cl->waiters++;
@@ -91,12 +113,51 @@ static bool G_GNUC_WARN_UNUSED_RESULT chunk_trylock(struct chunk_state *cs,
     if (ret && image_size) {
         *image_size = cs->image_size;
     }
+    return ret;
+}
+
+/* Returns false if the lock was not acquired because the FUSE request
+   was interrupted.  Optionally stores the current image size in
+   *image_size; this will not be reduced to impinge on the specified chunk
+   while the chunk lock is held. */
+static bool G_GNUC_WARN_UNUSED_RESULT chunk_trylock(struct vmnetfs_image *img,
+        uint64_t chunk, uint64_t *image_size, GError **err)
+{
+    struct chunk_state *cs = img->chunk_state;
+    bool ret;
+
+    g_mutex_lock(cs->lock);
+    ret = _chunk_trylock(cs, chunk, image_size, err);
     g_mutex_unlock(cs->lock);
     return ret;
 }
 
-static void chunk_unlock(struct chunk_state *cs, uint64_t chunk)
+/* Returns false if the lock was not acquired because the FUSE request
+   was interrupted.  Ensures that the image size is at least needed_size.
+   Optionally stores the resulting image size in *image_size; this will not
+   be reduced to impinge on the specified chunk while the chunk lock is
+   held. */
+static bool G_GNUC_WARN_UNUSED_RESULT chunk_trylock_ensure_size(
+        struct vmnetfs_image *img, uint64_t chunk, uint64_t needed_size,
+        uint64_t *image_size, GError **err)
 {
+    struct chunk_state *cs = img->chunk_state;
+    bool ret = true;
+
+    g_mutex_lock(cs->lock);
+    if (cs->image_size < needed_size) {
+        ret = expand_image(img, needed_size, err);
+    }
+    if (ret) {
+        ret = _chunk_trylock(cs, chunk, image_size, err);
+    }
+    g_mutex_unlock(cs->lock);
+    return ret;
+}
+
+static void chunk_unlock(struct vmnetfs_image *img, uint64_t chunk)
+{
+    struct chunk_state *cs = img->chunk_state;
     struct chunk_lock *cl;
 
     g_mutex_lock(cs->lock);
@@ -182,32 +243,19 @@ void _vmnetfs_io_destroy(struct vmnetfs_image *img)
     _vmnetfs_transport_pool_free(img->cpool);
 }
 
-static bool constrain_io(struct vmnetfs_image *img, uint64_t image_size,
-        uint64_t chunk, uint32_t offset, uint32_t *length, GError **err)
+static uint64_t read_chunk_unlocked(struct vmnetfs_image *img,
+        uint64_t image_size, void *data, uint64_t chunk, uint32_t offset,
+        uint32_t length, GError **err)
 {
     g_assert(offset < img->chunk_size);
-    g_assert(offset + *length <= img->chunk_size);
+    g_assert(offset + length <= img->chunk_size);
 
-    /* If start is after EOF, return EOF. */
     if (chunk * img->chunk_size + offset >= image_size) {
         g_set_error(err, VMNETFS_IO_ERROR, VMNETFS_IO_ERROR_EOF,
                 "End of file");
         return false;
     }
-
-    /* If end is after EOF, constrain it to the valid length of the
-       image. */
-    *length = MIN(image_size - chunk * img->chunk_size, *length);
-    return true;
-}
-
-static uint64_t read_chunk_unlocked(struct vmnetfs_image *img,
-        uint64_t image_size, void *data, uint64_t chunk, uint32_t offset,
-        uint32_t length, GError **err)
-{
-    if (!constrain_io(img, image_size, chunk, offset, &length, err)) {
-        return 0;
-    }
+    length = MIN(image_size - chunk * img->chunk_size - offset, length);
     _vmnetfs_bit_set(img->accessed_map, chunk);
     if (_vmnetfs_bit_test(img->modified_map, chunk)) {
         if (!_vmnetfs_ll_modified_read_chunk(img, image_size, data, chunk,
@@ -249,12 +297,12 @@ uint64_t _vmnetfs_io_read_chunk(struct vmnetfs_image *img, void *data,
     uint64_t image_size;
     uint64_t ret;
 
-    if (!chunk_trylock(img->chunk_state, chunk, &image_size, err)) {
+    if (!chunk_trylock(img, chunk, &image_size, err)) {
         return false;
     }
     ret = read_chunk_unlocked(img, image_size, data, chunk, offset, length,
             err);
-    chunk_unlock(img->chunk_state, chunk);
+    chunk_unlock(img, chunk);
     return ret;
 }
 
@@ -297,11 +345,12 @@ uint64_t _vmnetfs_io_write_chunk(struct vmnetfs_image *img, const void *data,
     uint64_t image_size;
     uint64_t ret = 0;
 
-    if (!chunk_trylock(img->chunk_state, chunk, &image_size, err)) {
+    g_assert(offset < img->chunk_size);
+    g_assert(offset + length <= img->chunk_size);
+
+    if (!chunk_trylock_ensure_size(img, chunk,
+            chunk * img->chunk_size + offset + length, &image_size, err)) {
         return 0;
-    }
-    if (!constrain_io(img, image_size, chunk, offset, &length, err)) {
-        goto out;
     }
     _vmnetfs_bit_set(img->accessed_map, chunk);
     if (!_vmnetfs_bit_test(img->modified_map, chunk)) {
@@ -314,7 +363,7 @@ uint64_t _vmnetfs_io_write_chunk(struct vmnetfs_image *img, const void *data,
         ret = length;
     }
 out:
-    chunk_unlock(img->chunk_state, chunk);
+    chunk_unlock(img, chunk);
     return ret;
 }
 
@@ -328,18 +377,6 @@ uint64_t _vmnetfs_io_get_image_size(struct vmnetfs_image *img)
     return ret;
 }
 
-/* chunk_state lock must be held. */
-static bool _set_image_size(struct vmnetfs_image *img, uint64_t new_size,
-        GError **err)
-{
-    if (!_vmnetfs_ll_modified_set_size(img, img->chunk_state->image_size,
-            new_size, err)) {
-        return false;
-    }
-    img->chunk_state->image_size = new_size;
-    return true;
-}
-
 bool _vmnetfs_io_set_image_size(struct vmnetfs_image *img, uint64_t size,
         GError **err)
 {
@@ -351,7 +388,7 @@ bool _vmnetfs_io_set_image_size(struct vmnetfs_image *img, uint64_t size,
     g_mutex_lock(cs->lock);
     if (size > cs->image_size) {
         /* Expand image. */
-        ret = _set_image_size(img, size, err);
+        ret = expand_image(img, size, err);
         g_mutex_unlock(cs->lock);
         return ret;
 
@@ -367,7 +404,7 @@ bool _vmnetfs_io_set_image_size(struct vmnetfs_image *img, uint64_t size,
                don't reveal the truncated part of the chunk. */
             g_mutex_unlock(cs->lock);
             chunk = (size - 1) / img->chunk_size;
-            if (!chunk_trylock(cs, chunk, &image_size, err)) {
+            if (!chunk_trylock(img, chunk, &image_size, err)) {
                 return false;
             }
             /* If this chunk is still unmodified, and has not been truncated
@@ -376,11 +413,11 @@ bool _vmnetfs_io_set_image_size(struct vmnetfs_image *img, uint64_t size,
             if (chunk * img->chunk_size < image_size &&
                     !_vmnetfs_bit_test(img->modified_map, chunk)) {
                 if (!copy_to_modified(img, image_size, chunk, err)) {
-                    chunk_unlock(cs, chunk);
+                    chunk_unlock(img, chunk);
                     return false;
                 }
             }
-            chunk_unlock(cs, chunk);
+            chunk_unlock(img, chunk);
 
             /* Image size may have changed; start over. */
             return _vmnetfs_io_set_image_size(img, size, err);
@@ -401,10 +438,10 @@ bool _vmnetfs_io_set_image_size(struct vmnetfs_image *img, uint64_t size,
                 if (!ret) {
                     return false;
                 }
-                if (!chunk_trylock(cs, chunk, NULL, err)) {
+                if (!chunk_trylock(img, chunk, NULL, err)) {
                     return false;
                 }
-                chunk_unlock(cs, chunk);
+                chunk_unlock(img, chunk);
                 /* Start over */
                 return _vmnetfs_io_set_image_size(img, size, err);
             }

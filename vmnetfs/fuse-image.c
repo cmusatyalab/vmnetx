@@ -152,10 +152,6 @@ static int image_write(struct vmnetfs_fuse_fh *fh, const void *buf,
                     VMNETFS_IO_ERROR_INTERRUPTED)) {
                 g_clear_error(&err);
                 return (int) (cur.buf_offset + written) ?: -EINTR;
-            } else if (g_error_matches(err, VMNETFS_IO_ERROR,
-                    VMNETFS_IO_ERROR_EOF)) {
-                g_clear_error(&err);
-                return (int) (cur.buf_offset + written) ?: -ENOSPC;
             } else {
                 g_warning("%s", err->message);
                 g_clear_error(&err);
