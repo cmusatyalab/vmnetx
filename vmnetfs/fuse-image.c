@@ -70,7 +70,7 @@ static int image_getattr(void *dentry_ctx, struct stat *st)
     struct vmnetfs_image *img = dentry_ctx;
 
     st->st_mode = S_IFREG | 0600;
-    st->st_size = _vmnetfs_io_get_image_size(img);
+    st->st_size = _vmnetfs_io_get_image_size(img, NULL);
     return 0;
 }
 

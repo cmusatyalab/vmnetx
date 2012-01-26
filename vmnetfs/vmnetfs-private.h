@@ -148,14 +148,18 @@ bool _vmnetfs_interrupted(void);
 /* io */
 bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err);
 void _vmnetfs_io_close(struct vmnetfs_image *img);
+bool _vmnetfs_io_image_is_closed(struct vmnetfs_image *img);
 void _vmnetfs_io_destroy(struct vmnetfs_image *img);
 uint64_t _vmnetfs_io_read_chunk(struct vmnetfs_image *img, void *data,
         uint64_t chunk, uint32_t offset, uint32_t length, GError **err);
 uint64_t _vmnetfs_io_write_chunk(struct vmnetfs_image *img, const void *data,
         uint64_t chunk, uint32_t offset, uint32_t length, GError **err);
-uint64_t _vmnetfs_io_get_image_size(struct vmnetfs_image *img);
+uint64_t _vmnetfs_io_get_image_size(struct vmnetfs_image *img,
+        uint64_t *change_cookie);
 bool _vmnetfs_io_set_image_size(struct vmnetfs_image *img, uint64_t size,
         GError **err);
+bool _vmnetfs_io_image_size_add_poll_handle(struct vmnetfs_image *img,
+        struct fuse_pollhandle *ph, uint64_t change_cookie);
 
 /* ll_pristine */
 bool _vmnetfs_ll_pristine_init(struct vmnetfs_image *img, GError **err);

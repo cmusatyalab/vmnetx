@@ -22,6 +22,8 @@ struct chunk_state {
     GMutex *lock;
     GHashTable *chunk_locks;
     uint64_t image_size;
+    struct vmnetfs_pollable *image_size_pll;
+    bool image_closed;
 };
 
 struct chunk_lock {
@@ -39,6 +41,7 @@ static struct chunk_state *chunk_state_new(uint64_t initial_size)
     cs->lock = g_mutex_new();
     cs->chunk_locks = g_hash_table_new(g_int64_hash, g_int64_equal);
     cs->image_size = initial_size;
+    cs->image_size_pll = _vmnetfs_pollable_new();
     return cs;
 }
 
@@ -46,6 +49,7 @@ static void chunk_state_free(struct chunk_state *cs)
 {
     g_assert(g_hash_table_size(cs->chunk_locks) == 0);
 
+    _vmnetfs_pollable_free(cs->image_size_pll);
     g_hash_table_destroy(cs->chunk_locks);
     g_mutex_free(cs->lock);
     g_slice_free(struct chunk_state, cs);
@@ -62,6 +66,7 @@ static bool _set_image_size(struct vmnetfs_image *img, uint64_t new_size,
         return false;
     }
     img->chunk_state->image_size = new_size;
+    _vmnetfs_pollable_change(img->chunk_state->image_size_pll);
     return true;
 }
 
@@ -225,10 +230,28 @@ bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err)
 
 void _vmnetfs_io_close(struct vmnetfs_image *img)
 {
+    struct chunk_state *cs = img->chunk_state;
+
     _vmnetfs_stream_group_close(_vmnetfs_bit_get_stream_group(
             img->accessed_map));
     _vmnetfs_ll_pristine_close(img);
     _vmnetfs_ll_modified_close(img);
+
+    g_mutex_lock(cs->lock);
+    cs->image_closed = true;
+    _vmnetfs_pollable_change(cs->image_size_pll);
+    g_mutex_unlock(cs->lock);
+}
+
+bool _vmnetfs_io_image_is_closed(struct vmnetfs_image *img)
+{
+    struct chunk_state *cs = img->chunk_state;
+    bool ret;
+
+    g_mutex_lock(cs->lock);
+    ret = cs->image_closed;
+    g_mutex_unlock(cs->lock);
+    return ret;
 }
 
 void _vmnetfs_io_destroy(struct vmnetfs_image *img)
@@ -367,12 +390,17 @@ out:
     return ret;
 }
 
-uint64_t _vmnetfs_io_get_image_size(struct vmnetfs_image *img)
+uint64_t _vmnetfs_io_get_image_size(struct vmnetfs_image *img,
+        uint64_t *change_cookie)
 {
     uint64_t ret;
 
     g_mutex_lock(img->chunk_state->lock);
     ret = img->chunk_state->image_size;
+    if (change_cookie != NULL) {
+        *change_cookie = _vmnetfs_pollable_get_change_cookie(
+                img->chunk_state->image_size_pll);
+    }
     g_mutex_unlock(img->chunk_state->lock);
     return ret;
 }
@@ -456,4 +484,22 @@ bool _vmnetfs_io_set_image_size(struct vmnetfs_image *img, uint64_t size,
         g_mutex_unlock(cs->lock);
         return true;
     }
+}
+
+bool _vmnetfs_io_image_size_add_poll_handle(struct vmnetfs_image *img,
+        struct fuse_pollhandle *ph, uint64_t change_cookie)
+{
+    struct chunk_state *cs = img->chunk_state;
+    bool changed;
+
+    g_mutex_lock(cs->lock);
+    if (cs->image_closed) {
+        _vmnetfs_pollable_add_poll_handle(cs->image_size_pll, ph, true);
+        changed = true;
+    } else {
+        changed = _vmnetfs_pollable_add_poll_handle_conditional(
+                cs->image_size_pll, ph, change_cookie);
+    }
+    g_mutex_unlock(cs->lock);
+    return changed;
 }

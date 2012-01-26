@@ -58,8 +58,12 @@ static int chunks_open(void *dentry_ctx, struct vmnetfs_fuse_fh *fh)
     struct vmnetfs_image *img = dentry_ctx;
     uint64_t len;
 
-    len = (_vmnetfs_io_get_image_size(img) + img->chunk_size - 1) /
-            img->chunk_size;
+    if (_vmnetfs_io_image_is_closed(img)) {
+        return -EACCES;
+    }
+    fh->data = img;
+    len = (_vmnetfs_io_get_image_size(img, &fh->change_cookie) +
+            img->chunk_size - 1) / img->chunk_size;
     fh->buf = format_u64(len);
     fh->length = strlen(fh->buf);
     return 0;
@@ -88,6 +92,17 @@ static int stat_poll(struct vmnetfs_fuse_fh *fh, struct fuse_pollhandle *ph,
     return 0;
 }
 
+static int image_size_poll(struct vmnetfs_fuse_fh *fh,
+        struct fuse_pollhandle *ph, bool *readable)
+{
+    struct vmnetfs_image *img = fh->data;
+
+    g_assert(img != NULL);
+    *readable = _vmnetfs_io_image_size_add_poll_handle(img, ph,
+            fh->change_cookie);
+    return 0;
+}
+
 static void stat_release(struct vmnetfs_fuse_fh *fh)
 {
     g_free(fh->buf);
@@ -112,6 +127,7 @@ static const struct vmnetfs_fuse_ops chunks_ops = {
     .getattr = stat_getattr,
     .open = chunks_open,
     .read = stat_read,
+    .poll = image_size_poll,
     .release = stat_release,
 };
 
