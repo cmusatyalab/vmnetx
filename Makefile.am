@@ -11,8 +11,9 @@ pkglib_LTLIBRARIES = libvmnetfs.la
 libvmnetfs_la_SOURCES  = vmnetfs/bitmap.c vmnetfs/cond.c vmnetfs/fuse.c \
 	vmnetfs/fuse-image.c vmnetfs/fuse-stats.c vmnetfs/fuse-stream.c \
 	vmnetfs/io.c vmnetfs/ll-modified.c vmnetfs/ll-pristine.c \
-	vmnetfs/stats.c vmnetfs/stream.c vmnetfs/transport.c vmnetfs/util.c \
-	vmnetfs/vmnetfs.c vmnetfs/vmnetfs.h vmnetfs/vmnetfs-private.h
+	vmnetfs/pollable.c vmnetfs/stats.c vmnetfs/stream.c \
+	vmnetfs/transport.c vmnetfs/util.c vmnetfs/vmnetfs.c \
+	vmnetfs/vmnetfs.h vmnetfs/vmnetfs-private.h
 
 nobase_python_PYTHON = vmnetx/__init__.py vmnetx/vmnetfs.py \
 	vmnetx/status/__init__.py vmnetx/status/monitor.py

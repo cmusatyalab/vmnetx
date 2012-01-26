@@ -63,10 +63,7 @@ static int stream_poll(struct vmnetfs_fuse_fh *fh, struct fuse_pollhandle *ph,
 {
     struct vmnetfs_stream *strm = fh->data;
 
-    if (ph != NULL) {
-        _vmnetfs_stream_set_poll(strm, ph);
-    }
-    *readable = _vmnetfs_stream_can_read(strm);
+    *readable = _vmnetfs_stream_add_poll_handle(strm, ph);
     return 0;
 }
 

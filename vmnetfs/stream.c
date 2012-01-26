@@ -38,8 +38,8 @@ struct vmnetfs_stream {
     GQueue *blocks;
     uint32_t head_read_offset;
     uint32_t tail_write_offset;
+    struct vmnetfs_pollable *pll;
     bool closed;
-    struct fuse_pollhandle *ph;
 };
 
 static void *block_new(void)
@@ -56,8 +56,7 @@ static void block_free(void *block)
 static void notify_stream(struct vmnetfs_stream *strm)
 {
     _vmnetfs_cond_broadcast(strm->cond);
-    _vmnetfs_finish_poll(strm->ph, true);
-    strm->ph = NULL;
+    _vmnetfs_pollable_change(strm->pll);
 }
 
 struct vmnetfs_stream_group *_vmnetfs_stream_group_new(
@@ -110,6 +109,7 @@ struct vmnetfs_stream *_vmnetfs_stream_new(struct vmnetfs_stream_group *sgrp)
     strm->cond = _vmnetfs_cond_new();
     strm->blocks = g_queue_new();
     strm->tail_write_offset = BLOCK_SIZE;
+    strm->pll = _vmnetfs_pollable_new();
     if (sgrp->populate != NULL) {
         sgrp->populate(strm, sgrp->populate_data);
     }
@@ -133,7 +133,7 @@ void _vmnetfs_stream_free(struct vmnetfs_stream *strm)
             strm->group_link);
     g_mutex_unlock(strm->group->lock);
 
-    _vmnetfs_finish_poll(strm->ph, false);
+    _vmnetfs_pollable_free(strm->pll);
     while ((block = g_queue_pop_head(strm->blocks)) != NULL) {
         block_free(block);
     }
@@ -141,16 +141,6 @@ void _vmnetfs_stream_free(struct vmnetfs_stream *strm)
     _vmnetfs_cond_free(strm->cond);
     g_mutex_free(strm->lock);
     g_slice_free(struct vmnetfs_stream, strm);
-}
-
-bool _vmnetfs_stream_can_read(struct vmnetfs_stream *strm)
-{
-    bool ret;
-
-    g_mutex_lock(strm->lock);
-    ret = g_queue_peek_head(strm->blocks) != NULL || strm->closed;
-    g_mutex_unlock(strm->lock);
-    return ret;
 }
 
 uint64_t _vmnetfs_stream_read(struct vmnetfs_stream *strm, void *buf,
@@ -275,11 +265,14 @@ void _vmnetfs_stream_group_write(struct vmnetfs_stream_group *sgrp,
     g_free(buf);
 }
 
-void _vmnetfs_stream_set_poll(struct vmnetfs_stream *strm,
+bool _vmnetfs_stream_add_poll_handle(struct vmnetfs_stream *strm,
         struct fuse_pollhandle *ph)
 {
+    bool readable;
+
     g_mutex_lock(strm->lock);
-    _vmnetfs_finish_poll(strm->ph, false);
-    strm->ph = ph;
+    readable = g_queue_peek_head(strm->blocks) != NULL || strm->closed;
+    _vmnetfs_pollable_add_poll_handle(strm->pll, ph, readable);
     g_mutex_unlock(strm->lock);
+    return readable;
 }

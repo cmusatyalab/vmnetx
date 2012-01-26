@@ -34,14 +34,13 @@ static int stat_getattr(void *dentry_ctx G_GNUC_UNUSED, struct stat *st)
 static int u64_stat_open(void *dentry_ctx, struct vmnetfs_fuse_fh *fh)
 {
     struct vmnetfs_stat *stat = dentry_ctx;
-    struct vmnetfs_stat_handle *hdl;
 
     if (_vmnetfs_stat_is_closed(stat)) {
         return -EACCES;
     }
-    fh->buf = format_u64(_vmnetfs_u64_stat_get(stat, &hdl));
+    fh->data = stat;
+    fh->buf = format_u64(_vmnetfs_u64_stat_get(stat, &fh->change_cookie));
     fh->length = strlen(fh->buf);
-    fh->data = hdl;
     return 0;
 }
 
@@ -82,19 +81,15 @@ static int stat_read(struct vmnetfs_fuse_fh *fh, void *buf, uint64_t start,
 static int stat_poll(struct vmnetfs_fuse_fh *fh, struct fuse_pollhandle *ph,
         bool *readable)
 {
-    struct vmnetfs_stat_handle *hdl = fh->data;
+    struct vmnetfs_stat *stat = fh->data;
 
-    g_assert(hdl != NULL);
-    if (ph != NULL) {
-        _vmnetfs_stat_handle_set_poll(hdl, ph);
-    }
-    *readable = _vmnetfs_stat_handle_is_changed(hdl);
+    g_assert(stat != NULL);
+    *readable = _vmnetfs_stat_add_poll_handle(stat, ph, fh->change_cookie);
     return 0;
 }
 
 static void stat_release(struct vmnetfs_fuse_fh *fh)
 {
-    _vmnetfs_stat_handle_free(fh->data);
     g_free(fh->buf);
 }
 

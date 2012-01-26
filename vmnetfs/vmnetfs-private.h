@@ -81,6 +81,7 @@ struct vmnetfs_fuse_fh {
     void *data;
     void *buf;
     uint64_t length;
+    uint64_t change_cookie;
     bool blocking;
 };
 
@@ -143,7 +144,6 @@ void _vmnetfs_fuse_stats_populate(struct vmnetfs_fuse_dentry *dir,
 void _vmnetfs_fuse_stream_populate(struct vmnetfs_fuse_dentry *dir,
         struct vmnetfs_image *img);
 bool _vmnetfs_interrupted(void);
-void _vmnetfs_finish_poll(struct fuse_pollhandle *ph, bool notify);
 
 /* io */
 bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err);
@@ -202,13 +202,12 @@ void _vmnetfs_stream_group_close(struct vmnetfs_stream_group *sgrp);
 void _vmnetfs_stream_group_free(struct vmnetfs_stream_group *sgrp);
 struct vmnetfs_stream *_vmnetfs_stream_new(struct vmnetfs_stream_group *sgrp);
 void _vmnetfs_stream_free(struct vmnetfs_stream *strm);
-bool _vmnetfs_stream_can_read(struct vmnetfs_stream *strm);
 uint64_t _vmnetfs_stream_read(struct vmnetfs_stream *strm, void *buf,
         uint64_t count, bool blocking, GError **err);
 void _vmnetfs_stream_write(struct vmnetfs_stream *strm, const char *fmt, ...);
 void _vmnetfs_stream_group_write(struct vmnetfs_stream_group *sgrp,
         const char *fmt, ...);
-void _vmnetfs_stream_set_poll(struct vmnetfs_stream *strm,
+bool _vmnetfs_stream_add_poll_handle(struct vmnetfs_stream *strm,
         struct fuse_pollhandle *ph);
 
 /* stats */
@@ -217,13 +216,22 @@ struct vmnetfs_stat *_vmnetfs_stat_new(void);
 void _vmnetfs_stat_close(struct vmnetfs_stat *stat);
 bool _vmnetfs_stat_is_closed(struct vmnetfs_stat *stat);
 void _vmnetfs_stat_free(struct vmnetfs_stat *stat);
-void _vmnetfs_stat_handle_free(struct vmnetfs_stat_handle *hdl);
-void _vmnetfs_stat_handle_set_poll(struct vmnetfs_stat_handle *hdl,
-        struct fuse_pollhandle *ph);
-bool _vmnetfs_stat_handle_is_changed(struct vmnetfs_stat_handle *hdl);
+bool _vmnetfs_stat_add_poll_handle(struct vmnetfs_stat *stat,
+        struct fuse_pollhandle *ph, uint64_t change_cookie);
 void _vmnetfs_u64_stat_increment(struct vmnetfs_stat *stat, uint64_t val);
 uint64_t _vmnetfs_u64_stat_get(struct vmnetfs_stat *stat,
-        struct vmnetfs_stat_handle **hdl);
+        uint64_t *change_cookie);
+
+/* pollable */
+struct vmnetfs_pollable *_vmnetfs_pollable_new(void);
+uint64_t _vmnetfs_pollable_get_change_cookie(struct vmnetfs_pollable *pll);
+void _vmnetfs_pollable_add_poll_handle(struct vmnetfs_pollable *pll,
+        struct fuse_pollhandle *ph, bool changed);
+bool _vmnetfs_pollable_add_poll_handle_conditional(
+        struct vmnetfs_pollable *pll, struct fuse_pollhandle *ph,
+        uint64_t change_cookie);
+void _vmnetfs_pollable_change(struct vmnetfs_pollable *pll);
+void _vmnetfs_pollable_free(struct vmnetfs_pollable *pll);
 
 /* cond */
 struct vmnetfs_cond *_vmnetfs_cond_new(void);

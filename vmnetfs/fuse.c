@@ -422,14 +422,3 @@ bool _vmnetfs_interrupted(void)
 {
     return fuse_interrupted();
 }
-
-void _vmnetfs_finish_poll(struct fuse_pollhandle *ph, bool notify)
-{
-    if (ph == NULL) {
-        return;
-    }
-    if (notify) {
-        fuse_notify_poll(ph);
-    }
-    fuse_pollhandle_destroy(ph);
-}
