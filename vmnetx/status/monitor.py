@@ -186,6 +186,7 @@ class ImageMonitor(_Monitor):
             return int(fh.readline().strip())
 
     def close(self):
+        self.chunk_map.close()
         for s in self.stats.values():
             s.close()
         self.stats = {}
