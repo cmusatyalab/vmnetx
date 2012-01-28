@@ -116,7 +116,7 @@ Dark gray: Not present"""
         # Fill in valid rows.  Avoid drawing MISSING chunks, since those
         # are handled by the background fill.  Combine adjacent pixels
         # of the same color on the same line into a single rectangle.
-        last_state = invalid_state
+        last_state = None
         for y in xrange(area_y, min(area_y + area_height, valid_rows)):
             first_x = area_x
             for x in xrange(area_x, area_x + area_width):
