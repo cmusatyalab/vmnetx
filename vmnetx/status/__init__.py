@@ -25,11 +25,11 @@ from .monitor import ImageMonitor, ChunkMapMonitor
 
 class ImageChunkWidget(gtk.DrawingArea):
     PATTERNS = {
+        ChunkMapMonitor.INVALID: cairo.SolidPattern(0, 0, 0),
         ChunkMapMonitor.MISSING: cairo.SolidPattern(.44, .44, .44),
         ChunkMapMonitor.CACHED: cairo.SolidPattern(.63, .63, .63),
         ChunkMapMonitor.ACCESSED: cairo.SolidPattern(1, 1, 1),
         ChunkMapMonitor.MODIFIED: cairo.SolidPattern(1, 0, 0),
-        None: cairo.SolidPattern(0, 0, 0),
     }
 
     TIP = """Red: Modified this session
@@ -92,6 +92,7 @@ Dark gray: Not present"""
         row_width = self.allocation.width
         valid_rows = self.valid_rows
         default_state = ChunkMapMonitor.MISSING
+        invalid_state = ChunkMapMonitor.INVALID
 
         cr = self.window.cairo_create()
         set_source = cr.set_source
@@ -107,7 +108,7 @@ Dark gray: Not present"""
 
         # Draw invalid rows
         if valid_rows < area_y + area_height:
-            set_source(patterns[None])
+            set_source(patterns[invalid_state])
             rectangle(area_x, valid_rows, area_width,
                     area_y + area_height - valid_rows)
             fill()
@@ -115,7 +116,7 @@ Dark gray: Not present"""
         # Fill in valid rows.  Avoid drawing MISSING chunks, since those
         # are handled by the background fill.  Combine adjacent pixels
         # of the same color on the same line into a single rectangle.
-        last_state = None
+        last_state = invalid_state
         for y in xrange(area_y, min(area_y + area_height, valid_rows)):
             first_x = 0
             for x in xrange(area_x, area_x + area_width):
@@ -123,7 +124,7 @@ Dark gray: Not present"""
                 if chunk < chunks:
                     state = chunk_states[chunk]
                 else:
-                    state = None
+                    state = invalid_state
                 if state != last_state:
                     if x > 0 and last_state != default_state:
                         rectangle(first_x, y, x - first_x, 1)

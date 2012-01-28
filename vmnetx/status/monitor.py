@@ -134,10 +134,11 @@ gobject.type_register(_ChunkStreamMonitor)
 
 
 class ChunkMapMonitor(_Monitor):
-    MISSING = 0
-    CACHED = 1
-    ACCESSED = 2
-    MODIFIED = 3
+    INVALID = 0  # Beyond EOF.  Never stored in chunks array.
+    MISSING = 1
+    CACHED = 2
+    ACCESSED = 3
+    MODIFIED = 4
 
     STREAMS = {
         CACHED: 'chunks_cached',
