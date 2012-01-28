@@ -118,7 +118,7 @@ Dark gray: Not present"""
         # of the same color on the same line into a single rectangle.
         last_state = invalid_state
         for y in xrange(area_y, min(area_y + area_height, valid_rows)):
-            first_x = 0
+            first_x = area_x
             for x in xrange(area_x, area_x + area_width):
                 chunk = y * row_width + x
                 if chunk < chunks:
@@ -126,7 +126,7 @@ Dark gray: Not present"""
                 else:
                     state = invalid_state
                 if state != last_state:
-                    if x > 0 and last_state != default_state:
+                    if x > first_x and last_state != default_state:
                         rectangle(first_x, y, x - first_x, 1)
                         fill()
                     set_source(patterns[state])
