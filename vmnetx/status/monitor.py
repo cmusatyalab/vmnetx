@@ -151,17 +151,43 @@ class ChunkMapMonitor(_Monitor):
                 (gobject.TYPE_UINT64, gobject.TYPE_INT)),
     }
 
-    def __init__(self, image_path, chunks):
+    def __init__(self, image_path):
         _Monitor.__init__(self)
-        self.chunks = [self.MISSING] * chunks
         self._monitors = []
+
+        chunks = _IntStatMonitor('chunks',
+                os.path.join(image_path, 'stats', 'chunks'))
+        chunks.connect('stat-changed', self._resize_image)
+        self._monitors.append(chunks)
+        self.chunks = [self.MISSING] * chunks.value
+
         for state, name in self.STREAMS.iteritems():
             m = _ChunkStreamMonitor(os.path.join(image_path, 'streams', name))
             m.connect('chunk-emitted', self._update_chunk, state)
             m.update()
             self._monitors.append(m)
 
+    def _ensure_size(self, chunks):
+        """Ensure the image is at least @chunks chunks long."""
+        current = len(self.chunks)
+        if chunks > current:
+            self.chunks.extend([self.MISSING] * (chunks - current))
+            for chunk in xrange(current, chunks):
+                self.emit('chunk-state-changed', chunk, self.chunks[chunk])
+
+    def _resize_image(self, _monitor, _name, chunks):
+        current = len(self.chunks)
+        if chunks < current:
+            del self.chunks[chunks:]
+            for chunk in xrange(chunks, current):
+                self.emit('chunk-state-changed', chunk, self.INVALID)
+        else:
+            self._ensure_size(chunks)
+
     def _update_chunk(self, _monitor, chunk, state):
+        # We may be notified of a chunk beyond the current EOF before we
+        # are notified that the image has been resized.
+        self._ensure_size(chunk + 1)
         if self.chunks[chunk] < state:
             self.chunks[chunk] = state
             self.emit('chunk-state-changed', chunk, state)
@@ -176,9 +202,8 @@ gobject.type_register(ChunkMapMonitor)
 class ImageMonitor(_Monitor):
     def __init__(self, image_path):
         _Monitor.__init__(self)
-        self.num_chunks = self._read_stat(image_path, 'chunks')
         self.chunk_size = self._read_stat(image_path, 'chunk_size')
-        self.chunk_map = ChunkMapMonitor(image_path, self.num_chunks)
+        self.chunk_map = ChunkMapMonitor(image_path)
         self.stats = _StatMonitor.open_all(image_path)
 
     def _read_stat(self, image_path, name):
