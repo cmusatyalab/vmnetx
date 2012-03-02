@@ -97,7 +97,7 @@ bool _vmnetfs_ll_pristine_init(struct vmnetfs_image *img, GError **err)
     if (dir == NULL) {
         return false;
     }
-    img->present_map = _vmnetfs_bit_new();
+    img->present_map = _vmnetfs_bit_new(img->bitmaps);
     while ((name = g_dir_read_name(dir)) != NULL) {
         path = g_strdup_printf("%s/%s", img->read_base, name);
         dir_num = g_ascii_strtoull(name, &endptr, 10);
@@ -114,12 +114,6 @@ bool _vmnetfs_ll_pristine_init(struct vmnetfs_image *img, GError **err)
     }
     g_dir_close(dir);
     return true;
-}
-
-void _vmnetfs_ll_pristine_close(struct vmnetfs_image *img)
-{
-    _vmnetfs_stream_group_close(_vmnetfs_bit_get_stream_group(
-            img->present_map));
 }
 
 void _vmnetfs_ll_pristine_destroy(struct vmnetfs_image *img)

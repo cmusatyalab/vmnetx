@@ -51,6 +51,7 @@ struct vmnetfs_image {
     /* io */
     struct connection_pool *cpool;
     struct chunk_state *chunk_state;
+    struct bitmap_group *bitmaps;
     struct bitmap *accessed_map;
 
     /* ll_pristine */
@@ -163,7 +164,6 @@ bool _vmnetfs_io_image_size_add_poll_handle(struct vmnetfs_image *img,
 
 /* ll_pristine */
 bool _vmnetfs_ll_pristine_init(struct vmnetfs_image *img, GError **err);
-void _vmnetfs_ll_pristine_close(struct vmnetfs_image *img);
 void _vmnetfs_ll_pristine_destroy(struct vmnetfs_image *img);
 bool _vmnetfs_ll_pristine_read_chunk(struct vmnetfs_image *img, void *data,
         uint64_t chunk, uint32_t offset, uint32_t length, GError **err);
@@ -172,7 +172,6 @@ bool _vmnetfs_ll_pristine_write_chunk(struct vmnetfs_image *img, void *data,
 
 /* ll_modified */
 bool _vmnetfs_ll_modified_init(struct vmnetfs_image *img, GError **err);
-void _vmnetfs_ll_modified_close(struct vmnetfs_image *img);
 void _vmnetfs_ll_modified_destroy(struct vmnetfs_image *img);
 bool _vmnetfs_ll_modified_read_chunk(struct vmnetfs_image *img,
         uint64_t image_size, void *data, uint64_t chunk, uint32_t offset,
@@ -191,7 +190,11 @@ bool _vmnetfs_transport_fetch(struct connection_pool *cpool, const char *url,
         void *buf, uint64_t offset, uint64_t length, GError **err);
 
 /* bitmap */
-struct bitmap *_vmnetfs_bit_new(void);
+struct bitmap_group *_vmnetfs_bit_group_new(uint64_t initial_bits);
+void _vmnetfs_bit_group_free(struct bitmap_group *mgrp);
+void _vmnetfs_bit_group_resize(struct bitmap_group *mgrp, uint64_t bits);
+void _vmnetfs_bit_group_close(struct bitmap_group *mgrp);
+struct bitmap *_vmnetfs_bit_new(struct bitmap_group *mgrp);
 void _vmnetfs_bit_free(struct bitmap *map);
 void _vmnetfs_bit_set(struct bitmap *map, uint64_t bit);
 bool _vmnetfs_bit_test(struct bitmap *map, uint64_t bit);

@@ -66,6 +66,8 @@ static bool _set_image_size(struct vmnetfs_image *img, uint64_t new_size,
         return false;
     }
     img->chunk_state->image_size = new_size;
+    _vmnetfs_bit_group_resize(img->bitmaps, (new_size + img->chunk_size - 1) /
+            img->chunk_size);
     _vmnetfs_pollable_change(img->chunk_state->image_size_pll);
     return true;
 }
@@ -215,15 +217,19 @@ static bool fetch_data(struct vmnetfs_image *img, void *buf, uint64_t start,
 
 bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err)
 {
+    img->bitmaps = _vmnetfs_bit_group_new((img->initial_size +
+            img->chunk_size - 1) / img->chunk_size);
     if (!_vmnetfs_ll_pristine_init(img, err)) {
+        _vmnetfs_bit_group_free(img->bitmaps);
         return false;
     }
     if (!_vmnetfs_ll_modified_init(img, err)) {
         _vmnetfs_ll_pristine_destroy(img);
+        _vmnetfs_bit_group_free(img->bitmaps);
         return false;
     }
     img->cpool = _vmnetfs_transport_pool_new();
-    img->accessed_map = _vmnetfs_bit_new();
+    img->accessed_map = _vmnetfs_bit_new(img->bitmaps);
     img->chunk_state = chunk_state_new(img->initial_size);
     return true;
 }
@@ -232,10 +238,7 @@ void _vmnetfs_io_close(struct vmnetfs_image *img)
 {
     struct chunk_state *cs = img->chunk_state;
 
-    _vmnetfs_stream_group_close(_vmnetfs_bit_get_stream_group(
-            img->accessed_map));
-    _vmnetfs_ll_pristine_close(img);
-    _vmnetfs_ll_modified_close(img);
+    _vmnetfs_bit_group_close(img->bitmaps);
 
     g_mutex_lock(cs->lock);
     cs->image_closed = true;
@@ -263,6 +266,7 @@ void _vmnetfs_io_destroy(struct vmnetfs_image *img)
     _vmnetfs_ll_pristine_destroy(img);
     chunk_state_free(img->chunk_state);
     _vmnetfs_bit_free(img->accessed_map);
+    _vmnetfs_bit_group_free(img->bitmaps);
     _vmnetfs_transport_pool_free(img->cpool);
 }
 
