@@ -229,7 +229,7 @@ bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err)
         return false;
     }
     img->cpool = _vmnetfs_transport_pool_new();
-    img->accessed_map = _vmnetfs_bit_new(img->bitmaps);
+    img->accessed_map = _vmnetfs_bit_new(img->bitmaps, false);
     img->chunk_state = chunk_state_new(img->initial_size);
     return true;
 }

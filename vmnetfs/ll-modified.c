@@ -36,7 +36,9 @@ bool _vmnetfs_ll_modified_init(struct vmnetfs_image *img, GError **err)
     }
     unlink(file);
     g_free(file);
-    img->modified_map = _vmnetfs_bit_new(img->bitmaps);
+    /* set_on_extend ensures that chunks that are truncated away are not
+       retrieved from the pristine cache if the image is extended again. */
+    img->modified_map = _vmnetfs_bit_new(img->bitmaps, true);
     return true;
 }
 

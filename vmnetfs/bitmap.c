@@ -21,11 +21,15 @@
 
 /* Bitmap rules:
    1. All bitmaps in a group have the same size.
-   2. Memory allocations for the actual bits are always a power of 2.
+   2. Memory allocations for the actual bits are always a power of 2, and
+      are never reduced.
    3. Bitmaps are initially zeroed.
-   4. Unused bits in a bitmap (those between nbits and 8 * allocated_bytes)
-      are set to 1.
-   5. If a bitmap is extended, all new bits are set to 1.
+   4. Bitmaps have a set_on_extend flag that governs the behavior of bits
+      beyond the end of the bitmap.
+   5. Allocated but unused bits in a bitmap (those between nbits and
+      8 * allocated_bytes) are set to set_on_extend.
+   6. If a bitmap is reduced and set_on_extend is true, bits in the
+      eliminated area are set to 1.  Otherwise, the bits are left alone.
 */
 
 /* A set of bitmaps, each with the same size. */
@@ -42,6 +46,7 @@ struct bitmap {
     struct bitmap_group *mgrp;
     uint8_t *bits;
     struct vmnetfs_stream_group *sgrp;
+    bool set_on_extend;
 };
 
 static void populate_stream(struct vmnetfs_stream *strm, void *_map)
@@ -87,7 +92,6 @@ static void notify_bit(struct bitmap *map, uint64_t bit)
 
 static bool test_bit(struct bitmap *map, uint64_t bit)
 {
-    g_assert(bit < map->mgrp->nbits);
     return !!(map->bits[bit / 8] & (1 << (bit % 8)));
 }
 
@@ -109,11 +113,6 @@ void _vmnetfs_bit_group_free(struct bitmap_group *mgrp)
     g_slice_free(struct bitmap_group, mgrp);
 }
 
-/* If the group is being extended, all newly-allocated bits are set to 1.
-   Those semantics are needed by the accessed and modified maps (especially
-   the modified map, to ensure that chunks being truncated away are
-   not retrieved from the pristine cache if the image is extended again),
-   and the pristine map doesn't care. */
 void _vmnetfs_bit_group_resize(struct bitmap_group *mgrp, uint64_t bits)
 {
     struct bitmap *map;
@@ -129,8 +128,9 @@ void _vmnetfs_bit_group_resize(struct bitmap_group *mgrp, uint64_t bits)
                     el = g_list_next(el)) {
                 map = el->data;
                 map->bits = g_realloc(map->bits, allocation);
-                /* Set newly-allocated bits to 1 */
-                memset(map->bits + mgrp->allocated_bytes, 0xff,
+                /* Set newly-allocated bits, if requested */
+                memset(map->bits + mgrp->allocated_bytes,
+                        map->set_on_extend ? 0xff : 0,
                         allocation - mgrp->allocated_bytes);
             }
             mgrp->allocated_bytes = allocation;
@@ -140,16 +140,20 @@ void _vmnetfs_bit_group_resize(struct bitmap_group *mgrp, uint64_t bits)
         for (el = g_list_first(mgrp->maps); el != NULL; el = g_list_next(el)) {
             map = el->data;
             for (n = mgrp->nbits; n < bits; n++) {
-                notify_bit(map, n);
+                if (test_bit(map, n)) {
+                    notify_bit(map, n);
+                }
             }
         }
     } else if (bits < mgrp->nbits) {
-        /* Set removed bits */
+        /* Set removed bits, if requested */
         for (el = g_list_first(mgrp->maps); el != NULL;
                 el = g_list_next(el)) {
             map = el->data;
-            for (n = bits; n < mgrp->nbits; n++) {
-                set_bit(map, n);
+            if (map->set_on_extend) {
+                for (n = bits; n < mgrp->nbits; n++) {
+                    set_bit(map, n);
+                }
             }
         }
     }
@@ -172,8 +176,9 @@ void _vmnetfs_bit_group_close(struct bitmap_group *mgrp)
     g_mutex_unlock(mgrp->lock);
 }
 
-/* All bits are initially set to zero. */
-struct bitmap *_vmnetfs_bit_new(struct bitmap_group *mgrp)
+/* All bits are initially set to zero.  For info on set_on_extend, see the
+   top of this file. */
+struct bitmap *_vmnetfs_bit_new(struct bitmap_group *mgrp, bool set_on_extend)
 {
     struct bitmap *map;
     uint64_t n;
@@ -181,12 +186,15 @@ struct bitmap *_vmnetfs_bit_new(struct bitmap_group *mgrp)
     map = g_slice_new0(struct bitmap);
     map->mgrp = mgrp;
     map->sgrp = _vmnetfs_stream_group_new(populate_stream, map);
+    map->set_on_extend = set_on_extend;
 
     g_mutex_lock(mgrp->lock);
     map->bits = g_malloc0(mgrp->allocated_bytes);
-    /* Ensure allocated but unused bits are set, in case we resize later */
-    for (n = mgrp->nbits; n < 8 * mgrp->allocated_bytes; n++) {
-        set_bit(map, n);
+    if (set_on_extend) {
+        /* Ensure allocated but unused bits are set, in case we resize later */
+        for (n = mgrp->nbits; n < 8 * mgrp->allocated_bytes; n++) {
+            set_bit(map, n);
+        }
     }
     mgrp->maps = g_list_prepend(mgrp->maps, map);
     g_mutex_unlock(mgrp->lock);

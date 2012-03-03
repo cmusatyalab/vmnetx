@@ -97,7 +97,7 @@ bool _vmnetfs_ll_pristine_init(struct vmnetfs_image *img, GError **err)
     if (dir == NULL) {
         return false;
     }
-    img->present_map = _vmnetfs_bit_new(img->bitmaps);
+    img->present_map = _vmnetfs_bit_new(img->bitmaps, false);
     while ((name = g_dir_read_name(dir)) != NULL) {
         path = g_strdup_printf("%s/%s", img->read_base, name);
         dir_num = g_ascii_strtoull(name, &endptr, 10);

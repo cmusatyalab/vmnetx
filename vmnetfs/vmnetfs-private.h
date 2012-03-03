@@ -194,7 +194,7 @@ struct bitmap_group *_vmnetfs_bit_group_new(uint64_t initial_bits);
 void _vmnetfs_bit_group_free(struct bitmap_group *mgrp);
 void _vmnetfs_bit_group_resize(struct bitmap_group *mgrp, uint64_t bits);
 void _vmnetfs_bit_group_close(struct bitmap_group *mgrp);
-struct bitmap *_vmnetfs_bit_new(struct bitmap_group *mgrp);
+struct bitmap *_vmnetfs_bit_new(struct bitmap_group *mgrp, bool set_on_extend);
 void _vmnetfs_bit_free(struct bitmap *map);
 void _vmnetfs_bit_set(struct bitmap *map, uint64_t bit);
 bool _vmnetfs_bit_test(struct bitmap *map, uint64_t bit);
