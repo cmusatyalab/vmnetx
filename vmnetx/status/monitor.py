@@ -148,6 +148,7 @@ class ChunkMapMonitor(_Monitor):
     CACHED = 2
     ACCESSED = 3
     MODIFIED = 4
+    ACCESSED_MODIFIED = 5
 
     STREAMS = {
         CACHED: 'chunks_cached',
@@ -197,7 +198,11 @@ class ChunkMapMonitor(_Monitor):
         # We may be notified of a chunk beyond the current EOF before we
         # are notified that the image has been resized.
         self._ensure_size(chunk + 1)
-        if self.chunks[chunk] < state:
+        cur_state = self.chunks[chunk]
+        if ((cur_state == self.ACCESSED and state == self.MODIFIED) or
+                (cur_state == self.MODIFIED and state == self.ACCESSED)):
+            state = self.ACCESSED_MODIFIED
+        if cur_state < state:
             self.chunks[chunk] = state
             self.emit('chunk-state-changed', chunk, state)
 

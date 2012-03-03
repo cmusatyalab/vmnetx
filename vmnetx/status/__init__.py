@@ -26,14 +26,16 @@ from .monitor import ImageMonitor, ChunkMapMonitor
 class ImageChunkWidget(gtk.DrawingArea):
     PATTERNS = {
         ChunkMapMonitor.INVALID: cairo.SolidPattern(0, 0, 0),
-        ChunkMapMonitor.MISSING: cairo.SolidPattern(.44, .44, .44),
+        ChunkMapMonitor.MISSING: cairo.SolidPattern(.35, .35, .35),
         ChunkMapMonitor.CACHED: cairo.SolidPattern(.63, .63, .63),
         ChunkMapMonitor.ACCESSED: cairo.SolidPattern(1, 1, 1),
-        ChunkMapMonitor.MODIFIED: cairo.SolidPattern(1, 0, 0),
+        ChunkMapMonitor.MODIFIED: cairo.SolidPattern(.45, 0, 0),
+        ChunkMapMonitor.ACCESSED_MODIFIED: cairo.SolidPattern(1, 0, 0),
     }
 
-    TIP = """Red: Modified this session
+    TIP = """Red: Accessed and modified this session
 White: Accessed this session
+Dark red: Modified this session
 Light gray: Fetched in previous session
 Dark gray: Not present"""
 
