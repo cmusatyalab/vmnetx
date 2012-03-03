@@ -45,7 +45,8 @@ class _StatMonitor(_Monitor):
             return
         self.value = self._process_value(self._fh.readline().strip())
         self.emit('stat-changed', self.name, self.value)
-        self._source = glib.io_add_watch(self._fh, glib.IO_IN, self._reread)
+        self._source = glib.io_add_watch(self._fh, glib.IO_IN | glib.IO_ERR,
+                self._reread)
 
     def _process_value(self, value):
         raise NotImplementedError()
@@ -104,16 +105,24 @@ class _ChunkStreamMonitor(_Monitor):
         # We need to set O_NONBLOCK in open() because FUSE doesn't pass
         # through fcntl()
         self._fh = io.FileIO(os.open(path, os.O_RDONLY | os.O_NONBLOCK))
-        self._source = glib.io_add_watch(self._fh, glib.IO_IN, self._read)
+        self._source = glib.io_add_watch(self._fh, glib.IO_IN | glib.IO_ERR,
+                self._read)
         self._buf = ''
         # Defer initial update until requested by caller, to allow the
         # caller to connect to our signal
 
     def _read(self, _fh=None, _condition=None):
-        buf = self._fh.read()
+        try:
+            buf = self._fh.read()
+        except IOError:
+            # e.g. vmnetfs crashed
+            self.close()
+            return False
+
         if buf == '':
             # EOF
             self.close()
+            return False
         elif buf is not None:
             # We got some output
             lines = (self._buf + buf).split('\n')
