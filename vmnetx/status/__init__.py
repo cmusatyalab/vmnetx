@@ -141,9 +141,12 @@ Dark gray: Not present"""
 
     # pylint doesn't understand allocation.width
     # pylint: disable=E1101
-    def _chunk_changed(self, _map, chunk, _state):
-        self.queue_draw_area(chunk % self.allocation.width,
-                chunk // self.allocation.width, 1, 1)
+    def _chunk_changed(self, _map, first, last):
+        width = self.allocation.width
+        for row in xrange(first // width, last // width + 1):
+            row_first = max(width * row, first) % width
+            row_last = min(width * (row + 1) - 1, last) % width
+            self.queue_draw_area(row_first, row, row_last - row_first + 1, 1)
     # pylint: enable=E1101
 
 

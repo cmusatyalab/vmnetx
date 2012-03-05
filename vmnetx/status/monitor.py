@@ -94,10 +94,33 @@ class _DummyStatMonitor(_StatMonitor):
         return value
 
 
+class _RangeConsolidator(object):
+    def __init__(self, callback):
+        self._callback = callback
+        self._first = None
+        self._last = None
+
+    def __enter__(self):
+        return self
+
+    def emit(self, value):
+        if self._last == value - 1:
+            self._last = value
+        else:
+            if self._first is not None:
+                self._callback(self._first, self._last)
+            self._first = self._last = value
+
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
+        if self._first is not None:
+            self._callback(self._first, self._last)
+        return False
+
+
 class _ChunkStreamMonitor(_Monitor):
     __gsignals__ = {
         'chunk-emitted': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_UINT64,)),
+                (gobject.TYPE_UINT64, gobject.TYPE_UINT64)),
     }
 
     def __init__(self, path):
@@ -128,8 +151,12 @@ class _ChunkStreamMonitor(_Monitor):
             lines = (self._buf + buf).split('\n')
             # Save partial last line, if any
             self._buf = lines.pop()
-            for line in lines:
-                self.emit('chunk-emitted', int(line))
+            # Emit chunks
+            def emit_range(first, last):
+                self.emit('chunk-emitted', first, last)
+            with _RangeConsolidator(emit_range) as c:
+                for line in lines:
+                    c.emit(int(line))
         return True
 
     def update(self):
@@ -158,7 +185,7 @@ class ChunkMapMonitor(_Monitor):
 
     __gsignals__ = {
         'chunk-state-changed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_UINT64, gobject.TYPE_INT)),
+                (gobject.TYPE_UINT64, gobject.TYPE_UINT64)),
     }
 
     def __init__(self, image_path):
@@ -182,29 +209,33 @@ class ChunkMapMonitor(_Monitor):
         current = len(self.chunks)
         if chunks > current:
             self.chunks.extend([self.MISSING] * (chunks - current))
-            for chunk in xrange(current, chunks):
-                self.emit('chunk-state-changed', chunk, self.chunks[chunk])
+            self.emit('chunk-state-changed', current, chunks - 1)
 
     def _resize_image(self, _monitor, _name, chunks):
         current = len(self.chunks)
         if chunks < current:
             del self.chunks[chunks:]
-            for chunk in xrange(chunks, current):
-                self.emit('chunk-state-changed', chunk, self.INVALID)
+            self.emit('chunk-state-changed', chunks, current - 1)
         else:
             self._ensure_size(chunks)
 
-    def _update_chunk(self, _monitor, chunk, state):
+    def _update_chunk(self, _monitor, first, last, state):
         # We may be notified of a chunk beyond the current EOF before we
         # are notified that the image has been resized.
-        self._ensure_size(chunk + 1)
-        cur_state = self.chunks[chunk]
-        if ((cur_state == self.ACCESSED and state == self.MODIFIED) or
-                (cur_state == self.MODIFIED and state == self.ACCESSED)):
-            state = self.ACCESSED_MODIFIED
-        if cur_state < state:
-            self.chunks[chunk] = state
-            self.emit('chunk-state-changed', chunk, state)
+        self._ensure_size(last + 1)
+        def emit(first, last):
+            self.emit('chunk-state-changed', first, last)
+        with _RangeConsolidator(emit) as c:
+            for chunk in xrange(first, last + 1):
+                cur_state = self.chunks[chunk]
+                if ((cur_state == self.ACCESSED and
+                        state == self.MODIFIED) or
+                        (cur_state == self.MODIFIED and
+                        state == self.ACCESSED)):
+                    state = self.ACCESSED_MODIFIED
+                if cur_state < state:
+                    self.chunks[chunk] = state
+                    c.emit(chunk)
 
     def close(self):
         for m in self._monitors:
