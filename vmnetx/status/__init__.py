@@ -42,7 +42,8 @@ Dark gray: Not present"""
     def __init__(self, image):
         gtk.DrawingArea.__init__(self)
         self._map = image.chunk_map
-        self._map_handler = None
+        self._map_chunk_handler = None
+        self._map_resize_handler = None
         self._width_history = [0, 0]
         self.set_tooltip_text(self.TIP)
         self.connect('realize', self._realize)
@@ -61,11 +62,15 @@ Dark gray: Not present"""
     # pylint: enable=E1101
 
     def _realize(self, _widget):
-        self._map_handler = self._map.connect('chunk-state-changed',
+        self._map_chunk_handler = self._map.connect('chunk-state-changed',
                 self._chunk_changed)
+        self._map_resize_handler = self._map.connect('image-resized',
+                self._image_resized)
+        self.queue_resize_no_redraw()
 
     def _unrealize(self, _widget):
-        self._map.disconnect(self._map_handler)
+        self._map.disconnect(self._map_chunk_handler)
+        self._map.disconnect(self._map_resize_handler)
 
     def _configure(self, _widget, event):
         self._width_history.append(event.width)
@@ -148,6 +153,9 @@ Dark gray: Not present"""
             row_last = min(width * (row + 1) - 1, last) % width
             self.queue_draw_area(row_first, row, row_last - row_first + 1, 1)
     # pylint: enable=E1101
+
+    def _image_resized(self, _map, _chunks):
+        self.queue_resize_no_redraw()
 
 
 class ScrollingImageChunkWidget(gtk.ScrolledWindow):

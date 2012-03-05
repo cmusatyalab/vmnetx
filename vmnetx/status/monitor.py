@@ -186,6 +186,8 @@ class ChunkMapMonitor(_Monitor):
     __gsignals__ = {
         'chunk-state-changed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (gobject.TYPE_UINT64, gobject.TYPE_UINT64)),
+        'image-resized': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (gobject.TYPE_UINT64,)),
     }
 
     def __init__(self, image_path):
@@ -209,12 +211,14 @@ class ChunkMapMonitor(_Monitor):
         current = len(self.chunks)
         if chunks > current:
             self.chunks.extend([self.MISSING] * (chunks - current))
+            self.emit('image-resized', chunks)
             self.emit('chunk-state-changed', current, chunks - 1)
 
     def _resize_image(self, _monitor, _name, chunks):
         current = len(self.chunks)
         if chunks < current:
             del self.chunks[chunks:]
+            self.emit('image-resized', chunks)
             self.emit('chunk-state-changed', chunks, current - 1)
         else:
             self._ensure_size(chunks)
