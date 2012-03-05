@@ -177,7 +177,7 @@ class StatWidget(gtk.EventBox):
         self._stat = image.stats[stat_name]
         self._stat_handler = None
         self._label = gtk.Label('--')
-        self._label.set_width_chars(6)
+        self._label.set_width_chars(7)
         self._label.set_alignment(1, 0.5)
         self.add(self._label)
         if tooltip:
