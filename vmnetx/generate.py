@@ -165,7 +165,7 @@ def copy_machine(in_xml, out_dir):
     domain.xpath('/domain/name')[0].text = 'machine'
     # Remove path information from disk image
     disk_tag = domain.xpath('/domain/devices/disk/source')[0]
-    disk_tag.set('file', DISK_NAME)
+    disk_tag.set('file', '/' + DISK_NAME)
     # Write it out
     domain.write(os.path.join(out_dir, DOMAIN_NAME), encoding='UTF-8',
             pretty_print=True)
