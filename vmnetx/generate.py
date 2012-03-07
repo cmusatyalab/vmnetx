@@ -26,7 +26,7 @@ import subprocess
 MANIFEST_NAMESPACE = 'http://olivearchive.org/xmlns/vmnetx/manifest'
 
 MANIFEST_NAME = 'machine.vnx'
-MACHINE_NAME = 'machine.xml'
+DOMAIN_NAME = 'domain.xml'
 DISK_NAME = 'disk.qcow'
 MEMORY_NAME = 'memory.img'
 
@@ -135,10 +135,10 @@ def copy_disk(in_path, out_path):
 def copy_machine(in_xml, out_dir):
     # Get disk path
     try:
-        machine = etree.parse(in_xml)
+        domain = etree.parse(in_xml)
     except (IOError, lxml.etree.XMLSyntaxError), e:
         raise MachineError(str(e))
-    in_disks = machine.xpath('/domain/devices/disk/source/@file')
+    in_disks = domain.xpath('/domain/devices/disk/source/@file')
     if len(in_disks) == 0:
         raise MachineError('Could not locate machine disk image')
     if len(in_disks) > 1:
@@ -160,14 +160,14 @@ def copy_machine(in_xml, out_dir):
     else:
         print 'No memory image found'
 
-    # Modify and write out XML
+    # Modify and write out domain XML
     # Substitute generic VM name
-    machine.xpath('/domain/name')[0].text = 'machine'
+    domain.xpath('/domain/name')[0].text = 'machine'
     # Remove path information from disk image
-    disk_tag = machine.xpath('/domain/devices/disk/source')[0]
+    disk_tag = domain.xpath('/domain/devices/disk/source')[0]
     disk_tag.set('file', DISK_NAME)
     # Write it out
-    machine.write(os.path.join(out_dir, MACHINE_NAME), encoding='UTF-8',
+    domain.write(os.path.join(out_dir, DOMAIN_NAME), encoding='UTF-8',
             pretty_print=True)
 
 
@@ -180,7 +180,7 @@ def write_manifest(base_url, out_dir, name):
             'size': str(os.stat(os.path.join(out_dir, name)).st_size),
         }
     xml = E.image(
-        E.machine(**file_attrs(MACHINE_NAME)),
+        E.domain(**file_attrs(DOMAIN_NAME)),
         E.disk(**file_attrs(DISK_NAME)),
         name=name,
     )
@@ -195,8 +195,8 @@ def write_manifest(base_url, out_dir, name):
 if __name__ == '__main__':
     import sys
     if len(sys.argv) != 5:
-        print 'Usage: %s name machine_xml out_dir base_url' % sys.argv[0]
+        print 'Usage: %s name domain_xml out_dir base_url' % sys.argv[0]
         sys.exit(1)
-    _name, _machine_xml, _out_dir, _base_url = sys.argv[1:]
-    copy_machine(_machine_xml, _out_dir)
+    _name, _domain_xml, _out_dir, _base_url = sys.argv[1:]
+    copy_machine(_domain_xml, _out_dir)
     write_manifest(_base_url, _out_dir, _name)
