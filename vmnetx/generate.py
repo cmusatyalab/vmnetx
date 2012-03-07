@@ -166,6 +166,9 @@ def copy_machine(in_xml, out_dir):
     # Remove path information from disk image
     disk_tag = domain.xpath('/domain/devices/disk/source')[0]
     disk_tag.set('file', '/' + DISK_NAME)
+    # Update disk driver
+    disk_tag = domain.xpath('/domain/devices/disk[@device="disk"]/driver')[0]
+    disk_tag.set('type', 'qcow2')
     # Write it out
     domain.write(os.path.join(out_dir, DOMAIN_NAME), encoding='UTF-8',
             pretty_print=True)
