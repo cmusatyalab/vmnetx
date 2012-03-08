@@ -7,7 +7,8 @@ AM_CFLAGS = -std=gnu99 -W -Wall -Wstrict-prototypes -pthread \
 AM_LDFLAGS = -avoid-version -pthread $(libcurl_LIBS) $(glib_LIBS) \
 	$(gthread_LIBS) $(fuse_LIBS)
 
-dist_bin_SCRIPTS = tools/vmnetx-generate
+dist_bin_SCRIPTS = tools/vmnetx \
+	tools/vmnetx-generate
 
 pkglib_LTLIBRARIES = libvmnetfs.la
 libvmnetfs_la_SOURCES  = vmnetfs/bitmap.c vmnetfs/cond.c vmnetfs/fuse.c \
@@ -18,7 +19,9 @@ libvmnetfs_la_SOURCES  = vmnetfs/bitmap.c vmnetfs/cond.c vmnetfs/fuse.c \
 	vmnetfs/vmnetfs.h vmnetfs/vmnetfs-private.h
 
 nobase_python_PYTHON = vmnetx/__init__.py \
+	vmnetx/execute.py \
 	vmnetx/generate.py \
+	vmnetx/view.py \
 	vmnetx/vmnetfs.py \
 	vmnetx/status/__init__.py \
 	vmnetx/status/monitor.py
