@@ -156,10 +156,14 @@ def copy_machine(in_xml, out_dir):
     copy_disk(in_disk, os.path.join(out_dir, DISK_NAME))
 
     # Copy memory
+    out_memory = os.path.join(out_dir, MEMORY_NAME)
     if os.path.exists(in_memory):
-        copy_memory(in_memory, os.path.join(out_dir, MEMORY_NAME))
+        copy_memory(in_memory, out_memory)
     else:
         print 'No memory image found'
+        # Ensure there's not one left over
+        if os.path.exists(out_memory):
+            os.unlink(out_memory)
 
     # Modify and write out domain XML
     # Substitute generic VM name
