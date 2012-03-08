@@ -17,12 +17,8 @@
 
 #include "vmnetfs-private.h"
 
-static void image_free(struct vmnetfs_image *img)
+static void _image_free(struct vmnetfs_image *img)
 {
-    if (img == NULL) {
-        return;
-    }
-    _vmnetfs_io_destroy(img);
     _vmnetfs_stream_group_free(img->io_stream);
     _vmnetfs_stat_free(img->bytes_read);
     _vmnetfs_stat_free(img->bytes_written);
@@ -31,6 +27,15 @@ static void image_free(struct vmnetfs_image *img)
     g_free(img->url);
     g_free(img->read_base);
     g_slice_free(struct vmnetfs_image, img);
+}
+
+static void image_free(struct vmnetfs_image *img)
+{
+    if (img == NULL) {
+        return;
+    }
+    _vmnetfs_io_destroy(img);
+    _image_free(img);
 }
 
 static struct vmnetfs_image *image_new(const char *url, const char *cache,
@@ -53,7 +58,7 @@ static struct vmnetfs_image *image_new(const char *url, const char *cache,
     img->chunk_dirties = _vmnetfs_stat_new();
 
     if (!_vmnetfs_io_init(img, err)) {
-        image_free(img);
+        _image_free(img);
         return NULL;
     }
 
