@@ -15,3 +15,4 @@
 .libs
 *.la
 *.lo
+*.pyc
