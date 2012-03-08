@@ -1,5 +1,5 @@
 #
-# vmnetx - Virtual machine network execution
+# vmnetx.generate - Generation of a vmnetx machine image
 #
 # Copyright (C) 2012 Carnegie Mellon University
 #
@@ -15,7 +15,6 @@
 # for more details.
 #
 
-from __future__ import division
 from lxml import etree
 from lxml.builder import ElementMaker
 import os
@@ -30,11 +29,11 @@ DOMAIN_NAME = 'domain.xml'
 DISK_NAME = 'disk.qcow'
 MEMORY_NAME = 'memory.img'
 
-class MachineError(Exception):
+class MachineGenerationError(Exception):
     pass
 
 
-class QemuMemoryHeader(object):
+class _QemuMemoryHeader(object):
     HEADER_MAGIC = 'LibvirtQemudSave'
     HEADER_VERSION = 2
     # Header values are stored "native-endian".  We only support x86, so
@@ -59,16 +58,17 @@ class QemuMemoryHeader(object):
 
         # Check header
         if magic != self.HEADER_MAGIC:
-            raise MachineError('Invalid memory image magic')
+            raise MachineGenerationError('Invalid memory image magic')
         if version != self.HEADER_VERSION:
-            raise MachineError('Unknown memory image version %d' % version)
+            raise MachineGenerationError('Unknown memory image version %d' %
+                    version)
         if header != [0] * self.HEADER_UNUSED_VALUES:
-            raise MachineError('Unused header values not 0')
+            raise MachineGenerationError('Unused header values not 0')
 
         # Read XML, drop trailing NUL padding
         self.xml = f.read(self._xml_len - 1).rstrip('\0')
         if f.read(1) != '\0':
-            raise MachineError('Missing NUL byte after XML')
+            raise MachineGenerationError('Missing NUL byte after XML')
 
     def seek_body(self, f):
         f.seek(self.HEADER_LENGTH + self._xml_len)
@@ -78,7 +78,7 @@ class QemuMemoryHeader(object):
         if len(self.xml) > self._xml_len - 1:
             # If this becomes a problem, we could write out a larger xml_len,
             # though this must be page-aligned.
-            raise MachineError('self.xml is too large')
+            raise MachineGenerationError('self.xml is too large')
         header = [self.HEADER_MAGIC,
                 self.HEADER_VERSION,
                 self._xml_len,
@@ -97,9 +97,10 @@ def copy_memory(in_path, out_path):
     fin = open(in_path)
     fout = open(out_path, 'w')
     try:
-        hdr = QemuMemoryHeader(fin)
+        hdr = _QemuMemoryHeader(fin)
         if hdr.compressed != hdr.COMPRESS_RAW:
-            raise MachineError('Cannot recompress save format %d' % compressed)
+            raise MachineGenerationError('Cannot recompress save format %d' %
+                    compressed)
 
         # Write header
         hdr.compressed = hdr.COMPRESS_XZ
@@ -117,7 +118,7 @@ def copy_memory(in_path, out_path):
         ret = subprocess.call(['xz', '-9cv'], stdin=fin, stdout=fout)
         if ret:
             raise IOError('XZ compressor failed')
-    except (MachineError, IOError), e:
+    except (MachineGenerationError, IOError), e:
         print 'Copying memory image without recompressing: %s' % str(e)
         fin.seek(0)
         fout.seek(0)
@@ -129,7 +130,7 @@ def copy_disk(in_path, out_path):
     print 'Copying and compressing disk image...'
     if subprocess.call(['qemu-img', 'convert', '-cp', '-O', 'qcow2',
             in_path, out_path]) != 0:
-        raise MachineError('qemu-img failed')
+        raise MachineGenerationError('qemu-img failed')
 
 
 def copy_machine(in_xml, out_dir):
@@ -137,12 +138,12 @@ def copy_machine(in_xml, out_dir):
     try:
         domain = etree.parse(in_xml)
     except (IOError, lxml.etree.XMLSyntaxError), e:
-        raise MachineError(str(e))
+        raise MachineGenerationError(str(e))
     in_disks = domain.xpath('/domain/devices/disk/source/@file')
     if len(in_disks) == 0:
-        raise MachineError('Could not locate machine disk image')
+        raise MachineGenerationError('Could not locate machine disk image')
     if len(in_disks) > 1:
-        raise MachineError('Machine has multiple disk images')
+        raise MachineGenerationError('Machine has multiple disk images')
     in_disk = in_disks[0]
 
     # Get memory path
