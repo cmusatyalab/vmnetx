@@ -7,6 +7,8 @@ AM_CFLAGS = -std=gnu99 -W -Wall -Wstrict-prototypes -pthread \
 AM_LDFLAGS = -avoid-version -pthread $(libcurl_LIBS) $(glib_LIBS) \
 	$(gthread_LIBS) $(fuse_LIBS)
 
+dist_bin_SCRIPTS = tools/vmnetx-generate
+
 pkglib_LTLIBRARIES = libvmnetfs.la
 libvmnetfs_la_SOURCES  = vmnetfs/bitmap.c vmnetfs/cond.c vmnetfs/fuse.c \
 	vmnetfs/fuse-image.c vmnetfs/fuse-stats.c vmnetfs/fuse-stream.c \

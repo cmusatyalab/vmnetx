@@ -194,13 +194,3 @@ def write_manifest(base_url, out_dir, name):
     with open(os.path.join(out_dir, MANIFEST_NAME), 'w') as f:
         f.write(etree.tostring(xml, encoding='UTF-8', pretty_print=True,
                 xml_declaration=True))
-
-
-if __name__ == '__main__':
-    import sys
-    if len(sys.argv) != 5:
-        print 'Usage: %s name domain_xml out_dir base_url' % sys.argv[0]
-        sys.exit(1)
-    _name, _domain_xml, _out_dir, _base_url = sys.argv[1:]
-    copy_machine(_domain_xml, _out_dir)
-    write_manifest(_base_url, _out_dir, _name)

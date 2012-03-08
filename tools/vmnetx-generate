@@ -1,0 +1,43 @@
+#!/usr/bin/env python
+#
+# vmnetx - Virtual machine network execution
+#
+# Copyright (C) 2012 Carnegie Mellon University
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of version 2 of the GNU General Public License as published
+# by the Free Software Foundation.  A copy of the GNU General Public License
+# should have been distributed along with this program in the file
+# COPYING.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# for more details.
+#
+
+from optparse import OptionParser
+import sys
+
+import vmnetx
+from vmnetx.generate import copy_machine, write_manifest
+
+USAGE = 'Usage: %prog [options] domain_xml base_url out_dir'
+VERSION = '%prog ' + vmnetx.__version__
+DESCRIPTION = 'Construct a VMNetX virtual machine image.'
+
+parser = OptionParser(usage=USAGE, version=VERSION, description=DESCRIPTION)
+parser.add_option('-n', '--name', dest='name', default='Virtual Machine',
+        help='Name of virtual machine', metavar='NAME')
+
+opts, args = parser.parse_args()
+if len(args) != 3:
+    parser.error('Incorrect mandatory arguments')
+domain_xml, base_url, out_dir = args
+
+try:
+    copy_machine(domain_xml, out_dir)
+    write_manifest(base_url, out_dir, opts.name)
+except Exception, e:
+    print str(e)
+    sys.exit(1)
