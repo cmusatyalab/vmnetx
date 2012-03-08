@@ -137,7 +137,7 @@ def copy_machine(in_xml, out_dir):
     # Get disk path
     try:
         domain = etree.parse(in_xml)
-    except (IOError, lxml.etree.XMLSyntaxError), e:
+    except (IOError, etree.XMLSyntaxError), e:
         raise MachineGenerationError(str(e))
     in_disks = domain.xpath('/domain/devices/disk/source/@file')
     if len(in_disks) == 0:
