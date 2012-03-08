@@ -19,6 +19,9 @@ import gtk
 import gtkvnc
 import socket
 
+from vmnetx.status import LoadProgressWidget
+from vmnetx.status.monitor import LoadProgressMonitor
+
 class VNCWidget(gtkvnc.Display):
     def __init__(self, path):
         gtkvnc.Display.__init__(self)
@@ -101,3 +104,20 @@ class VMWindow(gtk.Window):
         # Resize the window to the minimum allowed by its geometry
         # constraints
         self.resize(1, 1)
+
+
+class LoadProgressWindow(gtk.Window):
+    def __init__(self, image_path, parent):
+        gtk.Window.__init__(self)
+        self.set_title('Loading...')
+        self.set_transient_for(parent)
+        self.set_position(gtk.WIN_POS_CENTER_ON_PARENT)
+        self.set_modal(True)
+        self.set_resizable(False)
+
+        self._monitor = LoadProgressMonitor(image_path)
+        self.add(LoadProgressWidget(self._monitor))
+        self.connect('destroy', self._destroy)
+
+    def _destroy(self, _wid):
+        self._monitor.close()

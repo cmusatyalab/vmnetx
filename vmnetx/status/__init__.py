@@ -271,3 +271,20 @@ class ImageStatusWidget(gtk.VBox):
         frame = gtk.Frame('Chunk bitmap')
         frame.add(ScrollingImageChunkWidget(image))
         self.pack_start(frame)
+
+
+class LoadProgressWidget(gtk.ProgressBar):
+    def __init__(self, monitor):
+        gtk.ProgressBar.__init__(self)
+        self._monitor = monitor
+        self._handler = self._monitor.connect('progress', self._progress)
+        self.connect('destroy', self._destroy)
+
+    def _destroy(self, _wid):
+        self._monitor.disconnect(self._handler)
+
+    def _progress(self, _monitor, count, total):
+        if total != 0:
+            self.set_fraction(count / total)
+        else:
+            self.set_fraction(1)
