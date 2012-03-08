@@ -26,7 +26,8 @@ EXTRA_DIST = vmnetx/system.py.in pylintrc
 
 vmnetx/system.py: vmnetx/system.py.in Makefile
 	$(MKDIR_P) vmnetx
-	$(AM_V_GEN) sed -e "s:@pkglibdir@:$(pkglibdir):g" $< > $@
+	$(AM_V_GEN) sed -e "s:@pkglibdir@:$(pkglibdir):g" \
+		-e "s:@version@:$(VERSION):g" $< > $@
 
 check-local:
 	@# Fail on serious pylint errors

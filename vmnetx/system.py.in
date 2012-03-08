@@ -2,3 +2,5 @@
 # pylint: disable=C0103
 vmnetfs_path = '@pkglibdir@/libvmnetfs.so'
 # pylint: enable=C0103
+
+__version__ = '@version@'

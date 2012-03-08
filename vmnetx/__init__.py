@@ -16,5 +16,6 @@
 #
 
 import libvirt
+from vmnetx.system import __version__
 
 assert(libvirt.getVersion() >= 9004) # 0.9.4
