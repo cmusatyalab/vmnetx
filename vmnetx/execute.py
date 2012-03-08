@@ -51,8 +51,10 @@ class _VMNetFSRunner(threading.Thread):
         self._fs = VMNetFS(self.mountpoint,
             disk.url, disk.cache, disk.size, 0, disk.chunk_size,
             memory.url, memory.cache, memory.size, 0, memory.chunk_size)
-        self.disk_path = os.path.join(self.mountpoint, 'disk', 'image')
-        self.memory_path = os.path.join(self.mountpoint, 'memory', 'image')
+        self.disk_path = os.path.join(self.mountpoint, 'disk')
+        self.disk_image_path = os.path.join(self.disk_path, 'image')
+        self.memory_path = os.path.join(self.mountpoint, 'memory')
+        self.memory_image_path = os.path.join(self.memory_path, 'image')
 
     def run(self):
         # Thread function
@@ -81,6 +83,8 @@ class Machine(object):
 
         # Set up vmnetfs
         self._fs = _VMNetFSRunner(disk, memory)
+        self.disk_path = self._fs.disk_path
+        self.memory_path = self._fs.memory_path
 
         # Set up libvirt connection
         self._conn = libvirt.open('qemu:///session')
@@ -91,7 +95,7 @@ class Machine(object):
         self._fs.start()
 
         # Start VM
-        self._conn.restoreFlags(self._fs.memory_path, self._domain_xml,
+        self._conn.restoreFlags(self._fs.memory_image_path, self._domain_xml,
                 libvirt.VIR_DOMAIN_SAVE_RUNNING)
 
     def stop(self):
@@ -144,7 +148,7 @@ class Machine(object):
         source_nodes = tree.xpath('/domain/devices/disk[@device="disk"]/source')
         if len(source_nodes) != 1:
             raise MachineExecutionError('Error locating machine disk XML node')
-        source_nodes[0].set('file', self._fs.disk_path)
+        source_nodes[0].set('file', self._fs.disk_image_path)
         # Remove graphics declarations
         devices_node = tree.xpath('/domain/devices')[0]
         for node in tree.xpath('/domain/devices/graphics'):
