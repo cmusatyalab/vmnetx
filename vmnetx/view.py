@@ -98,7 +98,7 @@ class VMWindow(gtk.Window):
         bar.insert(agrp.get_action('quit').create_tool_item(), -1)
         bar.insert(gtk.SeparatorToolItem(), -1)
         bar.insert(agrp.get_action('show-activity').create_tool_item(), -1)
-        box.pack_start(bar)
+        box.pack_start(bar, expand=False)
 
         self._vnc = VNCWidget(path)
         self._vnc.connect('vnc-desktop-resize', self._vnc_resize)
