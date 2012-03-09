@@ -20,7 +20,6 @@ import gtkvnc
 import socket
 
 from vmnetx.status import LoadProgressWidget
-from vmnetx.status.monitor import LoadProgressMonitor
 
 class VNCWidget(gtkvnc.Display):
     def __init__(self, path):
@@ -135,7 +134,7 @@ class VMActionGroup(gtk.ActionGroup):
 
 
 class LoadProgressWindow(gtk.Window):
-    def __init__(self, image_path, parent):
+    def __init__(self, monitor, parent):
         gtk.Window.__init__(self)
         self.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_DIALOG)
         self.set_title('Loading...')
@@ -145,14 +144,7 @@ class LoadProgressWindow(gtk.Window):
         self.set_resizable(False)
         self.set_deletable(False)
 
-        self._monitor = LoadProgressMonitor(image_path)
-
         bin = gtk.Alignment()
-        bin.add(LoadProgressWidget(self._monitor))
+        bin.add(LoadProgressWidget(monitor))
         bin.set_padding(5, 3, 3, 3)
         self.add(bin)
-
-        self.connect('destroy', self._destroy)
-
-    def _destroy(self, _wid):
-        self._monitor.close()

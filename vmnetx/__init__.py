@@ -23,6 +23,7 @@ import threading
 from vmnetx.execute import Machine as _Machine
 from vmnetx.view import (VMWindow as _VMWindow,
         LoadProgressWindow as _LoadProgressWindow)
+from vmnetx.status.monitor import LoadProgressMonitor
 
 # For importers
 from vmnetx.system import __version__
@@ -33,7 +34,8 @@ class VMNetXApp(object):
         self._machine = _Machine(manifest_file)
         self._wind = _VMWindow(self._machine.name,
                 self._machine.vnc_listen_address)
-        self._loading = None
+        self._load_monitor = None
+        self._load_window = None
 
     def run(self):
         self._wind.show_all()
@@ -42,9 +44,9 @@ class VMNetXApp(object):
         threading.Thread(name='vmnetx-startup', target=self._startup).start()
 
         # Now it's safe to access vmnetfs stats
-        self._loading = _LoadProgressWindow(self._machine.memory_path,
-                self._wind)
-        self._loading.show_all()
+        self._load_monitor = LoadProgressMonitor(self._machine.memory_path)
+        self._load_window = _LoadProgressWindow(self._load_monitor, self._wind)
+        self._load_window.show_all()
 
         gtk.main()
 
@@ -63,7 +65,8 @@ class VMNetXApp(object):
     def _startup_done(self):
         # Runs in UI thread
         self._wind.connect_vnc()
-        self._loading.destroy()
+        self._load_window.destroy()
+        self._load_monitor.close()
 
 
 assert(libvirt.getVersion() >= 9004) # 0.9.4
