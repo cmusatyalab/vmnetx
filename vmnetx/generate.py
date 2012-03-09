@@ -182,18 +182,18 @@ def copy_machine(in_xml, out_dir):
 def write_manifest(base_url, out_dir, name):
     E = ElementMaker(namespace=MANIFEST_NAMESPACE,
             nsmap={None: MANIFEST_NAMESPACE})
-    def file_attrs(name):
+    def blob_attrs(name):
         return {
             'location': os.path.join(base_url, name),
             'size': str(os.stat(os.path.join(out_dir, name)).st_size),
         }
     xml = E.image(
-        E.domain(**file_attrs(DOMAIN_NAME)),
-        E.disk(**file_attrs(DISK_NAME)),
+        E.domain(location=os.path.join(base_url, DOMAIN_NAME)),
+        E.disk(**blob_attrs(DISK_NAME)),
         name=name,
     )
     if os.path.exists(os.path.join(out_dir, MEMORY_NAME)):
-        xml.append(E.memory(**file_attrs(MEMORY_NAME)))
+        xml.append(E.memory(**blob_attrs(MEMORY_NAME)))
 
     with open(os.path.join(out_dir, MANIFEST_NAME), 'w') as f:
         f.write(etree.tostring(xml, encoding='UTF-8', pretty_print=True,
