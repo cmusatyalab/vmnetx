@@ -100,6 +100,7 @@ class VMWindow(gtk.Window):
         self._vnc.connect('vnc-desktop-resize', self._vnc_resize)
         self._vnc.connect('vnc-disconnected', gtk.main_quit)
         box.pack_start(self._vnc)
+        self._vnc.grab_focus()
 
         statusbar = StatusBarWidget(self._vnc)
         box.pack_end(statusbar, expand=False)
