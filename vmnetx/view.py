@@ -83,11 +83,11 @@ class StatusBarWidget(gtk.HBox):
 class VMWindow(gtk.Window):
     def __init__(self, name, path):
         gtk.Window.__init__(self)
-        agrp = VMActionGroup()
+        agrp = VMActionGroup(self)
 
         self.set_title(name)
         self.connect('delete-event',
-                lambda _wid, _ev: agrp.get_action('quit').activate())
+                lambda _wid, _ev: agrp.get_action('quit').activate() or True)
 
         box = gtk.VBox()
         self.add(box)
@@ -114,14 +114,23 @@ class VMWindow(gtk.Window):
 
 
 class VMActionGroup(gtk.ActionGroup):
-    def __init__(self):
+    def __init__(self, parent):
         gtk.ActionGroup.__init__(self, 'vmnetx-global')
         self.add_actions((
             ('quit', 'gtk-quit', None, None, 'Quit', self._quit),
-        ))
+        ), user_data=parent)
 
-    def _quit(self, _wid):
-        gtk.main_quit()
+    def _quit(self, _action, parent):
+        dlg = gtk.MessageDialog(parent=parent,
+                type=gtk.MESSAGE_WARNING,
+                buttons=gtk.BUTTONS_OK_CANCEL,
+                flags=gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
+                message_format='Really quit?  All changes will be lost.')
+        dlg.set_default_response(gtk.RESPONSE_OK)
+        result = dlg.run()
+        dlg.destroy()
+        if result == gtk.RESPONSE_OK:
+            gtk.main_quit()
 
 
 class LoadProgressWindow(gtk.Window):
