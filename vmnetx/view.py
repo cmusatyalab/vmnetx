@@ -83,11 +83,18 @@ class StatusBarWidget(gtk.HBox):
 class VMWindow(gtk.Window):
     def __init__(self, name, path):
         gtk.Window.__init__(self)
+        agrp = VMActionGroup()
+
         self.set_title(name)
-        self.connect('delete-event', lambda wid, ev: gtk.main_quit())
+        self.connect('delete-event',
+                lambda _wid, _ev: agrp.get_action('quit').activate())
 
         box = gtk.VBox()
         self.add(box)
+
+        bar = gtk.Toolbar()
+        bar.insert(agrp.get_action('quit').create_tool_item(), -1)
+        box.pack_start(bar)
 
         self._vnc = VNCWidget(path)
         self._vnc.connect('vnc-desktop-resize', self._vnc_resize)
@@ -104,6 +111,17 @@ class VMWindow(gtk.Window):
         # Resize the window to the minimum allowed by its geometry
         # constraints
         self.resize(1, 1)
+
+
+class VMActionGroup(gtk.ActionGroup):
+    def __init__(self):
+        gtk.ActionGroup.__init__(self, 'vmnetx-global')
+        self.add_actions((
+            ('quit', 'gtk-quit', None, None, 'Quit', self._quit),
+        ))
+
+    def _quit(self, _wid):
+        gtk.main_quit()
 
 
 class LoadProgressWindow(gtk.Window):
