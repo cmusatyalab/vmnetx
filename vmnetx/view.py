@@ -127,14 +127,21 @@ class VMActionGroup(gtk.ActionGroup):
 class LoadProgressWindow(gtk.Window):
     def __init__(self, image_path, parent):
         gtk.Window.__init__(self)
+        self.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_DIALOG)
         self.set_title('Loading...')
         self.set_transient_for(parent)
         self.set_position(gtk.WIN_POS_CENTER_ON_PARENT)
         self.set_modal(True)
         self.set_resizable(False)
+        self.set_deletable(False)
 
         self._monitor = LoadProgressMonitor(image_path)
-        self.add(LoadProgressWidget(self._monitor))
+
+        bin = gtk.Alignment()
+        bin.add(LoadProgressWidget(self._monitor))
+        bin.set_padding(5, 3, 3, 3)
+        self.add(bin)
+
         self.connect('destroy', self._destroy)
 
     def _destroy(self, _wid):
