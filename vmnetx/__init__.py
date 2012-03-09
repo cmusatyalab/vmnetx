@@ -23,7 +23,7 @@ import threading
 from vmnetx.execute import Machine as _Machine
 from vmnetx.view import (VMWindow as _VMWindow,
         LoadProgressWindow as _LoadProgressWindow)
-from vmnetx.status.monitor import LoadProgressMonitor
+from vmnetx.status.monitor import ImageMonitor, LoadProgressMonitor
 
 # For importers
 from vmnetx.system import __version__
@@ -32,26 +32,33 @@ class VMNetXApp(object):
     def __init__(self, manifest_file):
         gobject.threads_init()
         self._machine = _Machine(manifest_file)
-        self._wind = _VMWindow(self._machine.name,
-                self._machine.vnc_listen_address)
+        self._wind = None
         self._load_monitor = None
         self._load_window = None
 
     def run(self):
-        self._wind.show_all()
-
         # Load memory image in the background
         threading.Thread(name='vmnetx-startup', target=self._startup).start()
 
         # Now it's safe to access vmnetfs stats
         self._load_monitor = LoadProgressMonitor(self._machine.memory_path)
+        disk_monitor = ImageMonitor(self._machine.disk_path)
+
+        # Show main window
+        self._wind = _VMWindow(self._machine.name,
+                self._machine.vnc_listen_address, disk_monitor)
+        self._wind.show_all()
+
+        # Show loading window
         self._load_window = _LoadProgressWindow(self._load_monitor, self._wind)
         self._load_window.show_all()
 
+        # Run main loop
         gtk.main()
 
         # Shut down
         self._wind.destroy()
+        disk_monitor.close()
         self._machine.stop()
 
     def _startup(self):

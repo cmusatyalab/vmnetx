@@ -19,7 +19,7 @@ import gtk
 import gtkvnc
 import socket
 
-from vmnetx.status import LoadProgressWidget
+from vmnetx.status import ImageStatusWidget, LoadProgressWidget
 
 class VNCWidget(gtkvnc.Display):
     def __init__(self, path):
@@ -80,7 +80,7 @@ class StatusBarWidget(gtk.HBox):
 
 
 class VMWindow(gtk.Window):
-    def __init__(self, name, path):
+    def __init__(self, name, path, monitor):
         gtk.Window.__init__(self)
         agrp = VMActionGroup(self)
 
@@ -88,11 +88,16 @@ class VMWindow(gtk.Window):
         self.connect('delete-event',
                 lambda _wid, _ev: agrp.get_action('quit').activate() or True)
 
+        self._activity = ActivityWindow(name, monitor,
+                agrp.get_action('show-activity'))
+
         box = gtk.VBox()
         self.add(box)
 
         bar = gtk.Toolbar()
         bar.insert(agrp.get_action('quit').create_tool_item(), -1)
+        bar.insert(gtk.SeparatorToolItem(), -1)
+        bar.insert(agrp.get_action('show-activity').create_tool_item(), -1)
         box.pack_start(bar)
 
         self._vnc = VNCWidget(path)
@@ -107,6 +112,9 @@ class VMWindow(gtk.Window):
     def connect_vnc(self):
         self._vnc.connect_vnc()
 
+    def show_activity(self, enabled):
+        self._activity.set_visible(enabled)
+
     def _vnc_resize(self, wid, width, height):
         # Resize the window to the minimum allowed by its geometry
         # constraints
@@ -118,6 +126,10 @@ class VMActionGroup(gtk.ActionGroup):
         gtk.ActionGroup.__init__(self, 'vmnetx-global')
         self.add_actions((
             ('quit', 'gtk-quit', None, None, 'Quit', self._quit),
+        ), user_data=parent)
+        self.add_toggle_actions((
+            ('show-activity', 'gtk-properties', 'Activity', None,
+                    'Show virtual machine activity', self._show_activity),
         ), user_data=parent)
 
     def _quit(self, _action, parent):
@@ -131,6 +143,22 @@ class VMActionGroup(gtk.ActionGroup):
         dlg.destroy()
         if result == gtk.RESPONSE_OK:
             gtk.main_quit()
+
+    def _show_activity(self, action, parent):
+        parent.show_activity(action.get_active())
+
+
+class ActivityWindow(gtk.Window):
+    def __init__(self, name, monitor, hide_action):
+        gtk.Window.__init__(self)
+        self.set_title('Activity: %s' % name)
+        self.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_UTILITY)
+        self.connect('delete-event',
+                lambda _wid, _ev: hide_action.activate() or True)
+
+        status = ImageStatusWidget(monitor)
+        self.add(status)
+        status.show_all()
 
 
 class LoadProgressWindow(gtk.Window):
