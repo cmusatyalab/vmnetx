@@ -20,7 +20,7 @@ from optparse import OptionParser
 import sys
 
 import vmnetx
-from vmnetx import VMNetXApp
+from vmnetx.app import VMNetXApp
 
 USAGE = 'Usage: %prog [options] manifest_file'
 VERSION = '%prog ' + vmnetx.__version__
