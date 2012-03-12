@@ -20,6 +20,7 @@ libvmnetfs_la_SOURCES  = vmnetfs/bitmap.c vmnetfs/cond.c vmnetfs/fuse.c \
 
 nobase_python_PYTHON = vmnetx/__init__.py \
 	vmnetx/app.py \
+	vmnetx/domain.py \
 	vmnetx/execute.py \
 	vmnetx/generate.py \
 	vmnetx/manifest.py \

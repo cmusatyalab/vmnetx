@@ -16,14 +16,13 @@
 #
 
 import libvirt
-from lxml import etree
 import os
-import subprocess
 import tempfile
 import threading
 import urllib2
 import uuid
 
+from vmnetx.domain import DomainXML
 from vmnetx.manifest import Manifest
 from vmnetx.vmnetfs import VMNetFS
 
@@ -88,7 +87,15 @@ class Machine(object):
 
         # Set up libvirt connection
         self._conn = libvirt.open('qemu:///session')
-        self._domain_xml = self._get_domain_xml(domain)
+
+        # Fetch and validate domain XML
+        fh = urllib2.urlopen(domain.url)
+        try:
+            xml = fh.read()
+        finally:
+            fh.close()
+        self._domain_xml = DomainXML(xml).get_for_execution(self._domain_name,
+                self._fs.disk_image_path, self.vnc_listen_address).xml
 
     def start(self):
         # Start vmnetfs
@@ -117,60 +124,3 @@ class Machine(object):
             os.rmdir(self._vnc_socket_dir)
         except OSError:
             pass
-
-    def _get_domain_xml(self, domain):
-        # Read XML from server
-        fh = urllib2.urlopen(domain.url)
-        try:
-            xml = fh.read()
-        finally:
-            fh.close()
-
-        # Validate it
-        self._validate_domain_xml(xml)
-
-        # Run sanity checks
-        '''
-        XXX:
-        - ensure there is only one disk
-        - ensure the local filesystem is not touched
-        - check for bindings directly to hardware
-        '''
-
-        # Update it
-        tree = etree.fromstring(xml)
-        # Ensure machine name is unique
-        name_nodes = tree.xpath('/domain/name')
-        if len(name_nodes) != 1:
-            raise MachineExecutionError('Error locating machine name XML node')
-        name_nodes[0].text = self._domain_name
-        # Update path to hard disk
-        source_nodes = tree.xpath('/domain/devices/disk[@device="disk"]/source')
-        if len(source_nodes) != 1:
-            raise MachineExecutionError('Error locating machine disk XML node')
-        source_nodes[0].set('file', self._fs.disk_image_path)
-        # Remove graphics declarations
-        devices_node = tree.xpath('/domain/devices')[0]
-        for node in tree.xpath('/domain/devices/graphics'):
-            devices_node.remove(node)
-        # Add new graphics declaration
-        graphics_node = etree.SubElement(devices_node, 'graphics')
-        graphics_node.set('type', 'vnc')
-        graphics_node.set('socket', self.vnc_listen_address)
-        xml = etree.tostring(tree, pretty_print=True)
-
-        # Validate it again
-        self._validate_domain_xml(xml)
-
-        return xml
-
-    @staticmethod
-    def _validate_domain_xml(xml):
-        with tempfile.NamedTemporaryFile(prefix='vmnetx-xml-') as fh:
-            fh.write(xml)
-            fh.flush()
-
-            with open('/dev/null', 'w') as null:
-                if subprocess.call(['virt-xml-validate', fh.name, 'domain'],
-                        stdout=null, stderr=null):
-                    raise MachineExecutionError('Domain XML does not validate')

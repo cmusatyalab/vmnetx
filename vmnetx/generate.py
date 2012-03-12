@@ -15,12 +15,12 @@
 # for more details.
 #
 
-from lxml import etree
 import os
 import shutil
 import struct
 import subprocess
 
+from vmnetx.domain import DomainXML, DomainXMLError
 from vmnetx.manifest import Manifest, ReferenceInfo
 
 MANIFEST_NAME = 'machine.vnx'
@@ -133,17 +133,12 @@ def copy_disk(in_path, out_path):
 
 
 def copy_machine(in_xml, out_dir):
-    # Get disk path
+    # Parse domain XML
     try:
-        domain = etree.parse(in_xml)
-    except (IOError, etree.XMLSyntaxError), e:
+        with open(in_xml) as fh:
+            domain = DomainXML(fh.read())
+    except (IOError, DomainXMLError), e:
         raise MachineGenerationError(str(e))
-    in_disks = domain.xpath('/domain/devices/disk/source/@file')
-    if len(in_disks) == 0:
-        raise MachineGenerationError('Could not locate machine disk image')
-    if len(in_disks) > 1:
-        raise MachineGenerationError('Machine has multiple disk images')
-    in_disk = in_disks[0]
 
     # Get memory path
     in_memory = os.path.join(os.path.dirname(in_xml), 'save',
@@ -152,7 +147,7 @@ def copy_machine(in_xml, out_dir):
     # Copy disk
     if not os.path.isdir(out_dir):
         os.mkdir(out_dir)
-    copy_disk(in_disk, os.path.join(out_dir, DISK_NAME))
+    copy_disk(domain.disk_path, os.path.join(out_dir, DISK_NAME))
 
     # Copy memory
     out_memory = os.path.join(out_dir, MEMORY_NAME)
@@ -164,18 +159,9 @@ def copy_machine(in_xml, out_dir):
         if os.path.exists(out_memory):
             os.unlink(out_memory)
 
-    # Modify and write out domain XML
-    # Substitute generic VM name
-    domain.xpath('/domain/name')[0].text = 'machine'
-    # Remove path information from disk image
-    disk_tag = domain.xpath('/domain/devices/disk/source')[0]
-    disk_tag.set('file', '/' + DISK_NAME)
-    # Update disk driver
-    disk_tag = domain.xpath('/domain/devices/disk[@device="disk"]/driver')[0]
-    disk_tag.set('type', 'qcow2')
-    # Write it out
-    domain.write(os.path.join(out_dir, DOMAIN_NAME), encoding='UTF-8',
-            pretty_print=True)
+    # Write out domain XML
+    with open(os.path.join(out_dir, DOMAIN_NAME), 'w') as fh:
+        fh.write(domain.get_for_storage(DISK_NAME).xml)
 
 
 def write_manifest(base_url, out_dir, name):
