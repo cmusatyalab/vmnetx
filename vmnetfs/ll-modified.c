@@ -67,7 +67,7 @@ bool _vmnetfs_ll_modified_write_chunk(struct vmnetfs_image *img,
 {
     g_assert(_vmnetfs_bit_test(img->modified_map, chunk) ||
             (offset == 0 && length == MIN(img->chunk_size,
-            image_size - chunk * img->chunk_size)));
+            img->initial_size - chunk * img->chunk_size)));
     g_assert(offset < img->chunk_size);
     g_assert(offset + length <= img->chunk_size);
     g_assert(chunk * img->chunk_size + offset + length <= image_size);

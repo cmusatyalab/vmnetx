@@ -295,7 +295,7 @@ static uint64_t read_chunk_unlocked(struct vmnetfs_image *img,
            keep the present map up to date. */
         if (!_vmnetfs_bit_test(img->present_map, chunk)) {
             uint64_t start = chunk * img->chunk_size;
-            uint64_t count = MIN(image_size - start, img->chunk_size);
+            uint64_t count = MIN(img->initial_size - start, img->chunk_size);
             void *buf = g_malloc(count);
 
             _vmnetfs_u64_stat_increment(img->chunk_fetches, 1);
@@ -343,7 +343,7 @@ static bool copy_to_modified(struct vmnetfs_image *img, uint64_t image_size,
     bool ret;
     GError *my_err = NULL;
 
-    count = MIN(image_size - chunk * img->chunk_size, img->chunk_size);
+    count = MIN(img->initial_size - chunk * img->chunk_size, img->chunk_size);
     buf = g_malloc(count);
 
     _vmnetfs_u64_stat_increment(img->chunk_dirties, 1);
