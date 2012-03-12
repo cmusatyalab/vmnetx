@@ -18,9 +18,14 @@
 import collections
 from lxml import etree
 from lxml.builder import ElementMaker
+import os
 
 NS = 'http://olivearchive.org/xmlns/vmnetx/manifest'
 NSP = '{' + NS + '}'
+SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'manifest.xsd')
+
+schema = etree.XMLSchema(etree.parse(SCHEMA_PATH))
+
 
 class ManifestError(Exception):
     pass
@@ -38,7 +43,7 @@ class Manifest(object):
 
             # Parse XML
             try:
-                tree = etree.fromstring(xml)
+                tree = etree.fromstring(xml, etree.XMLParser(schema=schema))
                 self.name = tree.get('name')
                 self.domain = self._make_refinfo(tree.find(NSP + 'domain'))
                 self.disk = self._make_refinfo(tree.find(NSP + 'disk'))
@@ -63,6 +68,7 @@ class Manifest(object):
             if memory:
                 tree.append(E.memory(location=memory.location,
                         size=memory.size))
+            schema.assertValid(tree)
             self.xml = etree.tostring(tree, encoding='UTF-8',
                     pretty_print=True, xml_declaration=True)
 

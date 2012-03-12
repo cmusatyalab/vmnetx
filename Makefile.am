@@ -32,6 +32,8 @@ nobase_nodist_python_PYTHON = vmnetx/system.py
 CLEANFILES = vmnetx/system.py
 EXTRA_DIST = vmnetx/system.py.in pylintrc
 
+dist_pkgpython_DATA = manifest.xsd
+
 vmnetx/system.py: vmnetx/system.py.in Makefile
 	$(MKDIR_P) vmnetx
 	$(AM_V_GEN) sed -e "s:@pkglibdir@:$(pkglibdir):g" \
