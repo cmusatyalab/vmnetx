@@ -24,6 +24,7 @@ import threading
 import urllib2
 import uuid
 
+from vmnetx.manifest import Manifest
 from vmnetx.vmnetfs import VMNetFS
 
 class MachineExecutionError(Exception):
@@ -31,9 +32,9 @@ class MachineExecutionError(Exception):
 
 
 class _ReferencedObject(object):
-    def __init__(self, element, dir=None, chunk_size=131072):
-        self.url = element.get('location')
-        self.size = int(element.get('size'))
+    def __init__(self, info, dir=None, chunk_size=131072):
+        self.url = info.location
+        self.size = info.size
         self.chunk_size = chunk_size
 
         # Ensure a crafted URL can't escape the cache directory
@@ -67,19 +68,18 @@ class _VMNetFSRunner(threading.Thread):
 
 
 class Machine(object):
-    NS = '{http://olivearchive.org/xmlns/vmnetx/manifest}'
-
     def __init__(self, manifest_path):
         self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
         self._vnc_socket_dir = tempfile.mkdtemp(prefix='vmnetx-socket-')
         self.vnc_listen_address = os.path.join(self._vnc_socket_dir, 'vnc')
 
         # Parse manifest
-        image = etree.parse(manifest_path).getroot()
-        self.name = image.get('name')
-        domain = _ReferencedObject(image.find(self.NS + 'domain'))
-        disk = _ReferencedObject(image.find(self.NS + 'disk'))
-        memory = _ReferencedObject(image.find(self.NS + 'memory'))
+        with open(manifest_path) as fh:
+            manifest = Manifest(xml=fh.read())
+        self.name = manifest.name
+        domain = _ReferencedObject(manifest.domain)
+        disk = _ReferencedObject(manifest.disk)
+        memory = _ReferencedObject(manifest.memory)
 
         # Set up vmnetfs
         self._fs = _VMNetFSRunner(disk, memory)
