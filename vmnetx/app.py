@@ -33,9 +33,8 @@ class VMNetXApp(object):
 
     def run(self):
         try:
-            # Load memory image in the background
-            threading.Thread(name='vmnetx-startup',
-                    target=self._startup).start()
+            # Start vmnetfs
+            self._machine.start_fs()
 
             # Now it's safe to access vmnetfs stats
             self._load_monitor = LoadProgressMonitor(self._machine.memory_path)
@@ -51,6 +50,10 @@ class VMNetXApp(object):
                     self._wind)
             self._load_window.show_all()
 
+            # Load memory image in the background
+            threading.Thread(name='vmnetx-startup',
+                    target=self._startup).start()
+
             # Run main loop
             gtk.main()
         except Exception:
@@ -60,13 +63,15 @@ class VMNetXApp(object):
             # Shut down
             self._wind.destroy()
             disk_monitor.close()
-            self._machine.stop()
+            self._machine.stop_vm()
+            self._machine.stop_fs()
+            self._machine.close()
 
     def _startup(self):
         # Thread function.  Load the memory image, then connect the VNC
         # viewer.
         try:
-            self._machine.start()
+            self._machine.start_vm()
         finally:
             gobject.idle_add(self._startup_done)
 

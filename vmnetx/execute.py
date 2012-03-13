@@ -97,26 +97,27 @@ class Machine(object):
         self._domain_xml = DomainXML(xml).get_for_execution(self._domain_name,
                 self._fs.disk_image_path, self.vnc_listen_address).xml
 
-    def start(self):
-        # Start vmnetfs
+    def start_fs(self):
         self._fs.start()
 
-        # Start VM
+    def stop_fs(self):
+        self._fs.stop()
+
+    def start_vm(self):
         self._conn.restoreFlags(self._fs.memory_image_path, self._domain_xml,
                 libvirt.VIR_DOMAIN_SAVE_RUNNING)
 
-    def stop(self):
-        # Stop instance
+    def stop_vm(self):
         try:
             instance = self._conn.lookupByName(self._domain_name)
         except libvirt.libvirtError:
             pass
         else:
             instance.destroy()
-        self._conn.close()
 
-        # Stop vmnetfs
-        self._fs.stop()
+    def close(self):
+        # Close libvirt connection
+        self._conn.close()
 
         # Delete VNC socket
         try:
