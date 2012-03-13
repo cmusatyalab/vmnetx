@@ -20,7 +20,7 @@ import gtk
 import threading
 
 from vmnetx.execute import Machine
-from vmnetx.view import VMWindow, LoadProgressWindow
+from vmnetx.view import VMWindow, LoadProgressWindow, ErrorWindow
 from vmnetx.status.monitor import ImageMonitor, LoadProgressMonitor
 
 class VMNetXApp(object):
@@ -32,29 +32,35 @@ class VMNetXApp(object):
         self._load_window = None
 
     def run(self):
-        # Load memory image in the background
-        threading.Thread(name='vmnetx-startup', target=self._startup).start()
+        try:
+            # Load memory image in the background
+            threading.Thread(name='vmnetx-startup',
+                    target=self._startup).start()
 
-        # Now it's safe to access vmnetfs stats
-        self._load_monitor = LoadProgressMonitor(self._machine.memory_path)
-        disk_monitor = ImageMonitor(self._machine.disk_path)
+            # Now it's safe to access vmnetfs stats
+            self._load_monitor = LoadProgressMonitor(self._machine.memory_path)
+            disk_monitor = ImageMonitor(self._machine.disk_path)
 
-        # Show main window
-        self._wind = VMWindow(self._machine.name,
-                self._machine.vnc_listen_address, disk_monitor)
-        self._wind.show_all()
+            # Show main window
+            self._wind = VMWindow(self._machine.name,
+                    self._machine.vnc_listen_address, disk_monitor)
+            self._wind.show_all()
 
-        # Show loading window
-        self._load_window = LoadProgressWindow(self._load_monitor, self._wind)
-        self._load_window.show_all()
+            # Show loading window
+            self._load_window = LoadProgressWindow(self._load_monitor,
+                    self._wind)
+            self._load_window.show_all()
 
-        # Run main loop
-        gtk.main()
-
-        # Shut down
-        self._wind.destroy()
-        disk_monitor.close()
-        self._machine.stop()
+            # Run main loop
+            gtk.main()
+        except Exception:
+            # Show error window with exception
+            ErrorWindow(self._wind).run()
+        finally:
+            # Shut down
+            self._wind.destroy()
+            disk_monitor.close()
+            self._machine.stop()
 
     def _startup(self):
         # Thread function.  Load the memory image, then connect the VNC

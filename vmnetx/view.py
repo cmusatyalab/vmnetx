@@ -18,6 +18,8 @@
 import gtk
 import gtkvnc
 import socket
+import sys
+import traceback
 
 from vmnetx.status import ImageStatusWidget, LoadProgressWidget
 
@@ -176,3 +178,31 @@ class LoadProgressWindow(gtk.Window):
         bin.add(LoadProgressWidget(monitor))
         bin.set_padding(5, 3, 3, 3)
         self.add(bin)
+
+
+class ErrorWindow(gtk.MessageDialog):
+    def __init__(self, parent):
+        gtk.MessageDialog.__init__(self, parent=parent,
+                flags=gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
+                type=gtk.MESSAGE_ERROR, buttons=gtk.BUTTONS_OK,
+                message_format='Fatal Error')
+        exception = sys.exc_info()[1]
+        detail = traceback.format_exc()
+        self.format_secondary_text(str(exception))
+
+        content = self.get_message_area()
+        expander = gtk.Expander('Details')
+        content.pack_start(expander)
+
+        view = gtk.TextView()
+        view.get_buffer().set_text(detail)
+        view.set_editable(False)
+        scroller = gtk.ScrolledWindow(view.get_hadjustment(),
+                view.get_vadjustment())
+        scroller.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+        scroller.add(view)
+        scroller.set_size_request(600, 150)
+        expander.add(scroller)
+
+        self.get_widget_for_response(gtk.RESPONSE_OK).grab_focus()
+        content.show_all()
