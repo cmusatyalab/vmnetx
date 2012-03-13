@@ -89,6 +89,7 @@ class VMWindow(gtk.Window):
         self.set_title(name)
         self.connect('delete-event',
                 lambda _wid, _ev: agrp.get_action('quit').activate() or True)
+        self.connect('destroy', self._destroy)
 
         self._activity = ActivityWindow(name, monitor,
                 agrp.get_action('show-activity'))
@@ -121,6 +122,9 @@ class VMWindow(gtk.Window):
         # Resize the window to the minimum allowed by its geometry
         # constraints
         self.resize(1, 1)
+
+    def _destroy(self, _wid):
+        self._activity.destroy()
 
 
 class VMActionGroup(gtk.ActionGroup):
