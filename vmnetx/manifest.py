@@ -62,12 +62,12 @@ class Manifest(object):
             E = ElementMaker(namespace=NS, nsmap={None: NS})
             tree = E.image(
                 E.domain(location=domain.location),
-                E.disk(location=disk.location, size=disk.size),
+                E.disk(location=disk.location, size=str(disk.size)),
                 name=name,
             )
             if memory:
                 tree.append(E.memory(location=memory.location,
-                        size=memory.size))
+                        size=str(memory.size)))
             schema.assertValid(tree)
             self.xml = etree.tostring(tree, encoding='UTF-8',
                     pretty_print=True, xml_declaration=True)
