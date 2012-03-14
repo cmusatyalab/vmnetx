@@ -15,18 +15,22 @@
 # for more details.
 #
 
+from __future__ import division
+import hashlib
 import os
 import shutil
 import struct
 import subprocess
+import sys
+from tempfile import NamedTemporaryFile
 
 from vmnetx.domain import DomainXML, DomainXMLError
 from vmnetx.manifest import Manifest, ReferenceInfo
 
 MANIFEST_NAME = 'machine.netx'
-DOMAIN_NAME = 'domain.xml'
-DISK_NAME = 'disk.qcow'
-MEMORY_NAME = 'memory.img'
+DOMAIN_TEMPLATE = 'domain-%s.xml'
+DISK_TEMPLATE = 'disk-%s.qcow'
+MEMORY_TEMPLATE = 'memory-%s.img'
 
 class MachineGenerationError(Exception):
     pass
@@ -132,6 +136,31 @@ def copy_disk(in_path, out_path):
         raise MachineGenerationError('qemu-img failed')
 
 
+def rename_blob(in_path, name_template):
+    # Rename a blob to include its SHA-256 hash.  Template must contain "%s".
+    # Return the new path.
+    hash = hashlib.sha256()
+    cur = 0
+    size = os.stat(in_path).st_size
+    pct = -1
+    do_progress = size > 1 << 20
+    with open(in_path) as fh:
+        for buf in iter(lambda: fh.read(128 << 10), ''):
+            hash.update(buf)
+            cur += len(buf)
+            cur_pct = 100 * cur // size
+            if do_progress and cur_pct > pct:
+                print '  Computing hash: %3d%%\r' % cur_pct,
+                sys.stdout.flush()
+                pct = cur_pct
+    if do_progress:
+        print
+    out_path = os.path.join(os.path.dirname(in_path),
+            name_template % hash.hexdigest())
+    os.rename(in_path, out_path)
+    return out_path
+
+
 def generate_machine(name, in_xml, base_url, out_dir):
     # Parse domain XML
     try:
@@ -147,21 +176,26 @@ def generate_machine(name, in_xml, base_url, out_dir):
     # Copy disk
     if not os.path.isdir(out_dir):
         os.mkdir(out_dir)
-    out_disk = os.path.join(out_dir, DISK_NAME)
-    copy_disk(domain.disk_path, out_disk)
+    temp = NamedTemporaryFile(dir=out_dir, prefix='disk-', delete=False)
+    temp.close()
+    copy_disk(domain.disk_path, temp.name)
+    out_disk = rename_blob(temp.name, DISK_TEMPLATE)
 
     # Copy memory
     if os.path.exists(in_memory):
-        out_memory = os.path.join(out_dir, MEMORY_NAME)
-        copy_memory(in_memory, out_memory)
+        temp = NamedTemporaryFile(dir=out_dir, prefix='memory-', delete=False)
+        temp.close()
+        copy_memory(in_memory, temp.name)
+        out_memory = rename_blob(temp.name, MEMORY_TEMPLATE)
     else:
         print 'No memory image found'
         out_memory = None
 
     # Write out domain XML
-    out_domain = os.path.join(out_dir, DOMAIN_NAME)
-    with open(out_domain, 'w') as fh:
-        fh.write(domain.get_for_storage(DISK_NAME).xml)
+    temp = NamedTemporaryFile(dir=out_dir, prefix='domain-', delete=False)
+    temp.write(domain.get_for_storage(os.path.basename(out_disk)).xml)
+    temp.close()
+    out_domain = rename_blob(temp.name, DOMAIN_TEMPLATE)
 
     # Generate manifest
     def blob_info(path, with_size=True):
