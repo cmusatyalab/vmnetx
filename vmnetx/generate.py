@@ -23,7 +23,7 @@ import subprocess
 from vmnetx.domain import DomainXML, DomainXMLError
 from vmnetx.manifest import Manifest, ReferenceInfo
 
-MANIFEST_NAME = 'machine.vnx'
+MANIFEST_NAME = 'machine.netx'
 DOMAIN_NAME = 'domain.xml'
 DISK_NAME = 'disk.qcow'
 MEMORY_NAME = 'memory.img'

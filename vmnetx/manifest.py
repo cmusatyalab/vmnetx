@@ -1,5 +1,5 @@
 #
-# vmnetx.manifest - Handling of .vnx files
+# vmnetx.manifest - Handling of .netx files
 #
 # Copyright (C) 2012 Carnegie Mellon University
 #
