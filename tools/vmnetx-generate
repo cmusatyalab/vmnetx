@@ -20,7 +20,7 @@ from optparse import OptionParser
 import sys
 
 import vmnetx
-from vmnetx.generate import copy_machine, write_manifest
+from vmnetx.generate import generate_machine
 
 USAGE = 'Usage: %prog [options] domain_xml base_url out_dir'
 VERSION = '%prog ' + vmnetx.__version__
@@ -36,8 +36,7 @@ if len(args) != 3:
 domain_xml, base_url, out_dir = args
 
 try:
-    copy_machine(domain_xml, out_dir)
-    write_manifest(base_url, out_dir, opts.name)
+    generate_machine(opts.name, domain_xml, base_url, out_dir)
 except Exception, e:
     print str(e)
     sys.exit(1)

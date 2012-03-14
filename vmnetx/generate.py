@@ -132,7 +132,7 @@ def copy_disk(in_path, out_path):
         raise MachineGenerationError('qemu-img failed')
 
 
-def copy_machine(in_xml, out_dir):
+def generate_machine(name, in_xml, base_url, out_dir):
     # Parse domain XML
     try:
         with open(in_xml) as fh:
@@ -147,36 +147,36 @@ def copy_machine(in_xml, out_dir):
     # Copy disk
     if not os.path.isdir(out_dir):
         os.mkdir(out_dir)
-    copy_disk(domain.disk_path, os.path.join(out_dir, DISK_NAME))
+    out_disk = os.path.join(out_dir, DISK_NAME)
+    copy_disk(domain.disk_path, out_disk)
 
     # Copy memory
-    out_memory = os.path.join(out_dir, MEMORY_NAME)
     if os.path.exists(in_memory):
+        out_memory = os.path.join(out_dir, MEMORY_NAME)
         copy_memory(in_memory, out_memory)
     else:
         print 'No memory image found'
-        # Ensure there's not one left over
-        if os.path.exists(out_memory):
-            os.unlink(out_memory)
+        out_memory = None
 
     # Write out domain XML
-    with open(os.path.join(out_dir, DOMAIN_NAME), 'w') as fh:
+    out_domain = os.path.join(out_dir, DOMAIN_NAME)
+    with open(out_domain, 'w') as fh:
         fh.write(domain.get_for_storage(DISK_NAME).xml)
 
-
-def write_manifest(base_url, out_dir, name):
-    def blob_info(name):
-        return ReferenceInfo(location=os.path.join(base_url, name),
-                size=str(os.stat(os.path.join(out_dir, name)).st_size))
-
-    domain = ReferenceInfo(location=os.path.join(base_url, DOMAIN_NAME),
-            size=0)
-    disk = blob_info(DISK_NAME)
-    if os.path.exists(os.path.join(out_dir, MEMORY_NAME)):
-        memory = blob_info(MEMORY_NAME)
+    # Generate manifest
+    def blob_info(path, with_size=True):
+        return ReferenceInfo(
+            location=os.path.join(base_url, os.path.basename(path)),
+            size=with_size and os.stat(path).st_size or 0,
+        )
+    domain = blob_info(out_domain, False)
+    disk = blob_info(out_disk)
+    if out_memory is not None:
+        memory = blob_info(out_memory)
     else:
         memory = None
     manifest = Manifest(name=name, domain=domain, disk=disk, memory=memory)
 
+    # Write out manifest
     with open(os.path.join(out_dir, MANIFEST_NAME), 'w') as f:
         f.write(manifest.xml)
