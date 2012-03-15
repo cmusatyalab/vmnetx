@@ -18,6 +18,7 @@
 from lxml import etree
 import subprocess
 from tempfile import NamedTemporaryFile
+import uuid
 
 class DomainXMLError(Exception):
     pass
@@ -67,6 +68,9 @@ class DomainXML(object):
 
         # Substitute generic VM name
         tree.xpath('/domain/name')[0].text = 'machine'
+
+        # Regenerate UUID
+        tree.xpath('/domain/uuid')[0].text = str(uuid.uuid4())
 
         # Remove path information from disk image
         disk_tag = tree.xpath('/domain/devices/disk/source')[0]
