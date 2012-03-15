@@ -18,7 +18,6 @@
 from __future__ import division
 import hashlib
 import os
-import shutil
 import struct
 import subprocess
 import sys
@@ -95,38 +94,33 @@ class _QemuMemoryHeader(object):
         f.write(struct.pack('%ds' % self._xml_len, self.xml))
 
 
-def copy_memory(in_path, out_path):
+def copy_memory(in_path, out_path, xml=None):
     # Recompress if possible
     fin = open(in_path)
     fout = open(out_path, 'w')
-    try:
-        hdr = _QemuMemoryHeader(fin)
-        if hdr.compressed != hdr.COMPRESS_RAW:
-            raise MachineGenerationError('Cannot recompress save format %d' %
-                    compressed)
+    hdr = _QemuMemoryHeader(fin)
+    if hdr.compressed != hdr.COMPRESS_RAW:
+        raise MachineGenerationError('Cannot recompress save format %d' %
+                compressed)
 
-        # Write header
-        hdr.compressed = hdr.COMPRESS_XZ
-        hdr.write(fout)
+    # Write header
+    hdr.compressed = hdr.COMPRESS_XZ
+    if xml is not None:
+        hdr.xml = xml
+    hdr.write(fout)
 
-        # Print size of uncompressed image
-        fin.seek(0, 2)
-        total = fin.tell()
-        hdr.seek_body(fin)
-        print 'Copying and compressing memory image (%d MB)...' % (
-                (total - fin.tell()) >> 20)
+    # Print size of uncompressed image
+    fin.seek(0, 2)
+    total = fin.tell()
+    hdr.seek_body(fin)
+    print 'Copying and compressing memory image (%d MB)...' % (
+            (total - fin.tell()) >> 20)
 
-        # Write body
-        fout.flush()
-        ret = subprocess.call(['xz', '-9cv'], stdin=fin, stdout=fout)
-        if ret:
-            raise IOError('XZ compressor failed')
-    except (MachineGenerationError, IOError), e:
-        print 'Copying memory image without recompressing: %s' % str(e)
-        fin.seek(0)
-        fout.seek(0)
-        fout.truncate()
-        shutil.copyfileobj(fin, fout)
+    # Write body
+    fout.flush()
+    ret = subprocess.call(['xz', '-9cv'], stdin=fin, stdout=fout)
+    if ret:
+        raise IOError('XZ compressor failed')
 
 
 def copy_disk(in_path, out_path):
@@ -181,11 +175,14 @@ def generate_machine(name, in_xml, base_url, out_dir):
     copy_disk(domain.disk_path, temp.name)
     out_disk = rename_blob(temp.name, DISK_TEMPLATE)
 
+    # Generate domain XML
+    domain_xml = domain.get_for_storage(os.path.basename(out_disk)).xml
+
     # Copy memory
     if os.path.exists(in_memory):
         temp = NamedTemporaryFile(dir=out_dir, prefix='memory-', delete=False)
         temp.close()
-        copy_memory(in_memory, temp.name)
+        copy_memory(in_memory, temp.name, domain_xml)
         out_memory = rename_blob(temp.name, MEMORY_TEMPLATE)
     else:
         print 'No memory image found'
@@ -193,7 +190,7 @@ def generate_machine(name, in_xml, base_url, out_dir):
 
     # Write out domain XML
     temp = NamedTemporaryFile(dir=out_dir, prefix='domain-', delete=False)
-    temp.write(domain.get_for_storage(os.path.basename(out_disk)).xml)
+    temp.write(domain_xml)
     temp.close()
     out_domain = rename_blob(temp.name, DOMAIN_TEMPLATE)
 
