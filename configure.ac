@@ -20,7 +20,7 @@ AC_INIT([vmnetx], [0.1])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIR([m4])
 AC_COPYRIGHT([Copyright (C) 2007-2012 Carnegie Mellon University])
-AC_CONFIG_SRCDIR([vmnetfs/vmnetfs.h])
+AC_CONFIG_SRCDIR([vmnetfs/vmnetfs.c])
 AC_CONFIG_HEADERS([config.h])
 AC_DISABLE_STATIC
 
@@ -35,9 +35,6 @@ PKG_PROG_PKG_CONFIG()
 
 AC_PATH_PROG([PYLINT], [pylint], [:])
 AC_ARG_VAR([PYLINT], [path to pylint])
-
-# Checks for compiler characteristics.
-gl_VISIBILITY
 
 # Checks for libraries.
 PKG_CHECK_MODULES([libcurl], [libcurl >= 7.17.0])

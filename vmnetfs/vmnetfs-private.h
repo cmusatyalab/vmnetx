@@ -18,26 +18,17 @@
 #ifndef VMNETFS_PRIVATE_H
 #define VMNETFS_PRIVATE_H
 
-#define G_LOG_DOMAIN "vmnetfs"
-
 #include <sys/stat.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include <glib.h>
-#include "vmnetfs.h"
 #include "config.h"
-
-#if HAVE_VISIBILITY
-#define exported __attribute__((visibility("default")))
-#else
-#define exported
-#endif
 
 struct vmnetfs {
     struct vmnetfs_image *disk;
     struct vmnetfs_image *memory;
     struct vmnetfs_fuse *fuse;
-    char *error;  /* atomic operations only */
+    GMainLoop *glib_loop;
 };
 
 struct vmnetfs_image {
@@ -101,10 +92,15 @@ struct vmnetfs_fuse_ops {
     bool nonseekable;
 };
 
+#define VMNETFS_CONFIG_ERROR _vmnetfs_config_error_quark()
 #define VMNETFS_FUSE_ERROR _vmnetfs_fuse_error_quark()
 #define VMNETFS_IO_ERROR _vmnetfs_io_error_quark()
 #define VMNETFS_STREAM_ERROR _vmnetfs_stream_error_quark()
 #define VMNETFS_TRANSPORT_ERROR _vmnetfs_transport_error_quark()
+
+enum VMNetFSConfigError {
+    VMNETFS_CONFIG_ERROR_INVALID_ARGUMENT,
+};
 
 enum VMNetFSFUSEError {
     VMNETFS_FUSE_ERROR_FAILED,
@@ -129,8 +125,7 @@ enum VMNetFSTransportError {
 };
 
 /* fuse */
-struct vmnetfs_fuse *_vmnetfs_fuse_new(struct vmnetfs *fs,
-        const char *mountpoint, GError **err);
+struct vmnetfs_fuse *_vmnetfs_fuse_new(struct vmnetfs *fs, GError **err);
 void _vmnetfs_fuse_run(struct vmnetfs_fuse *fuse);
 void _vmnetfs_fuse_terminate(struct vmnetfs_fuse *fuse);
 void _vmnetfs_fuse_free(struct vmnetfs_fuse *fuse);
@@ -248,7 +243,7 @@ void _vmnetfs_cond_signal(struct vmnetfs_cond *cond);
 void _vmnetfs_cond_broadcast(struct vmnetfs_cond *cond);
 
 /* utility */
-void _vmnetfs_set_error(struct vmnetfs *fs, const char *fmt, ...);
+GQuark _vmnetfs_config_error_quark(void);
 GQuark _vmnetfs_fuse_error_quark(void);
 GQuark _vmnetfs_io_error_quark(void);
 GQuark _vmnetfs_stream_error_quark(void);

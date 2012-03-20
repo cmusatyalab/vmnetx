@@ -12,7 +12,9 @@
 /stamp-h1
 
 .deps
+.dirstamp
 .libs
-*.la
-*.lo
+*.o
 *.pyc
+
+vmnetfs/vmnetfs

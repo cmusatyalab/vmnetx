@@ -20,37 +20,29 @@
 #include <errno.h>
 #include "vmnetfs-private.h"
 
-void _vmnetfs_set_error(struct vmnetfs *fs, const char *fmt, ...)
+GQuark _vmnetfs_config_error_quark(void)
 {
-    va_list ap;
-    char *msg;
-
-    va_start(ap, fmt);
-    msg = g_strdup_vprintf(fmt, ap);
-    va_end(ap);
-    if (!g_atomic_pointer_compare_and_exchange(&fs->error, NULL, msg)) {
-        g_free(msg);
-    }
+    return g_quark_from_static_string("vmnetfs-config-error-quark");
 }
 
 GQuark _vmnetfs_fuse_error_quark(void)
 {
-    return g_quark_from_string("vmnetfs-fuse-error-quark");
+    return g_quark_from_static_string("vmnetfs-fuse-error-quark");
 }
 
 GQuark _vmnetfs_io_error_quark(void)
 {
-    return g_quark_from_string("vmnetfs-io-error-quark");
+    return g_quark_from_static_string("vmnetfs-io-error-quark");
 }
 
 GQuark _vmnetfs_stream_error_quark(void)
 {
-    return g_quark_from_string("vmnetfs-stream-error-quark");
+    return g_quark_from_static_string("vmnetfs-stream-error-quark");
 }
 
 GQuark _vmnetfs_transport_error_quark(void)
 {
-    return g_quark_from_string("vmnetfs-transport-error-quark");
+    return g_quark_from_static_string("vmnetfs-transport-error-quark");
 }
 
 bool _vmnetfs_safe_pread(const char *file, int fd, void *buf, uint64_t count,

@@ -16,6 +16,8 @@
  */
 
 #include <sys/types.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <poll.h>
 #include <errno.h>
@@ -324,27 +326,27 @@ static void add_image(struct vmnetfs_fuse_dentry *parent,
     _vmnetfs_fuse_stream_populate(dir, img);
 }
 
-struct vmnetfs_fuse *_vmnetfs_fuse_new(struct vmnetfs *fs,
-        const char *mountpoint, GError **err)
+struct vmnetfs_fuse *_vmnetfs_fuse_new(struct vmnetfs *fs, GError **err)
 {
     struct vmnetfs_fuse *fuse;
     GPtrArray *argv;
     struct fuse_args args;
 
-    if (!g_file_test(mountpoint, G_FILE_TEST_IS_DIR)) {
-        g_set_error(err, VMNETFS_FUSE_ERROR,
-                VMNETFS_FUSE_ERROR_BAD_MOUNTPOINT, "Bad mountpoint %s",
-                mountpoint);
-        return NULL;
-    }
-
     /* Set up data structures */
     fuse = g_slice_new0(struct vmnetfs_fuse);
     fuse->fs = fs;
-    fuse->mountpoint = g_strdup(mountpoint);
     fuse->root = _vmnetfs_fuse_add_dir(NULL, NULL);
     add_image(fuse->root, fs->disk, "disk");
     add_image(fuse->root, fs->memory, "memory");
+
+    /* Construct mountpoint */
+    fuse->mountpoint = g_strdup("/var/tmp/vmnetfs-XXXXXX");
+    if (mkdtemp(fuse->mountpoint) == NULL) {
+        g_set_error(err, VMNETFS_FUSE_ERROR,
+                VMNETFS_FUSE_ERROR_BAD_MOUNTPOINT,
+                "Could not create mountpoint: %s", strerror(errno));
+        goto bad_dealloc;
+    }
 
     /* Build FUSE command line */
     argv = g_ptr_array_new();
@@ -367,7 +369,7 @@ struct vmnetfs_fuse *_vmnetfs_fuse_new(struct vmnetfs *fs,
         g_set_error(err, VMNETFS_FUSE_ERROR, VMNETFS_FUSE_ERROR_FAILED,
                 "Couldn't mount FUSE filesystem");
         g_strfreev(args.argv);
-        goto bad_dealloc;
+        goto bad_rmdir;
     }
     fuse->fuse = fuse_new(fuse->chan, &args, &fuse_ops, sizeof(fuse_ops),
             fuse);
@@ -382,9 +384,11 @@ struct vmnetfs_fuse *_vmnetfs_fuse_new(struct vmnetfs *fs,
 
 bad_unmount:
     fuse_unmount(fuse->mountpoint, fuse->chan);
+bad_rmdir:
+    rmdir(fuse->mountpoint);
 bad_dealloc:
-    dentry_free(fuse->root);
     g_free(fuse->mountpoint);
+    dentry_free(fuse->root);
     g_slice_free(struct vmnetfs_fuse, fuse);
     return NULL;
 }
@@ -412,8 +416,9 @@ void _vmnetfs_fuse_free(struct vmnetfs_fuse *fuse)
        to make sure. */
     fuse_unmount(fuse->mountpoint, fuse->chan);
     fuse_destroy(fuse->fuse);
-    dentry_free(fuse->root);
+    rmdir(fuse->mountpoint);
     g_free(fuse->mountpoint);
+    dentry_free(fuse->root);
     g_slice_free(struct vmnetfs_fuse, fuse);
 }
 
