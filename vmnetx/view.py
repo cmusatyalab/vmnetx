@@ -182,10 +182,15 @@ class ActivityWindow(gtk.Window):
 
 
 class LoadProgressWindow(gtk.Dialog):
+    __gsignals__ = {
+        'user-cancel': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+    }
+
     def __init__(self, monitor, parent):
-        gtk.Dialog.__init__(self, parent.get_title(), parent, gtk.DIALOG_MODAL)
+        gtk.Dialog.__init__(self, parent.get_title(), parent, gtk.DIALOG_MODAL,
+                (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL))
         self.set_resizable(False)
-        self.set_deletable(False)
+        self.connect('response', self._response)
 
         box = self.get_content_area()
 
@@ -195,10 +200,21 @@ class LoadProgressWindow(gtk.Dialog):
         label.set_padding(5, 5)
         box.pack_start(label)
 
-        bin = gtk.Alignment()
+        bin = gtk.Alignment(xscale=1)
         bin.add(LoadProgressWidget(monitor))
-        bin.set_padding(6, 0, 3, 3)
-        box.pack_start(bin)
+        bin.set_padding(5, 5, 3, 3)
+        box.pack_start(bin, expand=True)
+
+        # Ensure a minimum width for the progress bar, without affecting
+        # its height
+        label = gtk.Label()
+        label.set_size_request(300, 0)
+        box.pack_start(label)
+
+    def _response(self, _wid, _id):
+        self.hide()
+        self.emit('user-cancel')
+gobject.type_register(LoadProgressWindow)
 
 
 class ErrorBuffer(object):

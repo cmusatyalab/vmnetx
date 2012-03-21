@@ -31,6 +31,7 @@ class VMNetXApp(object):
         self._wind = None
         self._load_monitor = None
         self._load_window = None
+        self._startup_cancelled = False
 
     def run(self):
         try:
@@ -48,6 +49,7 @@ class VMNetXApp(object):
             # Show loading window
             self._load_window = LoadProgressWindow(self._load_monitor,
                     self._wind)
+            self._load_window.connect('user-cancel', self._startup_cancel)
             self._load_window.show_all()
 
             # Load memory image in the background
@@ -76,6 +78,13 @@ class VMNetXApp(object):
         else:
             gobject.idle_add(self._startup_done)
 
+    def _startup_cancel(self, _obj):
+        if not self._startup_cancelled:
+            self._startup_cancelled = True
+            threading.Thread(name='vmnetx-startup-cancel',
+                    target=self._machine.stop_vm).start()
+            self._wind.hide()
+
     def _startup_done(self):
         # Runs in UI thread
         self._wind.connect_vnc()
@@ -86,5 +95,6 @@ class VMNetXApp(object):
         # Runs in UI thread
         self._load_window.destroy()
         self._load_monitor.close()
-        ErrorWindow(self._wind, error).run()
+        if not self._startup_cancelled:
+            ErrorWindow(self._wind, error).run()
         gtk.main_quit()
