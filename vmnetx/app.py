@@ -17,6 +17,7 @@
 
 import gobject
 import gtk
+import signal
 import threading
 
 from vmnetx.execute import Machine
@@ -35,6 +36,10 @@ class VMNetXApp(object):
 
     def run(self):
         try:
+            # Attempt to catch SIGTERM.  This is dubious, but not more so
+            # than the default handling of SIGINT.
+            signal.signal(signal.SIGTERM, self._signal)
+
             # Create monitors
             self._load_monitor = LoadProgressMonitor(self._machine.memory_path)
             disk_monitor = ImageMonitor(self._machine.disk_path)
@@ -69,6 +74,9 @@ class VMNetXApp(object):
             disk_monitor.close()
             self._machine.stop_vm()
             self._machine.close()
+
+    def _signal(self, _signum, _frame):
+        raise KeyboardInterrupt
 
     def _startup(self):
         # Thread function.  Load the memory image, then connect the VNC
