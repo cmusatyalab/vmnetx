@@ -42,8 +42,8 @@ class VMNetXApp(object):
             # Show main window
             self._wind = VMWindow(self._machine.name,
                     self._machine.vnc_listen_address, disk_monitor)
-            self._wind.connect('vnc-disconnect', gtk.main_quit)
-            self._wind.connect('user-quit', gtk.main_quit)
+            self._wind.connect('vnc-disconnect', self._shutdown)
+            self._wind.connect('user-quit', self._shutdown)
             self._wind.show_all()
 
             # Show loading window
@@ -96,5 +96,11 @@ class VMNetXApp(object):
         self._load_window.destroy()
         self._load_monitor.close()
         if not self._startup_cancelled:
-            ErrorWindow(self._wind, error).run()
-        gtk.main_quit()
+            ew = ErrorWindow(self._wind, error)
+            ew.run()
+            ew.destroy()
+        self._shutdown()
+
+    def _shutdown(self, _obj=None):
+        self._wind.hide()
+        gobject.idle_add(gtk.main_quit)
