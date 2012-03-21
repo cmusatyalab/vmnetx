@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 #include <errno.h>
 #include "vmnetfs-private.h"
 
@@ -261,11 +262,23 @@ out:
     g_slice_free(struct vmnetfs, fs);
 }
 
+static void setsignal(int signum, void (*handler)(int))
+{
+    const struct sigaction sa = {
+        .sa_handler = handler,
+        .sa_flags = SA_RESTART,
+    };
+
+    sigaction(signum, &sa, NULL);
+}
+
 int main(int argc, char **argv)
 {
     int pipes[2];
     FILE *pipe_fh;
     pid_t pid;
+
+    setsignal(SIGINT, SIG_IGN);
 
     if (pipe(pipes)) {
         fprintf(stderr, "Could not create pipes\n");
