@@ -80,8 +80,11 @@ class Machine(object):
                 disk_image_path, self.vnc_listen_address).xml
 
     def start_vm(self):
-        self._conn.restoreFlags(self._memory_image_path, self._domain_xml,
-                libvirt.VIR_DOMAIN_SAVE_RUNNING)
+        try:
+            self._conn.restoreFlags(self._memory_image_path, self._domain_xml,
+                    libvirt.VIR_DOMAIN_SAVE_RUNNING)
+        except libvirt.libvirtError, e:
+            raise MachineExecutionError(str(e))
 
     def stop_vm(self):
         try:
