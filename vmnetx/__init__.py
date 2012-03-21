@@ -20,3 +20,8 @@ import libvirt
 from vmnetx.system import __version__
 
 assert(libvirt.getVersion() >= 9004) # 0.9.4
+
+# Squash redundant reporting of libvirt errors to stderr.  This modifies
+# global state, since the Python bindings don't provide a way to do this
+# per-connection.
+libvirt.registerErrorHandler(lambda _ctx, _error: None, None)
