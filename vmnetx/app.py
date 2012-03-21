@@ -20,7 +20,7 @@ import gtk
 import threading
 
 from vmnetx.execute import Machine
-from vmnetx.view import VMWindow, LoadProgressWindow, ErrorWindow
+from vmnetx.view import VMWindow, LoadProgressWindow, ErrorWindow, ErrorBuffer
 from vmnetx.status.monitor import ImageMonitor, LoadProgressMonitor
 
 class VMNetXApp(object):
@@ -71,7 +71,9 @@ class VMNetXApp(object):
         # viewer.
         try:
             self._machine.start_vm()
-        finally:
+        except Exception, e:
+            gobject.idle_add(self._startup_error, ErrorBuffer())
+        else:
             gobject.idle_add(self._startup_done)
 
     def _startup_done(self):
@@ -79,3 +81,10 @@ class VMNetXApp(object):
         self._wind.connect_vnc()
         self._load_window.destroy()
         self._load_monitor.close()
+
+    def _startup_error(self, error):
+        # Runs in UI thread
+        self._load_window.destroy()
+        self._load_monitor.close()
+        ErrorWindow(self._wind, error).run()
+        gtk.main_quit()

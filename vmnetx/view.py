@@ -198,22 +198,28 @@ class LoadProgressWindow(gtk.Window):
         self.add(bin)
 
 
+class ErrorBuffer(object):
+    def __init__(self):
+        self.exception = str(sys.exc_info()[1])
+        self.detail = traceback.format_exc()
+
+
 class ErrorWindow(gtk.MessageDialog):
-    def __init__(self, parent):
+    def __init__(self, parent, error=None):
         gtk.MessageDialog.__init__(self, parent=parent,
                 flags=gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
                 type=gtk.MESSAGE_ERROR, buttons=gtk.BUTTONS_OK,
                 message_format='Fatal Error')
-        exception = sys.exc_info()[1]
-        detail = traceback.format_exc()
-        self.format_secondary_text(str(exception))
+        if error is None:
+            error = ErrorBuffer()
+        self.format_secondary_text(error.exception)
 
         content = self.get_message_area()
         expander = gtk.Expander('Details')
         content.pack_start(expander)
 
         view = gtk.TextView()
-        view.get_buffer().set_text(detail)
+        view.get_buffer().set_text(error.detail)
         view.set_editable(False)
         scroller = gtk.ScrolledWindow(view.get_hadjustment(),
                 view.get_vadjustment())
