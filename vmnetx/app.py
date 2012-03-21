@@ -58,7 +58,7 @@ class VMNetXApp(object):
 
             # Run main loop
             gtk.main()
-        except Exception:
+        except:
             # Show error window with exception
             ErrorWindow(self._wind).run()
         finally:
@@ -73,7 +73,7 @@ class VMNetXApp(object):
         # viewer.
         try:
             self._machine.start_vm()
-        except Exception, e:
+        except:
             gobject.idle_add(self._startup_error, ErrorBuffer())
         else:
             gobject.idle_add(self._startup_done)
