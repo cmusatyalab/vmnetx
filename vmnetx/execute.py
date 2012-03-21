@@ -88,11 +88,10 @@ class Machine(object):
 
     def stop_vm(self):
         try:
-            instance = self._conn.lookupByName(self._domain_name)
+            self._conn.lookupByName(self._domain_name).destroy()
         except libvirt.libvirtError:
+            # Assume that the VM did not exist or was already dying
             pass
-        else:
-            instance.destroy()
 
     def close(self):
         # Close libvirt connection
