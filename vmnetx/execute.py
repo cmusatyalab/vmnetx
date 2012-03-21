@@ -44,28 +44,6 @@ class _ReferencedObject(object):
             raise MachineExecutionError('Invalid object URL')
 
 
-class _VMNetFSRunner(threading.Thread):
-    def __init__(self, disk, memory):
-        threading.Thread.__init__(self, name='vmnetfs')
-        self.mountpoint = tempfile.mkdtemp(prefix='vmnetx-', dir='/var/tmp')
-        self._fs = VMNetFS(self.mountpoint,
-            disk.url, disk.cache, disk.size, 0, disk.chunk_size,
-            memory.url, memory.cache, memory.size, 0, memory.chunk_size)
-        self.disk_path = os.path.join(self.mountpoint, 'disk')
-        self.disk_image_path = os.path.join(self.disk_path, 'image')
-        self.memory_path = os.path.join(self.mountpoint, 'memory')
-        self.memory_image_path = os.path.join(self.memory_path, 'image')
-
-    def run(self):
-        # Thread function
-        self._fs.run()
-
-    def stop(self):
-        self._fs.terminate()
-        self.join()
-        os.rmdir(self.mountpoint)
-
-
 class Machine(object):
     def __init__(self, manifest_path):
         self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
@@ -80,10 +58,14 @@ class Machine(object):
         disk = _ReferencedObject(manifest.disk)
         memory = _ReferencedObject(manifest.memory)
 
-        # Set up vmnetfs
-        self._fs = _VMNetFSRunner(disk, memory)
-        self.disk_path = self._fs.disk_path
-        self.memory_path = self._fs.memory_path
+        # Start vmnetfs
+        self._fs = VMNetFS(disk.url, disk.cache, disk.size, 0, disk.chunk_size,
+                memory.url, memory.cache, memory.size, 0, memory.chunk_size)
+        self._fs.start()
+        self.disk_path = os.path.join(self._fs.mountpoint, 'disk')
+        disk_image_path = os.path.join(self.disk_path, 'image')
+        self.memory_path = os.path.join(self._fs.mountpoint, 'memory')
+        self._memory_image_path = os.path.join(self.memory_path, 'image')
 
         # Set up libvirt connection
         self._conn = libvirt.open('qemu:///session')
@@ -95,16 +77,10 @@ class Machine(object):
         finally:
             fh.close()
         self._domain_xml = DomainXML(xml).get_for_execution(self._domain_name,
-                self._fs.disk_image_path, self.vnc_listen_address).xml
-
-    def start_fs(self):
-        self._fs.start()
-
-    def stop_fs(self):
-        self._fs.stop()
+                disk_image_path, self.vnc_listen_address).xml
 
     def start_vm(self):
-        self._conn.restoreFlags(self._fs.memory_image_path, self._domain_xml,
+        self._conn.restoreFlags(self._memory_image_path, self._domain_xml,
                 libvirt.VIR_DOMAIN_SAVE_RUNNING)
 
     def stop_vm(self):
@@ -125,3 +101,6 @@ class Machine(object):
             os.rmdir(self._vnc_socket_dir)
         except OSError:
             pass
+
+        # Terminate vmnetfs
+        self._fs.terminate()

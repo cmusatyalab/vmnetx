@@ -35,7 +35,7 @@ dist_pkgpython_DATA = manifest.xsd
 
 vmnetx/system.py: vmnetx/system.py.in Makefile
 	$(MKDIR_P) vmnetx
-	$(AM_V_GEN) sed -e "s:@pkglibdir@:$(pkglibdir):g" \
+	$(AM_V_GEN) sed -e "s:@pkglibexecdir@:$(pkglibexecdir):g" \
 		-e "s:@version@:$(VERSION):g" $< > $@
 
 check-local:

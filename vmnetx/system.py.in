@@ -1,6 +1,6 @@
 # Avoid variable name warning
 # pylint: disable=C0103
-vmnetfs_path = '@pkglibdir@/libvmnetfs.so'
+vmnetfs_path = '@pkglibexecdir@/vmnetfs'
 # pylint: enable=C0103
 
 __version__ = '@version@'

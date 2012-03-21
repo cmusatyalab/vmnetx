@@ -26,6 +26,7 @@ from vmnetx.status.monitor import ImageMonitor, LoadProgressMonitor
 class VMNetXApp(object):
     def __init__(self, manifest_file):
         gobject.threads_init()
+        # Starts vmnetfs
         self._machine = Machine(manifest_file)
         self._wind = None
         self._load_monitor = None
@@ -33,10 +34,7 @@ class VMNetXApp(object):
 
     def run(self):
         try:
-            # Start vmnetfs
-            self._machine.start_fs()
-
-            # Now it's safe to access vmnetfs stats
+            # Create monitors
             self._load_monitor = LoadProgressMonitor(self._machine.memory_path)
             disk_monitor = ImageMonitor(self._machine.disk_path)
 
@@ -64,7 +62,6 @@ class VMNetXApp(object):
             self._wind.destroy()
             disk_monitor.close()
             self._machine.stop_vm()
-            self._machine.stop_fs()
             self._machine.close()
 
     def _startup(self):
