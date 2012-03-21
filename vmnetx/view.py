@@ -185,17 +185,26 @@ class LoadProgressWindow(gtk.Window):
     def __init__(self, monitor, parent):
         gtk.Window.__init__(self)
         self.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_DIALOG)
-        self.set_title('Loading...')
+        self.set_title(parent.get_title())
         self.set_transient_for(parent)
         self.set_position(gtk.WIN_POS_CENTER_ON_PARENT)
         self.set_modal(True)
         self.set_resizable(False)
         self.set_deletable(False)
 
+        box = gtk.VBox()
+        self.add(box)
+
+        label = gtk.Label()
+        label.set_markup('<b>Loading...</b>')
+        label.set_alignment(0, 0.5)
+        label.set_padding(5, 5)
+        box.pack_start(label)
+
         bin = gtk.Alignment()
         bin.add(LoadProgressWidget(monitor))
         bin.set_padding(5, 3, 3, 3)
-        self.add(bin)
+        box.pack_start(bin)
 
 
 class ErrorBuffer(object):
