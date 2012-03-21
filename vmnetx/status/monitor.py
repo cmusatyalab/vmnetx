@@ -298,5 +298,4 @@ class LoadProgressMonitor(_ImageMonitorBase):
 
     def close(self):
         self._stream.close()
-        self._stream = None
 gobject.type_register(LoadProgressMonitor)
