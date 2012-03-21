@@ -15,6 +15,7 @@
 # for more details.
 #
 
+import gobject
 import gtk
 import gtkvnc
 import socket
@@ -82,9 +83,15 @@ class StatusBarWidget(gtk.HBox):
 
 
 class VMWindow(gtk.Window):
+    __gsignals__ = {
+        'vnc-disconnect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'user-quit': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+    }
+
     def __init__(self, name, path, monitor):
         gtk.Window.__init__(self)
         agrp = VMActionGroup(self)
+        agrp.connect('user-quit', lambda _obj: self.emit('user-quit'))
 
         self.set_title(name)
         self.connect('delete-event',
@@ -105,7 +112,8 @@ class VMWindow(gtk.Window):
 
         self._vnc = VNCWidget(path)
         self._vnc.connect('vnc-desktop-resize', self._vnc_resize)
-        self._vnc.connect('vnc-disconnected', gtk.main_quit)
+        self._vnc.connect('vnc-disconnected',
+                lambda _obj: self.emit('vnc-disconnect'))
         box.pack_start(self._vnc)
         self._vnc.grab_focus()
 
@@ -125,9 +133,14 @@ class VMWindow(gtk.Window):
 
     def _destroy(self, _wid):
         self._activity.destroy()
+gobject.type_register(VMWindow)
 
 
 class VMActionGroup(gtk.ActionGroup):
+    __gsignals__ = {
+        'user-quit': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+    }
+
     def __init__(self, parent):
         gtk.ActionGroup.__init__(self, 'vmnetx-global')
         self.add_actions((
@@ -148,10 +161,11 @@ class VMActionGroup(gtk.ActionGroup):
         result = dlg.run()
         dlg.destroy()
         if result == gtk.RESPONSE_OK:
-            gtk.main_quit()
+            self.emit('user-quit')
 
     def _show_activity(self, action, parent):
         parent.show_activity(action.get_active())
+gobject.type_register(VMActionGroup)
 
 
 class ActivityWindow(gtk.Window):

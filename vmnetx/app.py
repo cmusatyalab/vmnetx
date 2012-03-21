@@ -41,6 +41,8 @@ class VMNetXApp(object):
             # Show main window
             self._wind = VMWindow(self._machine.name,
                     self._machine.vnc_listen_address, disk_monitor)
+            self._wind.connect('vnc-disconnect', gtk.main_quit)
+            self._wind.connect('user-quit', gtk.main_quit)
             self._wind.show_all()
 
             # Show loading window
