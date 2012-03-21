@@ -58,6 +58,8 @@ class VMNetXApp(object):
 
             # Run main loop
             gtk.main()
+        except KeyboardInterrupt:
+            pass
         except:
             # Show error window with exception
             ErrorWindow(self._wind).run()

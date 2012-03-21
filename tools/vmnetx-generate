@@ -37,6 +37,8 @@ domain_xml, base_url, out_dir = args
 
 try:
     generate_machine(opts.name, domain_xml, base_url, out_dir)
+except KeyboardInterrupt:
+    sys.exit(1)
 except Exception, e:
     print str(e)
     sys.exit(1)
