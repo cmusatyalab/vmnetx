@@ -32,12 +32,12 @@ class VNCWidget(gtkvnc.Display):
 
         self.keyboard_grabbed = False
         self.mouse_grabbed = False
-        def sa(_wid, attr, value):
+        def set(_wid, attr, value):
             setattr(self, attr, value)
-        self.connect('vnc-keyboard-grab', sa, 'keyboard_grabbed', True)
-        self.connect('vnc-keyboard-ungrab', sa, 'keyboard_grabbed', False)
-        self.connect('vnc-pointer-grab', sa, 'mouse_grabbed', True)
-        self.connect('vnc-pointer-ungrab', sa, 'mouse_grabbed', False)
+        self.connect('vnc-keyboard-grab', set, 'keyboard_grabbed', True)
+        self.connect('vnc-keyboard-ungrab', set, 'keyboard_grabbed', False)
+        self.connect('vnc-pointer-grab', set, 'mouse_grabbed', True)
+        self.connect('vnc-pointer-ungrab', set, 'mouse_grabbed', False)
         self.set_pointer_grab(True)
         self.set_keyboard_grab(True)
 
@@ -104,11 +104,11 @@ class VMWindow(gtk.Window):
         box = gtk.VBox()
         self.add(box)
 
-        bar = gtk.Toolbar()
-        bar.insert(agrp.get_action('quit').create_tool_item(), -1)
-        bar.insert(gtk.SeparatorToolItem(), -1)
-        bar.insert(agrp.get_action('show-activity').create_tool_item(), -1)
-        box.pack_start(bar, expand=False)
+        tbar = gtk.Toolbar()
+        tbar.insert(agrp.get_action('quit').create_tool_item(), -1)
+        tbar.insert(gtk.SeparatorToolItem(), -1)
+        tbar.insert(agrp.get_action('show-activity').create_tool_item(), -1)
+        box.pack_start(tbar, expand=False)
 
         self._vnc = VNCWidget(path)
         self._vnc.connect('vnc-desktop-resize', self._vnc_resize)

@@ -24,14 +24,20 @@ NS = 'http://olivearchive.org/xmlns/vmnetx/manifest'
 NSP = '{' + NS + '}'
 SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'manifest.xsd')
 
+# We want this to be a public attribute
+# pylint: disable=C0103
 schema = etree.XMLSchema(etree.parse(SCHEMA_PATH))
+# pylint: enable=C0103
 
 
 class ManifestError(Exception):
     pass
 
 
+# This is a class, even if pylint doesn't think so
+# pylint: disable=C0103
 ReferenceInfo = collections.namedtuple('ReferenceInfo', ('location', 'size'))
+# pylint: enable=C0103
 
 
 class Manifest(object):
@@ -59,14 +65,14 @@ class Manifest(object):
             self.memory = memory
 
             # Generate XML
-            E = ElementMaker(namespace=NS, nsmap={None: NS})
-            tree = E.image(
-                E.domain(location=domain.location),
-                E.disk(location=disk.location, size=str(disk.size)),
+            e = ElementMaker(namespace=NS, nsmap={None: NS})
+            tree = e.image(
+                e.domain(location=domain.location),
+                e.disk(location=disk.location, size=str(disk.size)),
                 name=name,
             )
             if memory:
-                tree.append(E.memory(location=memory.location,
+                tree.append(e.memory(location=memory.location,
                         size=str(memory.size)))
             schema.assertValid(tree)
             self.xml = etree.tostring(tree, encoding='UTF-8',

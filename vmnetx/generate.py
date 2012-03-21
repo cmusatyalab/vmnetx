@@ -35,6 +35,8 @@ class MachineGenerationError(Exception):
     pass
 
 
+# File handle arguments don't need more than two letters
+# pylint: disable=C0103
 class _QemuMemoryHeader(object):
     HEADER_MAGIC = 'LibvirtQemudSave'
     HEADER_VERSION = 2
@@ -92,6 +94,7 @@ class _QemuMemoryHeader(object):
         f.seek(0)
         f.write(struct.pack(self.HEADER_FORMAT, *header))
         f.write(struct.pack('%ds' % self._xml_len, self.xml))
+# pylint: enable=C0103
 
 
 def copy_memory(in_path, out_path, xml=None):
