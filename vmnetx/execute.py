@@ -18,7 +18,6 @@
 import libvirt
 import os
 import tempfile
-import threading
 import urllib2
 import uuid
 
@@ -31,7 +30,7 @@ class MachineExecutionError(Exception):
 
 
 class _ReferencedObject(object):
-    def __init__(self, info, dir=None, chunk_size=131072):
+    def __init__(self, info, chunk_size=131072):
         self.url = info.location
         self.size = info.size
         self.chunk_size = chunk_size

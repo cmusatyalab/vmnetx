@@ -257,6 +257,9 @@ class _ImageMonitorBase(_Monitor):
         path = os.path.join(image_path, 'stats', name)
         with io.open(path) as fh:
             return int(fh.readline().strip())
+
+    def close(self):
+        raise NotImplementedError()
 gobject.type_register(_ImageMonitorBase)
 
 

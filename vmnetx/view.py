@@ -32,7 +32,7 @@ class VNCWidget(gtkvnc.Display):
 
         self.keyboard_grabbed = False
         self.mouse_grabbed = False
-        def sa(wid, attr, value):
+        def sa(_wid, attr, value):
             setattr(self, attr, value)
         self.connect('vnc-keyboard-grab', sa, 'keyboard_grabbed', True)
         self.connect('vnc-keyboard-ungrab', sa, 'keyboard_grabbed', False)
@@ -78,7 +78,7 @@ class StatusBarWidget(gtk.HBox):
         vnc.connect('vnc-pointer-grab', self._grabbed, mouse_icon, True)
         vnc.connect('vnc-pointer-ungrab', self._grabbed, mouse_icon, False)
 
-    def _grabbed(self, wid, icon, grabbed):
+    def _grabbed(self, _wid, icon, grabbed):
         icon.set_sensitive(grabbed)
 
 
@@ -126,7 +126,7 @@ class VMWindow(gtk.Window):
     def show_activity(self, enabled):
         self._activity.set_visible(enabled)
 
-    def _vnc_resize(self, wid, width, height):
+    def _vnc_resize(self, _wid, _width, _height):
         # Resize the window to the minimum allowed by its geometry
         # constraints
         self.resize(1, 1)

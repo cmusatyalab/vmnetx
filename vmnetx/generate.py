@@ -101,7 +101,7 @@ def copy_memory(in_path, out_path, xml=None):
     hdr = _QemuMemoryHeader(fin)
     if hdr.compressed != hdr.COMPRESS_RAW:
         raise MachineGenerationError('Cannot recompress save format %d' %
-                compressed)
+                hdr.compressed)
 
     # Write header
     hdr.compressed = hdr.COMPRESS_XZ
@@ -130,6 +130,8 @@ def copy_disk(in_path, out_path):
         raise MachineGenerationError('qemu-img failed')
 
 
+# pylint is confused by hashlib.sha256()
+# pylint: disable=E1101
 def rename_blob(in_path, name_template):
     # Rename a blob to include its SHA-256 hash.  Template must contain "%s".
     # Return the new path.
@@ -153,6 +155,7 @@ def rename_blob(in_path, name_template):
             name_template % hash.hexdigest())
     os.rename(in_path, out_path)
     return out_path
+# pylint: enable=E1101
 
 
 def generate_machine(name, in_xml, base_url, out_dir):

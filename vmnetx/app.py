@@ -34,6 +34,8 @@ class VMNetXApp(object):
         self._load_window = None
         self._startup_cancelled = False
 
+    # We intentionally catch all exceptions
+    # pylint: disable=W0702
     def run(self):
         try:
             # Attempt to catch SIGTERM.  This is dubious, but not more so
@@ -74,10 +76,13 @@ class VMNetXApp(object):
             disk_monitor.close()
             self._machine.stop_vm()
             self._machine.close()
+    # pylint: enable=W0702
 
     def _signal(self, _signum, _frame):
         raise KeyboardInterrupt
 
+    # We intentionally catch all exceptions
+    # pylint: disable=W0702
     def _startup(self):
         # Thread function.  Load the memory image, then connect the VNC
         # viewer.
@@ -87,6 +92,7 @@ class VMNetXApp(object):
             gobject.idle_add(self._startup_error, ErrorBuffer())
         else:
             gobject.idle_add(self._startup_done)
+    # pylint: enable=W0702
 
     def _startup_cancel(self, _obj):
         if not self._startup_cancelled:
