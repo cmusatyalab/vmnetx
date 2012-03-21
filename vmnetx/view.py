@@ -181,19 +181,13 @@ class ActivityWindow(gtk.Window):
         status.show_all()
 
 
-class LoadProgressWindow(gtk.Window):
+class LoadProgressWindow(gtk.Dialog):
     def __init__(self, monitor, parent):
-        gtk.Window.__init__(self)
-        self.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_DIALOG)
-        self.set_title(parent.get_title())
-        self.set_transient_for(parent)
-        self.set_position(gtk.WIN_POS_CENTER_ON_PARENT)
-        self.set_modal(True)
+        gtk.Dialog.__init__(self, parent.get_title(), parent, gtk.DIALOG_MODAL)
         self.set_resizable(False)
         self.set_deletable(False)
 
-        box = gtk.VBox()
-        self.add(box)
+        box = self.get_content_area()
 
         label = gtk.Label()
         label.set_markup('<b>Loading...</b>')
@@ -203,7 +197,7 @@ class LoadProgressWindow(gtk.Window):
 
         bin = gtk.Alignment()
         bin.add(LoadProgressWidget(monitor))
-        bin.set_padding(5, 3, 3, 3)
+        bin.set_padding(6, 0, 3, 3)
         box.pack_start(bin)
 
 
