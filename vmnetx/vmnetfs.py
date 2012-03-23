@@ -30,13 +30,8 @@ class VMNetFSError(Exception):
 
 
 class VMNetFS(object):
-    def __init__(self, disk_url, disk_cache, disk_size, disk_segment_size,
-            disk_chunk_size, memory_url, memory_cache, memory_size,
-            memory_segment_size, memory_chunk_size):
-        self._args = [vmnetfs_path, disk_url, disk_cache, str(disk_size),
-                str(disk_segment_size), str(disk_chunk_size),
-                memory_url, memory_cache, str(memory_size),
-                str(memory_segment_size), str(memory_chunk_size)]
+    def __init__(self, args):
+        self._args = [vmnetfs_path] + args
         self._pipe = None
         self.mountpoint = None
 
