@@ -33,6 +33,7 @@ class _ReferencedObject(object):
     def __init__(self, info, chunk_size=131072):
         self.url = info.location
         self.size = info.size
+        self.segment_size = info.segment_size
         self.chunk_size = chunk_size
 
         # Ensure a crafted URL can't escape the cache directory
@@ -43,7 +44,7 @@ class _ReferencedObject(object):
             raise MachineExecutionError('Invalid object URL')
 
     def get_vmnetfs_args(self):
-        return [self.url, self.cache, str(self.size), str(0),
+        return [self.url, self.cache, str(self.size), str(self.segment_size),
                 str(self.chunk_size)]
 
 

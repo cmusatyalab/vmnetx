@@ -36,7 +36,8 @@ class ManifestError(Exception):
 
 # This is a class, even if pylint doesn't think so
 # pylint: disable=C0103
-ReferenceInfo = collections.namedtuple('ReferenceInfo', ('location', 'size'))
+ReferenceInfo = collections.namedtuple('ReferenceInfo',
+        ('location', 'size', 'segment_size'))
 # pylint: enable=C0103
 
 
@@ -68,12 +69,11 @@ class Manifest(object):
             e = ElementMaker(namespace=NS, nsmap={None: NS})
             tree = e.image(
                 e.domain(location=domain.location),
-                e.disk(location=disk.location, size=str(disk.size)),
+                e.disk(**self._make_element_args(disk)),
                 name=name,
             )
             if memory:
-                tree.append(e.memory(location=memory.location,
-                        size=str(memory.size)))
+                tree.append(e.memory(**self._make_element_args(memory)))
             schema.assertValid(tree)
             self.xml = etree.tostring(tree, encoding='UTF-8',
                     pretty_print=True, xml_declaration=True)
@@ -85,4 +85,18 @@ class Manifest(object):
         size = element.get('size')
         if size is not None:
             size = int(size)
-        return ReferenceInfo(location=element.get('location'), size=size)
+        segment_size = element.get('segmentSize')
+        if segment_size is None:
+            segment_size = 0
+        return ReferenceInfo(location=element.get('location'), size=size,
+                segment_size=segment_size)
+
+    @staticmethod
+    def _make_element_args(refinfo):
+        args = {
+            'location': refinfo.location,
+            'size': str(refinfo.size),
+        }
+        if refinfo.segment_size > 0:
+            args['segmentSize'] = str(refinfo.segment_size)
+        return args

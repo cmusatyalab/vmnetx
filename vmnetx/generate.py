@@ -156,9 +156,12 @@ def copy_disk(in_path, out_path):
 
 # pylint is confused by hashlib.sha256()
 # pylint: disable=E1101
-def rename_blob(in_path, name_template):
-    # Rename a blob to include its SHA-256 hash.  Template must contain "%s".
-    # Return the new path.
+def finalize_blob(in_path, name_template, segment_size=0):
+    # Rename a blob to include its SHA-256 hash, splitting it into segments
+    # if segment_size > 0.  Template must contain "%s".  Return the new base
+    # path (excluding segment numbers) and blob size.
+
+    # Calculate the hash
     hash = hashlib.sha256()
     size = os.stat(in_path).st_size
     prog = _Progress('Computing hash', size, size > 1 << 20)
@@ -169,12 +172,32 @@ def rename_blob(in_path, name_template):
     prog.finish()
     out_path = os.path.join(os.path.dirname(in_path),
             name_template % hash.hexdigest())
-    os.rename(in_path, out_path)
-    return out_path
+
+    # Segment, if desired.  This means we read the file twice.
+    if segment_size > 0:
+        if segment_size < size:
+            prog = _Progress('Segmenting image', size)
+            with open(in_path) as infh:
+                for i in range((size + segment_size - 1) // segment_size):
+                    with open('%s.%d' % (out_path, i), 'w') as outfh:
+                        remaining = min(segment_size,
+                                size - (i * segment_size))
+                        while remaining > 0:
+                            buf = infh.read(min(128 << 10, remaining))
+                            outfh.write(buf)
+                            remaining -= len(buf)
+                            prog.update(len(buf))
+            prog.finish()
+            os.unlink(in_path)
+        else:
+            os.rename(in_path, out_path + '.0')
+    else:
+        os.rename(in_path, out_path)
+    return out_path, size
 # pylint: enable=E1101
 
 
-def generate_machine(name, in_xml, base_url, out_dir):
+def generate_machine(name, in_xml, base_url, out_dir, segment_size=0):
     # Parse domain XML
     try:
         with open(in_xml) as fh:
@@ -192,7 +215,8 @@ def generate_machine(name, in_xml, base_url, out_dir):
     temp = NamedTemporaryFile(dir=out_dir, prefix='disk-', delete=False)
     temp.close()
     copy_disk(domain.disk_path, temp.name)
-    out_disk = rename_blob(temp.name, DISK_TEMPLATE)
+    out_disk, out_disk_size = finalize_blob(temp.name, DISK_TEMPLATE,
+            segment_size)
 
     # Generate domain XML
     domain_xml = domain.get_for_storage(os.path.basename(out_disk)).xml
@@ -202,27 +226,30 @@ def generate_machine(name, in_xml, base_url, out_dir):
         temp = NamedTemporaryFile(dir=out_dir, prefix='memory-', delete=False)
         temp.close()
         copy_memory(in_memory, temp.name, domain_xml)
-        out_memory = rename_blob(temp.name, MEMORY_TEMPLATE)
+        out_memory, out_memory_size = finalize_blob(temp.name,
+                MEMORY_TEMPLATE, segment_size)
     else:
         print 'No memory image found'
         out_memory = None
+        out_memory_size = 0
 
     # Write out domain XML
     temp = NamedTemporaryFile(dir=out_dir, prefix='domain-', delete=False)
     temp.write(domain_xml)
     temp.close()
-    out_domain = rename_blob(temp.name, DOMAIN_TEMPLATE)
+    out_domain, _out_domain_size = finalize_blob(temp.name, DOMAIN_TEMPLATE)
 
     # Generate manifest
-    def blob_info(path, with_size=True):
+    def blob_info(path, size=0):
         return ReferenceInfo(
             location=os.path.join(base_url, os.path.basename(path)),
-            size=with_size and os.stat(path).st_size or 0,
+            size=size,
+            segment_size=size and segment_size or 0,
         )
-    domain = blob_info(out_domain, False)
-    disk = blob_info(out_disk)
+    domain = blob_info(out_domain)
+    disk = blob_info(out_disk, out_disk_size)
     if out_memory is not None:
-        memory = blob_info(out_memory)
+        memory = blob_info(out_memory, out_memory_size)
     else:
         memory = None
     manifest = Manifest(name=name, domain=domain, disk=disk, memory=memory)
