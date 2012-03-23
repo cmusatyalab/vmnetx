@@ -97,6 +97,27 @@ class _QemuMemoryHeader(object):
 # pylint: enable=C0103
 
 
+class _Progress(object):
+    def __init__(self, msg, total, enable=True):
+        self._enable = enable
+        self._msg = msg
+        self._pct = -1
+        self._count = 0
+        self._total = total
+
+    def update(self, count):
+        self._count += count
+        cur_pct = 100 * self._count // self._total
+        if self._enable and cur_pct > self._pct:
+            print '  %s: %3d%%\r' % (self._msg, cur_pct),
+            sys.stdout.flush()
+            self._pct = cur_pct
+
+    def finish(self):
+        if self._enable:
+            print
+
+
 def copy_memory(in_path, out_path, xml=None):
     # Recompress if possible
     fin = open(in_path)
@@ -139,21 +160,13 @@ def rename_blob(in_path, name_template):
     # Rename a blob to include its SHA-256 hash.  Template must contain "%s".
     # Return the new path.
     hash = hashlib.sha256()
-    cur = 0
     size = os.stat(in_path).st_size
-    pct = -1
-    do_progress = size > 1 << 20
+    prog = _Progress('Computing hash', size, size > 1 << 20)
     with open(in_path) as fh:
         for buf in iter(lambda: fh.read(128 << 10), ''):
             hash.update(buf)
-            cur += len(buf)
-            cur_pct = 100 * cur // size
-            if do_progress and cur_pct > pct:
-                print '  Computing hash: %3d%%\r' % cur_pct,
-                sys.stdout.flush()
-                pct = cur_pct
-    if do_progress:
-        print
+            prog.update(len(buf))
+    prog.finish()
     out_path = os.path.join(os.path.dirname(in_path),
             name_template % hash.hexdigest())
     os.rename(in_path, out_path)
