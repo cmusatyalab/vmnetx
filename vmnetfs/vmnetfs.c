@@ -152,7 +152,9 @@ static gboolean read_stdin(GIOChannel *source G_GNUC_UNUSED,
        image fds to close, disallow new stream opens and blocking reads,
        then lazy unmount. */
     image_close(fs->disk);
-    image_close(fs->memory);
+    if (fs->memory != NULL) {
+        image_close(fs->memory);
+    }
     _vmnetfs_fuse_terminate(fs->fuse);
     return FALSE;
 }
@@ -172,6 +174,7 @@ static void child(int argc, char **argv, FILE *pipe)
     GIOChannel *chan;
     GIOFlags flags;
     int arg = 1;
+    int images;
     GError *err = NULL;
 
     /* Initialize */
@@ -185,9 +188,11 @@ static void child(int argc, char **argv, FILE *pipe)
     }
 
     /* Check argc */
-    if (argc != (int) (2 * g_strv_length(image_args) + 1)) {
+    images = (argc - 1) / g_strv_length(image_args);
+    if ((argc - 1) % g_strv_length(image_args) != 0 ||
+            images < 1 || images > 2) {
         char *arg_string = g_strjoinv(" ", image_args);
-        fprintf(pipe, "Usage: %s 2*[%s]\n", argv[0], arg_string);
+        fprintf(pipe, "Usage: %s (%s){1,2}\n", argv[0], arg_string);
         g_free(arg_string);
         fclose(pipe);
         return;
@@ -203,12 +208,14 @@ static void child(int argc, char **argv, FILE *pipe)
     arg += g_strv_length(image_args);
 
     /* Set up memory */
-    fs->memory = image_new(argv + arg, &err);
-    if (err) {
-        fprintf(pipe, "%s\n", err->message);
-        goto out;
+    if (images > 1) {
+        fs->memory = image_new(argv + arg, &err);
+        if (err) {
+            fprintf(pipe, "%s\n", err->message);
+            goto out;
+        }
+        arg += g_strv_length(image_args);
     }
-    arg += g_strv_length(image_args);
 
     /* Set up fuse */
     fs->fuse = _vmnetfs_fuse_new(fs, &err);

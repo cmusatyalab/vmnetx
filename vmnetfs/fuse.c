@@ -292,10 +292,15 @@ static int do_readdir(const char *path G_GNUC_UNUSED, void *buf,
 static int do_statfs(const char *path G_GNUC_UNUSED, struct statvfs *st)
 {
     struct vmnetfs_fuse *fuse = fuse_get_context()->private_data;
+    uint64_t image_size;
+
+    image_size = _vmnetfs_io_get_image_size(fuse->fs->disk, NULL);
+    if (fuse->fs->memory != NULL) {
+        image_size += _vmnetfs_io_get_image_size(fuse->fs->memory, NULL);
+    }
 
     st->f_bsize = 512;
-    st->f_blocks = (_vmnetfs_io_get_image_size(fuse->fs->memory, NULL) +
-            _vmnetfs_io_get_image_size(fuse->fs->disk, NULL)) / 512;
+    st->f_blocks = image_size / 512;
     st->f_bfree = st->f_bavail = 0;
     st->f_namemax = 256;
     return 0;
@@ -337,7 +342,9 @@ struct vmnetfs_fuse *_vmnetfs_fuse_new(struct vmnetfs *fs, GError **err)
     fuse->fs = fs;
     fuse->root = _vmnetfs_fuse_add_dir(NULL, NULL);
     add_image(fuse->root, fs->disk, "disk");
-    add_image(fuse->root, fs->memory, "memory");
+    if (fs->memory != NULL) {
+        add_image(fuse->root, fs->memory, "memory");
+    }
 
     /* Construct mountpoint */
     fuse->mountpoint = g_strdup("/var/tmp/vmnetfs-XXXXXX");
