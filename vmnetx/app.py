@@ -38,6 +38,7 @@ class VMNetXApp(object):
     # We intentionally catch all exceptions
     # pylint: disable=W0702
     def run(self):
+        disk_monitor = None
         try:
             # Attempt to catch SIGTERM.  This is dubious, but not more so
             # than the default handling of SIGINT.
@@ -76,8 +77,10 @@ class VMNetXApp(object):
             ErrorWindow(self._wind).run()
         finally:
             # Shut down
-            self._wind.destroy()
-            disk_monitor.close()
+            if self._wind is not None:
+                self._wind.destroy()
+            if disk_monitor is not None:
+                disk_monitor.close()
             self._machine.stop_vm()
             self._machine.close()
     # pylint: enable=W0702
