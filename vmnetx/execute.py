@@ -59,15 +59,24 @@ class Machine(object):
         self.name = manifest.name
         domain = _ReferencedObject(manifest.domain)
         disk = _ReferencedObject(manifest.disk)
-        memory = _ReferencedObject(manifest.memory)
+        if manifest.memory is not None:
+            memory = _ReferencedObject(manifest.memory)
+        else:
+            memory = None
 
         # Start vmnetfs
-        self._fs = VMNetFS(disk.get_vmnetfs_args() + memory.get_vmnetfs_args())
+        args = disk.get_vmnetfs_args()
+        if memory is not None:
+            args.extend(memory.get_vmnetfs_args())
+        self._fs = VMNetFS(args)
         self._fs.start()
         self.disk_path = os.path.join(self._fs.mountpoint, 'disk')
         disk_image_path = os.path.join(self.disk_path, 'image')
-        self.memory_path = os.path.join(self._fs.mountpoint, 'memory')
-        self._memory_image_path = os.path.join(self.memory_path, 'image')
+        if memory is not None:
+            self.memory_path = os.path.join(self._fs.mountpoint, 'memory')
+            self._memory_image_path = os.path.join(self.memory_path, 'image')
+        else:
+            self.memory_path = self._memory_image_path = None
 
         # Set up libvirt connection
         self._conn = libvirt.open('qemu:///session')
@@ -83,8 +92,14 @@ class Machine(object):
 
     def start_vm(self):
         try:
-            self._conn.restoreFlags(self._memory_image_path, self._domain_xml,
-                    libvirt.VIR_DOMAIN_SAVE_RUNNING)
+            if self._memory_image_path is not None:
+                # Does not return domain handle
+                # Does not allow autodestroy
+                self._conn.restoreFlags(self._memory_image_path,
+                        self._domain_xml, libvirt.VIR_DOMAIN_SAVE_RUNNING)
+            else:
+                self._conn.createXML(self._domain_xml,
+                        libvirt.VIR_DOMAIN_START_AUTODESTROY)
         except libvirt.libvirtError, e:
             raise MachineExecutionError(str(e))
 

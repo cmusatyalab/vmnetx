@@ -29,6 +29,7 @@ class VMNetXApp(object):
         gobject.threads_init()
         # Starts vmnetfs
         self._machine = Machine(manifest_file)
+        self._have_memory = self._machine.memory_path is not None
         self._wind = None
         self._load_monitor = None
         self._load_window = None
@@ -43,8 +44,10 @@ class VMNetXApp(object):
             signal.signal(signal.SIGTERM, self._signal)
 
             # Create monitors
-            self._load_monitor = LoadProgressMonitor(self._machine.memory_path)
             disk_monitor = ImageMonitor(self._machine.disk_path)
+            if self._have_memory:
+                self._load_monitor = LoadProgressMonitor(
+                        self._machine.memory_path)
 
             # Show main window
             self._wind = VMWindow(self._machine.name,
@@ -54,10 +57,11 @@ class VMNetXApp(object):
             self._wind.show_all()
 
             # Show loading window
-            self._load_window = LoadProgressWindow(self._load_monitor,
-                    self._wind)
-            self._load_window.connect('user-cancel', self._startup_cancel)
-            self._load_window.show_all()
+            if self._have_memory:
+                self._load_window = LoadProgressWindow(self._load_monitor,
+                        self._wind)
+                self._load_window.connect('user-cancel', self._startup_cancel)
+                self._load_window.show_all()
 
             # Load memory image in the background
             threading.Thread(name='vmnetx-startup',
@@ -104,13 +108,15 @@ class VMNetXApp(object):
     def _startup_done(self):
         # Runs in UI thread
         self._wind.connect_vnc()
-        self._load_window.destroy()
-        self._load_monitor.close()
+        if self._have_memory:
+            self._load_window.destroy()
+            self._load_monitor.close()
 
     def _startup_error(self, error):
         # Runs in UI thread
-        self._load_window.destroy()
-        self._load_monitor.close()
+        if self._have_memory:
+            self._load_window.destroy()
+            self._load_monitor.close()
         if not self._startup_cancelled:
             ew = ErrorWindow(self._wind, error)
             ew.run()

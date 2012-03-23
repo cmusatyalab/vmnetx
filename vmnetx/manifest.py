@@ -80,6 +80,8 @@ class Manifest(object):
 
     @staticmethod
     def _make_refinfo(element):
+        if element is None:
+            return None
         size = element.get('size')
         if size is not None:
             size = int(size)
