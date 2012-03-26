@@ -59,7 +59,7 @@ static uint64_t parse_uint(const char *str, GError **err)
     if (*str == 0 || *endptr != 0) {
         g_set_error(err, VMNETFS_CONFIG_ERROR,
                 VMNETFS_CONFIG_ERROR_INVALID_ARGUMENT,
-                "Invalid integer argument");
+                "Invalid integer argument: %s", str);
         return 0;
     }
     return ret;
