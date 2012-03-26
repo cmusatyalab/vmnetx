@@ -20,15 +20,16 @@ import gtk
 import signal
 import threading
 
-from vmnetx.execute import Machine
+from vmnetx.execute import Machine, MachineMetadata
 from vmnetx.view import VMWindow, LoadProgressWindow, ErrorWindow, ErrorBuffer
 from vmnetx.status.monitor import ImageMonitor, LoadProgressMonitor
 
 class VMNetXApp(object):
     def __init__(self, manifest_file):
         gobject.threads_init()
+        metadata = MachineMetadata(manifest_file)
         # Starts vmnetfs
-        self._machine = Machine(manifest_file)
+        self._machine = Machine(metadata)
         self._have_memory = self._machine.memory_path is not None
         self._wind = None
         self._load_monitor = None

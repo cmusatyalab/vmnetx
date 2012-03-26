@@ -47,32 +47,41 @@ class _ReferencedObject(object):
                 str(self.segment_size), str(self.chunk_size)]
 
 
-class Machine(object):
+class MachineMetadata(object):
     def __init__(self, manifest_path):
-        self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
-        self._vnc_socket_dir = tempfile.mkdtemp(prefix='vmnetx-socket-')
-        self.vnc_listen_address = os.path.join(self._vnc_socket_dir, 'vnc')
-
         # Parse manifest
         with open(manifest_path) as fh:
             manifest = Manifest(xml=fh.read())
         self.name = manifest.name
+        self.have_memory = manifest.memory is not None
+        self.vmnetfs_args = _ReferencedObject(manifest.disk).vmnetfs_args
+        if self.have_memory:
+            self.vmnetfs_args.extend(_ReferencedObject(manifest.memory).
+                    vmnetfs_args)
         domain = _ReferencedObject(manifest.domain)
-        disk = _ReferencedObject(manifest.disk)
-        if manifest.memory is not None:
-            memory = _ReferencedObject(manifest.memory)
-        else:
-            memory = None
+
+        # Fetch and validate domain XML
+        fh = urllib2.urlopen(domain.url)
+        try:
+            xml = fh.read()
+        finally:
+            fh.close()
+        self.domain_xml = DomainXML(xml)
+
+
+class Machine(object):
+    def __init__(self, metadata):
+        self.name = metadata.name
+        self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
+        self._vnc_socket_dir = tempfile.mkdtemp(prefix='vmnetx-socket-')
+        self.vnc_listen_address = os.path.join(self._vnc_socket_dir, 'vnc')
 
         # Start vmnetfs
-        args = disk.vmnetfs_args
-        if memory is not None:
-            args.extend(memory.vmnetfs_args)
-        self._fs = VMNetFS(args)
+        self._fs = VMNetFS(metadata.vmnetfs_args)
         self._fs.start()
         self.disk_path = os.path.join(self._fs.mountpoint, 'disk')
         disk_image_path = os.path.join(self.disk_path, 'image')
-        if memory is not None:
+        if metadata.have_memory:
             self.memory_path = os.path.join(self._fs.mountpoint, 'memory')
             self._memory_image_path = os.path.join(self.memory_path, 'image')
         else:
@@ -81,14 +90,10 @@ class Machine(object):
         # Set up libvirt connection
         self._conn = libvirt.open('qemu:///session')
 
-        # Fetch and validate domain XML
-        fh = urllib2.urlopen(domain.url)
-        try:
-            xml = fh.read()
-        finally:
-            fh.close()
-        self._domain_xml = DomainXML(xml).get_for_execution(self._domain_name,
-                disk_image_path, self.vnc_listen_address).xml
+        # Get execution domain XML
+        self._domain_xml = metadata.domain_xml.get_for_execution(
+                self._domain_name, disk_image_path,
+                self.vnc_listen_address).xml
 
     def start_vm(self):
         try:
