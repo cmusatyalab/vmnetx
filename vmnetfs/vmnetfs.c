@@ -26,6 +26,8 @@
 #include <errno.h>
 #include "vmnetfs-private.h"
 
+#define IMAGE_ARG_COUNT 5
+
 static void _image_free(struct vmnetfs_image *img)
 {
     _vmnetfs_stream_group_free(img->io_stream);
@@ -46,9 +48,6 @@ static void image_free(struct vmnetfs_image *img)
     _vmnetfs_io_destroy(img);
     _image_free(img);
 }
-
-static char *image_args[] = {"url", "cache_path", "size", "segment_size",
-        "chunk_size", NULL};
 
 static uint64_t parse_uint(const char *str, GError **err)
 {
@@ -258,11 +257,9 @@ static void child(FILE *pipe)
 
     /* Check argc */
     argc = g_strv_length(argv);
-    images = argc / g_strv_length(image_args);
-    if (argc % g_strv_length(image_args) != 0 || images < 1 || images > 2) {
-        char *arg_string = g_strjoinv(" ", image_args);
-        fprintf(pipe, "Usage: vmnetfs (%s){1,2}\n", arg_string);
-        g_free(arg_string);
+    images = argc / IMAGE_ARG_COUNT;
+    if (argc % IMAGE_ARG_COUNT != 0 || images < 1 || images > 2) {
+        fprintf(pipe, "Incorrect argument count\n");
         fclose(pipe);
         return;
     }
@@ -274,7 +271,7 @@ static void child(FILE *pipe)
         fprintf(pipe, "%s\n", err->message);
         goto out;
     }
-    arg += g_strv_length(image_args);
+    arg += IMAGE_ARG_COUNT;
 
     /* Set up memory */
     if (images > 1) {
@@ -283,7 +280,7 @@ static void child(FILE *pipe)
             fprintf(pipe, "%s\n", err->message);
             goto out;
         }
-        arg += g_strv_length(image_args);
+        arg += IMAGE_ARG_COUNT;
     }
 
     /* Set up fuse */
