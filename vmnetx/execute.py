@@ -43,9 +43,8 @@ class _ReferencedObject(object):
         if not self.cache.startswith(basepath):
             raise MachineExecutionError('Invalid object URL')
 
-    def get_vmnetfs_args(self):
-        return [self.url, self.cache, str(self.size), str(self.segment_size),
-                str(self.chunk_size)]
+        self.vmnetfs_args = [self.url, self.cache, str(self.size),
+                str(self.segment_size), str(self.chunk_size)]
 
 
 class Machine(object):
@@ -66,9 +65,9 @@ class Machine(object):
             memory = None
 
         # Start vmnetfs
-        args = disk.get_vmnetfs_args()
+        args = disk.vmnetfs_args
         if memory is not None:
-            args.extend(memory.get_vmnetfs_args())
+            args.extend(memory.vmnetfs_args)
         self._fs = VMNetFS(args)
         self._fs.start()
         self.disk_path = os.path.join(self._fs.mountpoint, 'disk')
