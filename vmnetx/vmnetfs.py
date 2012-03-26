@@ -31,7 +31,8 @@ class VMNetFSError(Exception):
 
 class VMNetFS(object):
     def __init__(self, args):
-        self._args = [vmnetfs_path] + args
+        self._args = '%d\n%s\n' % (len(args),
+                '\n'.join(a.replace('\n', '') for a in args))
         self._pipe = None
         self.mountpoint = None
 
@@ -40,9 +41,12 @@ class VMNetFS(object):
     def start(self):
         read, write = os.pipe()
         try:
-            proc = subprocess.Popen(self._args, stdin=read,
+            proc = subprocess.Popen([vmnetfs_path], stdin=read,
                     stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                     close_fds=True)
+            self._pipe = os.fdopen(write, 'w')
+            self._pipe.write(self._args)
+            self._pipe.flush()
             out, err = proc.communicate()
             if len(err) > 0:
                 raise VMNetFSError(err.strip())
@@ -50,9 +54,11 @@ class VMNetFS(object):
                 raise VMNetFSError('vmnetfs returned status %d' %
                         proc.returncode)
             self.mountpoint = out.strip()
-            self._pipe = os.fdopen(write, 'w')
         except:
-            os.close(write)
+            if self._pipe is not None:
+                self._pipe.close()
+            else:
+                os.close(write)
             raise
         finally:
             os.close(read)

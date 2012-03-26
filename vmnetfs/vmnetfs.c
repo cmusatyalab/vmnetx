@@ -65,6 +65,63 @@ static uint64_t parse_uint(const char *str, GError **err)
     return ret;
 }
 
+static char *read_line(GIOChannel *chan, GError **err)
+{
+    char *buf;
+    gsize terminator;
+
+    switch (g_io_channel_read_line(chan, &buf, NULL, &terminator, err)) {
+    case G_IO_STATUS_ERROR:
+        return NULL;
+    case G_IO_STATUS_NORMAL:
+        buf[terminator] = 0;
+        return buf;
+    case G_IO_STATUS_EOF:
+        g_set_error(err, G_IO_CHANNEL_ERROR, G_IO_CHANNEL_ERROR_IO,
+                "Unexpected EOF");
+        return NULL;
+    case G_IO_STATUS_AGAIN:
+        g_set_error(err, G_IO_CHANNEL_ERROR, G_IO_CHANNEL_ERROR_IO,
+                "Unexpected EAGAIN");
+        return NULL;
+    default:
+        g_assert_not_reached();
+    }
+}
+
+static char **get_arguments(GIOChannel *chan, GError **err)
+{
+    uint64_t n;
+    uint64_t count;
+    char *str;
+    GPtrArray *args;
+    GError *my_err = NULL;
+
+    /* Get argument count */
+    str = read_line(chan, err);
+    if (str == NULL) {
+        return NULL;
+    }
+    count = parse_uint(str, &my_err);
+    if (my_err) {
+        g_propagate_error(err, my_err);
+        return NULL;
+    }
+
+    /* Get arguments */
+    args = g_ptr_array_new_with_free_func(g_free);
+    for (n = 0; n < count; n++) {
+        str = read_line(chan, err);
+        if (str == NULL) {
+            g_ptr_array_free(args, TRUE);
+            return NULL;
+        }
+        g_ptr_array_add(args, str);
+    }
+    g_ptr_array_add(args, NULL);
+    return (char **) g_ptr_array_free(args, FALSE);
+}
+
 static struct vmnetfs_image *image_new(char **argv, GError **err)
 {
     struct vmnetfs_image *img;
@@ -167,13 +224,15 @@ static gboolean shutdown_callback(void *data)
     return FALSE;
 }
 
-static void child(int argc, char **argv, FILE *pipe)
+static void child(FILE *pipe)
 {
     struct vmnetfs *fs;
     GThread *loop_thread = NULL;
     GIOChannel *chan;
     GIOFlags flags;
-    int arg = 1;
+    int argc;
+    char **argv;
+    int arg = 0;
     int images;
     GError *err = NULL;
 
@@ -187,12 +246,22 @@ static void child(int argc, char **argv, FILE *pipe)
         return;
     }
 
+    /* Read arguments */
+    chan = g_io_channel_unix_new(0);
+    argv = get_arguments(chan, &err);
+    if (argv == NULL) {
+        fprintf(pipe, "%s\n", err->message);
+        g_clear_error(&err);
+        fclose(pipe);
+        return;
+    }
+
     /* Check argc */
-    images = (argc - 1) / g_strv_length(image_args);
-    if ((argc - 1) % g_strv_length(image_args) != 0 ||
-            images < 1 || images > 2) {
+    argc = g_strv_length(argv);
+    images = argc / g_strv_length(image_args);
+    if (argc % g_strv_length(image_args) != 0 || images < 1 || images > 2) {
         char *arg_string = g_strjoinv(" ", image_args);
-        fprintf(pipe, "Usage: %s (%s){1,2}\n", argv[0], arg_string);
+        fprintf(pipe, "Usage: vmnetfs (%s){1,2}\n", arg_string);
         g_free(arg_string);
         fclose(pipe);
         return;
@@ -232,7 +301,6 @@ static void child(int argc, char **argv, FILE *pipe)
     }
 
     /* Add watch for stdin being closed */
-    chan = g_io_channel_unix_new(0);
     flags = g_io_channel_get_flags(chan);
     g_io_channel_set_flags(chan, flags | G_IO_FLAG_NONBLOCK, &err);
     if (err) {
@@ -242,7 +310,6 @@ static void child(int argc, char **argv, FILE *pipe)
     }
     g_io_add_watch(chan, G_IO_IN | G_IO_ERR | G_IO_HUP | G_IO_NVAL,
             read_stdin, fs);
-    g_io_channel_unref(chan);
 
     /* Started successfully.  Send the mountpoint back to the parent and
        run FUSE event loop until the filesystem is unmounted. */
@@ -267,6 +334,8 @@ out:
     image_free(fs->disk);
     image_free(fs->memory);
     g_slice_free(struct vmnetfs, fs);
+    g_strfreev(argv);
+    g_io_channel_unref(chan);
 }
 
 static void setsignal(int signum, void (*handler)(int))
@@ -279,7 +348,7 @@ static void setsignal(int signum, void (*handler)(int))
     sigaction(signum, &sa, NULL);
 }
 
-int main(int argc, char **argv)
+int main(int argc G_GNUC_UNUSED, char **argv G_GNUC_UNUSED)
 {
     int pipes[2];
     FILE *pipe_fh;
@@ -349,7 +418,7 @@ int main(int argc, char **argv)
         open("/dev/null", O_WRONLY);
         open("/dev/null", O_WRONLY);
 
-        child(argc, argv, pipe_fh);
+        child(pipe_fh);
         return 0;
     }
 }
