@@ -27,10 +27,9 @@ from vmnetx.status.monitor import ImageMonitor, LoadProgressMonitor
 class VMNetXApp(object):
     def __init__(self, manifest_file):
         gobject.threads_init()
-        metadata = MachineMetadata(manifest_file)
-        # Starts vmnetfs
-        self._machine = Machine(metadata)
-        self._have_memory = self._machine.memory_path is not None
+        self._manifest_file = manifest_file
+        self._machine = None
+        self._have_memory = False
         self._wind = None
         self._load_monitor = None
         self._load_window = None
@@ -44,6 +43,13 @@ class VMNetXApp(object):
             # Attempt to catch SIGTERM.  This is dubious, but not more so
             # than the default handling of SIGINT.
             signal.signal(signal.SIGTERM, self._signal)
+
+            # Fetch and parse metadata
+            metadata = MachineMetadata(self._manifest_file)
+
+            # Start vmnetfs
+            self._machine = Machine(metadata)
+            self._have_memory = self._machine.memory_path is not None
 
             # Create monitors
             disk_monitor = ImageMonitor(self._machine.disk_path)
@@ -82,8 +88,9 @@ class VMNetXApp(object):
                 self._wind.destroy()
             if disk_monitor is not None:
                 disk_monitor.close()
-            self._machine.stop_vm()
-            self._machine.close()
+            if self._machine is not None:
+                self._machine.stop_vm()
+                self._machine.close()
     # pylint: enable=W0702
 
     def _signal(self, _signum, _frame):
