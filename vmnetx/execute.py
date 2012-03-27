@@ -61,11 +61,14 @@ class MachineMetadata(object):
         domain = _ReferencedObject(manifest.domain)
 
         # Fetch and validate domain XML
-        fh = urllib2.urlopen(domain.url)
         try:
-            xml = fh.read()
-        finally:
-            fh.close()
+            fh = urllib2.urlopen(domain.url)
+            try:
+                xml = fh.read()
+            finally:
+                fh.close()
+        except urllib2.URLError, e:
+            raise MachineExecutionError(str(e))
         self.domain_xml = DomainXML(xml)
 
 
