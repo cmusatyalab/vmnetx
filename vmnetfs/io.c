@@ -202,8 +202,8 @@ static bool fetch_data(struct vmnetfs_image *img, void *buf, uint64_t start,
             cur_start = start;
             cur_count = count;
         }
-        ret = _vmnetfs_transport_fetch(img->cpool, url, buf, cur_start,
-                cur_count, err);
+        ret = _vmnetfs_transport_fetch(img->cpool, url, img->username,
+                img->password, buf, cur_start, cur_count, err);
         g_free(url);
         if (!ret) {
             return false;

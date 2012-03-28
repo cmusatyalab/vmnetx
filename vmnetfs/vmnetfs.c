@@ -36,6 +36,8 @@ static void _image_free(struct vmnetfs_image *img)
     _vmnetfs_stat_free(img->chunk_fetches);
     _vmnetfs_stat_free(img->chunk_dirties);
     g_free(img->url);
+    g_free(img->username);
+    g_free(img->password);
     g_free(img->read_base);
     g_slice_free(struct vmnetfs_image, img);
 }
@@ -121,7 +123,8 @@ static char **get_arguments(GIOChannel *chan, GError **err)
     return (char **) g_ptr_array_free(args, FALSE);
 }
 
-static struct vmnetfs_image *image_new(char **argv, GError **err)
+static struct vmnetfs_image *image_new(char **argv, const char *username,
+        const char *password, GError **err)
 {
     struct vmnetfs_image *img;
     int arg = 0;
@@ -147,6 +150,8 @@ static struct vmnetfs_image *image_new(char **argv, GError **err)
 
     img = g_slice_new0(struct vmnetfs_image);
     img->url = g_strdup(url);
+    img->username = g_strdup(username);
+    img->password = g_strdup(password);
     img->read_base = g_strdup(cache);
     img->initial_size = size;
     img->segment_size = segment_size;
@@ -233,6 +238,8 @@ static void child(FILE *pipe)
     char **argv;
     int arg = 0;
     int images;
+    char *username;
+    char *password;
     GError *err = NULL;
 
     /* Initialize */
@@ -257,16 +264,26 @@ static void child(FILE *pipe)
 
     /* Check argc */
     argc = g_strv_length(argv);
-    images = argc / IMAGE_ARG_COUNT;
-    if (argc % IMAGE_ARG_COUNT != 0 || images < 1 || images > 2) {
+    images = (argc - 2) / IMAGE_ARG_COUNT;
+    if (argc % IMAGE_ARG_COUNT != 2 || images < 1 || images > 2) {
         fprintf(pipe, "Incorrect argument count\n");
         fclose(pipe);
         return;
     }
 
+    /* Get initial arguments */
+    username = argv[arg++];
+    if (!username[0]) {
+        username = NULL;
+    }
+    password = argv[arg++];
+    if (!password[0]) {
+        password = NULL;
+    }
+
     /* Set up disk */
     fs = g_slice_new0(struct vmnetfs);
-    fs->disk = image_new(argv + arg, &err);
+    fs->disk = image_new(argv + arg, username, password, &err);
     if (err) {
         fprintf(pipe, "%s\n", err->message);
         goto out;
@@ -275,7 +292,7 @@ static void child(FILE *pipe)
 
     /* Set up memory */
     if (images > 1) {
-        fs->memory = image_new(argv + arg, &err);
+        fs->memory = image_new(argv + arg, username, password, &err);
         if (err) {
             fprintf(pipe, "%s\n", err->message);
             goto out;

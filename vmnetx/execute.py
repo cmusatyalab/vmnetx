@@ -54,7 +54,8 @@ class MachineMetadata(object):
             manifest = Manifest(xml=fh.read())
         self.name = manifest.name
         self.have_memory = manifest.memory is not None
-        self.vmnetfs_args = _ReferencedObject(manifest.disk).vmnetfs_args
+        self.vmnetfs_args = ['', ''] + \
+                _ReferencedObject(manifest.disk).vmnetfs_args
         if self.have_memory:
             self.vmnetfs_args.extend(_ReferencedObject(manifest.memory).
                     vmnetfs_args)

@@ -90,6 +90,13 @@ static struct connection *conn_new(struct connection_pool *pool,
                 "Couldn't disable signals");
         goto bad;
     }
+    if (curl_easy_setopt(conn->curl, CURLOPT_HTTPAUTH,
+            CURLAUTH_BASIC | CURLAUTH_DIGEST)) {
+        g_set_error(err, VMNETFS_TRANSPORT_ERROR,
+                VMNETFS_TRANSPORT_ERROR_FATAL,
+                "Couldn't configure authentication");
+        goto bad;
+    }
     if (curl_easy_setopt(conn->curl, CURLOPT_WRITEFUNCTION, write_callback)) {
         g_set_error(err, VMNETFS_TRANSPORT_ERROR,
                 VMNETFS_TRANSPORT_ERROR_FATAL,
@@ -180,7 +187,8 @@ void _vmnetfs_transport_pool_free(struct connection_pool *cpool)
 }
 
 /* Make one attempt to fetch the specified byte range from the URL. */
-static bool fetch(struct connection_pool *cpool, const char *url, void *buf,
+static bool fetch(struct connection_pool *cpool, const char *url,
+        const char *username, const char *password, void *buf,
         uint64_t offset, uint64_t length, GError **err)
 {
     struct connection *conn;
@@ -196,6 +204,18 @@ static bool fetch(struct connection_pool *cpool, const char *url, void *buf,
         g_set_error(err, VMNETFS_TRANSPORT_ERROR,
                 VMNETFS_TRANSPORT_ERROR_FATAL,
                 "Couldn't set connection URL");
+        goto out;
+    }
+    if (curl_easy_setopt(conn->curl, CURLOPT_USERNAME, username)) {
+        g_set_error(err, VMNETFS_TRANSPORT_ERROR,
+                VMNETFS_TRANSPORT_ERROR_FATAL,
+                "Couldn't set authentication username");
+        goto out;
+    }
+    if (curl_easy_setopt(conn->curl, CURLOPT_PASSWORD, password)) {
+        g_set_error(err, VMNETFS_TRANSPORT_ERROR,
+                VMNETFS_TRANSPORT_ERROR_FATAL,
+                "Couldn't set authentication password");
         goto out;
     }
     range = g_strdup_printf("%"PRIu64"-%"PRIu64, offset, offset + length - 1);
@@ -254,7 +274,8 @@ out:
 /* Attempt to fetch the specified byte range from the URL, retrying
    several times in case of retryable errors. */
 bool _vmnetfs_transport_fetch(struct connection_pool *cpool, const char *url,
-        void *buf, uint64_t offset, uint64_t length, GError **err)
+        const char *username, const char *password, void *buf,
+        uint64_t offset, uint64_t length, GError **err)
 {
     GError *my_err = NULL;
     int i;
@@ -264,7 +285,8 @@ bool _vmnetfs_transport_fetch(struct connection_pool *cpool, const char *url,
             g_clear_error(&my_err);
             sleep(TRANSPORT_RETRY_DELAY);
         }
-        if (fetch(cpool, url, buf, offset, length, &my_err)) {
+        if (fetch(cpool, url, username, password, buf, offset, length,
+                &my_err)) {
             return true;
         }
         if (!g_error_matches(my_err, VMNETFS_TRANSPORT_ERROR,

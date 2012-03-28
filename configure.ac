@@ -37,7 +37,7 @@ AC_PATH_PROG([PYLINT], [pylint], [:])
 AC_ARG_VAR([PYLINT], [path to pylint])
 
 # Checks for libraries.
-PKG_CHECK_MODULES([libcurl], [libcurl >= 7.17.0])
+PKG_CHECK_MODULES([libcurl], [libcurl >= 7.19.1])
 PKG_CHECK_MODULES([fuse], [fuse >= 2.7])
 PKG_CHECK_MODULES([glib], [glib-2.0 >= 2.22])
 PKG_CHECK_MODULES([gthread], [gthread-2.0])
