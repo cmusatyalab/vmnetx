@@ -217,6 +217,78 @@ class LoadProgressWindow(gtk.Dialog):
 gobject.type_register(LoadProgressWindow)
 
 
+class PasswordWindow(gtk.Dialog):
+    def __init__(self, site, realm):
+        gtk.Dialog.__init__(self, 'Log in', None, gtk.DIALOG_MODAL,
+                (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_OK,
+                gtk.RESPONSE_OK))
+        self.set_default_response(gtk.RESPONSE_OK)
+        self.set_resizable(False)
+        self.connect('response', self._response)
+
+        table = gtk.Table()
+        self.get_content_area().pack_start(table)
+
+        row = 0
+        for text in 'Site', 'Realm', 'Username', 'Password':
+            label = gtk.Label(text + ':')
+            label.set_alignment(1, 0.5)
+            table.attach(label, 0, 1, row, row + 1, xpadding=5, ypadding=5)
+            row += 1
+        self._invalid = gtk.Label()
+        self._invalid.set_markup('<span foreground="red">Invalid username or password.</span>')
+        table.attach(self._invalid, 0, 2, row, row + 1, xpadding=5, ypadding=5)
+        row += 1
+
+        self._username = gtk.Entry()
+        self._username.connect('activate', self._activate_username)
+        self._password = gtk.Entry()
+        self._password.set_visibility(False)
+        self._password.set_activates_default(True)
+        row = 0
+        for text in site, realm:
+            label = gtk.Label(text)
+            label.set_alignment(0, 0.5)
+            table.attach(label, 1, 2, row, row + 1, xpadding=5, ypadding=5)
+            row += 1
+        for widget in self._username, self._password:
+            table.attach(widget, 1, 2, row, row + 1)
+            row += 1
+
+        table.show_all()
+        self._invalid.hide()
+
+    @property
+    def username(self):
+        return self._username.get_text()
+
+    @property
+    def password(self):
+        return self._password.get_text()
+
+    def _activate_username(self, _wid):
+        self._password.grab_focus()
+
+    def _set_sensitive(self, sensitive):
+        self._username.set_sensitive(sensitive)
+        self._password.set_sensitive(sensitive)
+        for id in gtk.RESPONSE_OK, gtk.RESPONSE_CANCEL:
+            self.set_response_sensitive(id, sensitive)
+        self.set_deletable(sensitive)
+
+        if not sensitive:
+            self._invalid.hide()
+
+    def _response(self, _wid, id):
+        if id == gtk.RESPONSE_OK:
+            self._set_sensitive(False)
+
+    def fail(self):
+        self._set_sensitive(True)
+        self._invalid.show()
+        self._password.grab_focus()
+
+
 class ErrorBuffer(object):
     def __init__(self):
         self.exception = str(sys.exc_info()[1])

@@ -20,8 +20,9 @@ import gtk
 import signal
 import threading
 
-from vmnetx.execute import Machine, MachineMetadata
-from vmnetx.view import VMWindow, LoadProgressWindow, ErrorWindow, ErrorBuffer
+from vmnetx.execute import Machine, MachineMetadata, NeedAuthentication
+from vmnetx.view import (VMWindow, LoadProgressWindow, PasswordWindow,
+        ErrorWindow, ErrorBuffer)
 from vmnetx.status.monitor import ImageMonitor, LoadProgressMonitor
 
 class VMNetXApp(object):
@@ -45,7 +46,25 @@ class VMNetXApp(object):
             signal.signal(signal.SIGTERM, self._signal)
 
             # Fetch and parse metadata
-            metadata = MachineMetadata(self._manifest_file)
+            pw_wind = username = password = None
+            while True:
+                try:
+                    metadata = MachineMetadata(self._manifest_file, username,
+                            password)
+                except NeedAuthentication, e:
+                    if pw_wind is None:
+                        pw_wind = PasswordWindow(e.host, e.realm)
+                    else:
+                        pw_wind.fail()
+                    if pw_wind.run() != gtk.RESPONSE_OK:
+                        pw_wind.destroy()
+                        raise KeyboardInterrupt
+                    username = pw_wind.username
+                    password = pw_wind.password
+                else:
+                    if pw_wind is not None:
+                        pw_wind.destroy()
+                    break
 
             # Start vmnetfs
             self._machine = Machine(metadata)
