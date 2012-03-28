@@ -154,5 +154,6 @@ class VMNetXApp(object):
         self._shutdown()
 
     def _shutdown(self, _obj=None):
+        self._wind.show_activity(False)
         self._wind.hide()
         gobject.idle_add(gtk.main_quit)
