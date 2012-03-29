@@ -236,7 +236,8 @@ class PasswordWindow(gtk.Dialog):
             table.attach(label, 0, 1, row, row + 1, xpadding=5, ypadding=5)
             row += 1
         self._invalid = gtk.Label()
-        self._invalid.set_markup('<span foreground="red">Invalid username or password.</span>')
+        self._invalid.set_markup('<span foreground="red">Invalid username' +
+                ' or password.</span>')
         table.attach(self._invalid, 0, 2, row, row + 1, xpadding=5, ypadding=5)
         row += 1
 
@@ -279,8 +280,8 @@ class PasswordWindow(gtk.Dialog):
         if not sensitive:
             self._invalid.hide()
 
-    def _response(self, _wid, id):
-        if id == gtk.RESPONSE_OK:
+    def _response(self, _wid, resp):
+        if resp == gtk.RESPONSE_OK:
             self._set_sensitive(False)
 
     def fail(self):
