@@ -33,10 +33,22 @@ EXTRA_DIST = vmnetx/system.py.in pylintrc
 
 dist_pkgpython_DATA = manifest.xsd
 
+applicationsdir = $(datarootdir)/applications
+mimedir = $(datarootdir)/mime/packages
+dist_applications_DATA = desktop/vmnetx.desktop
+dist_mime_DATA = desktop/vmnetx.xml
+
 vmnetx/system.py: vmnetx/system.py.in Makefile
 	$(MKDIR_P) vmnetx
 	$(AM_V_GEN) sed -e "s:@pkglibexecdir@:$(pkglibexecdir):g" \
 		-e "s:@version@:$(VERSION):g" $< > $@
+
+update-databases:
+	update-mime-database $(datarootdir)/mime
+	update-desktop-database $(applicationsdir)
+
+install-data-hook: update-databases
+uninstall-hook: update-databases
 
 check-local:
 	@# Fail on serious pylint errors
