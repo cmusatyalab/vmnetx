@@ -17,7 +17,10 @@
 
 import gobject
 import gtk
+import json
+import os
 import signal
+from tempfile import NamedTemporaryFile
 import threading
 
 from vmnetx.execute import Machine, MachineMetadata, NeedAuthentication
@@ -25,9 +28,39 @@ from vmnetx.view import (VMWindow, LoadProgressWindow, PasswordWindow,
         ErrorWindow, ErrorBuffer)
 from vmnetx.status.monitor import ImageMonitor, LoadProgressMonitor
 
+class _UsernameCache(object):
+    def __init__(self):
+        self._configdir = os.path.expanduser('~/.vmnetx')
+        if not os.path.exists(self._configdir):
+            os.makedirs(self._configdir)
+        self._path = os.path.join(self._configdir, 'usernames')
+
+    def _load(self):
+        try:
+            with open(self._path) as fh:
+                return json.load(fh)
+        except IOError:
+            return {}
+
+    def get(self, host, realm):
+        try:
+            return self._load()[host][realm]
+        except KeyError:
+            return None
+
+    def put(self, host, realm, username):
+        map = self._load()
+        map.setdefault(host, {})[realm] = username
+        with NamedTemporaryFile(dir=self._configdir, delete=False) as fh:
+            json.dump(map, fh)
+            fh.write('\n')
+        os.rename(fh.name, self._path)
+
+
 class VMNetXApp(object):
     def __init__(self, manifest_file):
         gobject.threads_init()
+        self._username_cache = _UsernameCache()
         self._manifest_file = manifest_file
         self._machine = None
         self._have_memory = False
@@ -53,7 +86,11 @@ class VMNetXApp(object):
                             password)
                 except NeedAuthentication, e:
                     if pw_wind is None:
+                        username = self._username_cache.get(e.host, e.realm)
                         pw_wind = PasswordWindow(e.host, e.realm)
+                        if username is not None:
+                            # Sets focus to password box as a side effect
+                            pw_wind.username = username
                     else:
                         pw_wind.fail()
                     if pw_wind.run() != gtk.RESPONSE_OK:
@@ -61,6 +98,7 @@ class VMNetXApp(object):
                         raise KeyboardInterrupt
                     username = pw_wind.username
                     password = pw_wind.password
+                    self._username_cache.put(e.host, e.realm, username)
                 else:
                     if pw_wind is not None:
                         pw_wind.destroy()

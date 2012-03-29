@@ -263,6 +263,12 @@ class PasswordWindow(gtk.Dialog):
     def username(self):
         return self._username.get_text()
 
+    @username.setter
+    def username(self, value):
+        # Side effect: set focus to password field
+        self._username.set_text(value)
+        self._password.grab_focus()
+
     @property
     def password(self):
         return self._password.get_text()
