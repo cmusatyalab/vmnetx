@@ -87,13 +87,15 @@ class StatusBarWidget(gtk.HBox):
 class VMWindow(gtk.Window):
     __gsignals__ = {
         'vnc-disconnect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'user-restart': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'user-quit': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
     def __init__(self, name, path, monitor):
         gtk.Window.__init__(self)
         agrp = VMActionGroup(self)
-        agrp.connect('user-quit', lambda _obj: self.emit('user-quit'))
+        for sig in 'user-restart', 'user-quit':
+            agrp.connect(sig, lambda _obj, s: self.emit(s), sig)
 
         self.set_title(name)
         self.connect('delete-event',
@@ -108,6 +110,7 @@ class VMWindow(gtk.Window):
 
         tbar = gtk.Toolbar()
         tbar.insert(agrp.get_action('quit').create_tool_item(), -1)
+        tbar.insert(agrp.get_action('restart').create_tool_item(), -1)
         tbar.insert(gtk.SeparatorToolItem(), -1)
         tbar.insert(agrp.get_action('show-activity').create_tool_item(), -1)
         box.pack_start(tbar, expand=False)
@@ -140,12 +143,14 @@ gobject.type_register(VMWindow)
 
 class VMActionGroup(gtk.ActionGroup):
     __gsignals__ = {
+        'user-restart': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'user-quit': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
     def __init__(self, parent):
         gtk.ActionGroup.__init__(self, 'vmnetx-global')
         self.add_actions((
+            ('restart', 'gtk-refresh', None, None, 'Restart', self._restart),
             ('quit', 'gtk-quit', None, None, 'Quit', self._quit),
         ), user_data=parent)
         self.add_toggle_actions((
@@ -153,17 +158,25 @@ class VMActionGroup(gtk.ActionGroup):
                     'Show virtual machine activity', self._show_activity),
         ), user_data=parent)
 
-    def _quit(self, _action, parent):
+    def _confirm(self, parent, signal, message):
         dlg = gtk.MessageDialog(parent=parent,
                 type=gtk.MESSAGE_WARNING,
                 buttons=gtk.BUTTONS_OK_CANCEL,
                 flags=gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
-                message_format='Really quit?  All changes will be lost.')
+                message_format=message)
         dlg.set_default_response(gtk.RESPONSE_OK)
         result = dlg.run()
         dlg.destroy()
         if result == gtk.RESPONSE_OK:
-            self.emit('user-quit')
+            self.emit(signal)
+
+    def _restart(self, _action, parent):
+        self._confirm(parent, 'user-restart',
+                'Really reboot the guest?  Unsaved data will be lost.')
+
+    def _quit(self, _action, parent):
+        self._confirm(parent, 'user-quit',
+                'Really quit?  All changes will be lost.')
 
     def _show_activity(self, action, parent):
         parent.show_activity(action.get_active())

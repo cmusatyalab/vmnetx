@@ -118,6 +118,7 @@ class VMNetXApp(object):
             self._wind = VMWindow(self._machine.name,
                     self._machine.vnc_listen_address, disk_monitor)
             self._wind.connect('vnc-disconnect', self._restart)
+            self._wind.connect('user-restart', self._user_restart)
             self._wind.connect('user-quit', self._shutdown)
             self._wind.show_all()
 
@@ -194,7 +195,11 @@ class VMNetXApp(object):
             ew.destroy()
         self._shutdown()
 
-    def _restart(self, _obj=None):
+    def _user_restart(self, _obj):
+        # Just terminate the VM; the vnc-disconnect handler will restart it
+        self._machine.stop_vm()
+
+    def _restart(self, _obj):
         self._machine.stop_vm()
         self._start_vm(cold=True)
 
