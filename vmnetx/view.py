@@ -291,15 +291,21 @@ class PasswordWindow(gtk.Dialog):
         table.show_all()
         self._invalid.hide()
 
+    # pylint < 0.25.1 doesn't understand @foo.setter
+    # pylint: disable=E0202
     @property
     def username(self):
         return self._username.get_text()
+    # pylint: enable=E0202
 
+    # pylint < 0.25.1 doesn't understand @foo.setter
+    # pylint: disable=E0102,E0202,E1101
     @username.setter
     def username(self, value):
         # Side effect: set focus to password field
         self._username.set_text(value)
         self._password.grab_focus()
+    # pylint: enable=E0102,E0202,E1101
 
     @property
     def password(self):
