@@ -165,7 +165,12 @@ class VMNetXApp(object):
         try:
             self._machine.start_vm(cold)
         except:
-            gobject.idle_add(self._startup_error, ErrorBuffer())
+            if cold:
+                gobject.idle_add(self._startup_error, ErrorBuffer())
+            else:
+                # Try again without the memory image
+                gobject.idle_add(self._startup_memory_error)
+                self._startup(True)
         else:
             gobject.idle_add(self._startup_done)
     # pylint: enable=W0702
@@ -183,6 +188,11 @@ class VMNetXApp(object):
         if self._have_memory:
             self._load_window.destroy()
             self._load_monitor.close()
+
+    def _startup_memory_error(self):
+        # Runs in UI thread
+        self._wind.add_warning('dialog-warning',
+                'The memory image could not be loaded.')
 
     def _startup_error(self, error):
         # Runs in UI thread

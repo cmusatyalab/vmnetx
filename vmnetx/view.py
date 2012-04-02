@@ -58,12 +58,15 @@ class VNCWidget(gtkvnc.Display):
 class StatusBarWidget(gtk.HBox):
     def __init__(self, vnc):
         gtk.HBox.__init__(self, spacing=3)
+        self._theme = gtk.icon_theme_get_default()
+
+        self._warnings = gtk.HBox()
+        self.pack_start(self._warnings, expand=False)
+
         self.pack_start(gtk.Label())  # filler
 
-        theme = gtk.icon_theme_get_default()
         def add_icon(name, sensitive):
-            icon = gtk.Image()
-            icon.set_from_pixbuf(theme.load_icon(name, 24, 0))
+            icon = self._get_icon(name)
             icon.set_sensitive(sensitive)
             self.pack_start(icon, expand=False)
             return icon
@@ -80,8 +83,19 @@ class StatusBarWidget(gtk.HBox):
         vnc.connect('vnc-pointer-grab', self._grabbed, mouse_icon, True)
         vnc.connect('vnc-pointer-ungrab', self._grabbed, mouse_icon, False)
 
+    def _get_icon(self, name):
+        icon = gtk.Image()
+        icon.set_from_pixbuf(self._theme.load_icon(name, 24, 0))
+        return icon
+
     def _grabbed(self, _wid, icon, grabbed):
         icon.set_sensitive(grabbed)
+
+    def add_warning(self, icon, message):
+        image = self._get_icon(icon)
+        image.set_tooltip_markup(message)
+        self._warnings.pack_start(image)
+        image.show()
 
 
 class VMWindow(gtk.Window):
@@ -122,14 +136,17 @@ class VMWindow(gtk.Window):
         box.pack_start(self._vnc)
         self._vnc.grab_focus()
 
-        statusbar = StatusBarWidget(self._vnc)
-        box.pack_end(statusbar, expand=False)
+        self._statusbar = StatusBarWidget(self._vnc)
+        box.pack_end(self._statusbar, expand=False)
 
     def connect_vnc(self):
         self._vnc.connect_vnc()
 
     def show_activity(self, enabled):
         self._activity.set_visible(enabled)
+
+    def add_warning(self, icon, message):
+        self._statusbar.add_warning(icon, message)
 
     def _vnc_resize(self, _wid, _width, _height):
         # Resize the window to the minimum allowed by its geometry
