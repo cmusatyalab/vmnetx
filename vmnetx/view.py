@@ -18,6 +18,7 @@
 import gobject
 import gtk
 import gtkvnc
+import os
 import socket
 import sys
 import traceback
@@ -28,7 +29,6 @@ class VNCWidget(gtkvnc.Display):
     def __init__(self, path):
         gtkvnc.Display.__init__(self)
         self._path = path
-        self._sock = None
 
         self.keyboard_grabbed = False
         self.mouse_grabbed = False
@@ -45,12 +45,14 @@ class VNCWidget(gtkvnc.Display):
         self.set_size_request(640, 480)
 
     def connect_vnc(self):
+        sock = socket.socket(socket.AF_UNIX)
         try:
-            self._sock = socket.socket(socket.AF_UNIX)
-            self._sock.connect(self._path)
-            self.open_fd(self._sock.fileno())
+            sock.connect(self._path)
+            self.open_fd(os.dup(sock.fileno()))
         except socket.error:
             self.emit('vnc-disconnected')
+        finally:
+            sock.close()
 
 
 class StatusBarWidget(gtk.HBox):
