@@ -117,7 +117,7 @@ class VMNetXApp(object):
             # Show main window
             self._wind = VMWindow(self._machine.name,
                     self._machine.vnc_listen_address, disk_monitor)
-            self._wind.connect('vnc-disconnect', self._shutdown)
+            self._wind.connect('vnc-disconnect', self._restart)
             self._wind.connect('user-quit', self._shutdown)
             self._wind.show_all()
 
@@ -129,8 +129,7 @@ class VMNetXApp(object):
                 self._load_window.show_all()
 
             # Load memory image in the background
-            threading.Thread(name='vmnetx-startup',
-                    target=self._startup).start()
+            self._start_vm()
 
             # Run main loop
             gtk.main()
@@ -153,13 +152,17 @@ class VMNetXApp(object):
     def _signal(self, _signum, _frame):
         raise KeyboardInterrupt
 
+    def _start_vm(self, cold=False):
+        threading.Thread(name='vmnetx-startup', target=self._startup,
+                kwargs={'cold': cold}).start()
+
     # We intentionally catch all exceptions
     # pylint: disable=W0702
-    def _startup(self):
+    def _startup(self, cold):
         # Thread function.  Load the memory image, then connect the VNC
         # viewer.
         try:
-            self._machine.start_vm()
+            self._machine.start_vm(cold)
         except:
             gobject.idle_add(self._startup_error, ErrorBuffer())
         else:
@@ -190,6 +193,10 @@ class VMNetXApp(object):
             ew.run()
             ew.destroy()
         self._shutdown()
+
+    def _restart(self, _obj=None):
+        self._machine.stop_vm()
+        self._start_vm(cold=True)
 
     def _shutdown(self, _obj=None):
         self._wind.show_activity(False)

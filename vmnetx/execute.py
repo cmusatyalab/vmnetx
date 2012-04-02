@@ -135,9 +135,9 @@ class Machine(object):
                 self._domain_name, disk_image_path,
                 self.vnc_listen_address).xml
 
-    def start_vm(self):
+    def start_vm(self, cold=False):
         try:
-            if self._memory_image_path is not None:
+            if not cold and self._memory_image_path is not None:
                 # Does not return domain handle
                 # Does not allow autodestroy
                 self._conn.restoreFlags(self._memory_image_path,
