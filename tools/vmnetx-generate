@@ -22,7 +22,7 @@ import sys
 import vmnetx
 from vmnetx.generate import generate_machine
 
-USAGE = 'Usage: %prog [options] domain_xml base_url out_dir'
+USAGE = 'Usage: %prog [options] domain_xml base_url out_file'
 VERSION = '%prog ' + vmnetx.__version__
 DESCRIPTION = 'Construct a VMNetX virtual machine image.'
 
@@ -36,10 +36,10 @@ parser.add_option('-s', '--segment-size', dest='segment_size', type='int',
 opts, args = parser.parse_args()
 if len(args) != 3:
     parser.error('Incorrect mandatory arguments')
-domain_xml, base_url, out_dir = args
+domain_xml, base_url, out_file = args
 
 try:
-    generate_machine(opts.name, domain_xml, base_url, out_dir,
+    generate_machine(opts.name, domain_xml, base_url, out_file,
             opts.segment_size)
 except KeyboardInterrupt:
     sys.exit(1)

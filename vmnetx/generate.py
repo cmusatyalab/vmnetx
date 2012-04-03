@@ -26,7 +26,6 @@ from tempfile import NamedTemporaryFile
 from vmnetx.domain import DomainXML, DomainXMLError
 from vmnetx.manifest import Manifest, ReferenceInfo
 
-MANIFEST_NAME = 'machine.netx'
 DOMAIN_TEMPLATE = 'domain-%s.xml'
 DISK_TEMPLATE = 'disk-%s.qcow'
 MEMORY_TEMPLATE = 'memory-%s.img'
@@ -197,7 +196,7 @@ def finalize_blob(in_path, name_template, segment_size=0):
 # pylint: enable=E1101
 
 
-def generate_machine(name, in_xml, base_url, out_dir, segment_size=0):
+def generate_machine(name, in_xml, base_url, out_file, segment_size=0):
     # Parse domain XML
     try:
         with open(in_xml) as fh:
@@ -210,8 +209,7 @@ def generate_machine(name, in_xml, base_url, out_dir, segment_size=0):
             '%s.save' % os.path.splitext(os.path.basename(in_xml))[0])
 
     # Copy disk
-    if not os.path.isdir(out_dir):
-        os.mkdir(out_dir)
+    out_dir = os.path.dirname(out_file)
     temp = NamedTemporaryFile(dir=out_dir, prefix='disk-', delete=False)
     temp.close()
     copy_disk(domain.disk_path, temp.name)
@@ -255,5 +253,5 @@ def generate_machine(name, in_xml, base_url, out_dir, segment_size=0):
     manifest = Manifest(name=name, domain=domain, disk=disk, memory=memory)
 
     # Write out manifest
-    with open(os.path.join(out_dir, MANIFEST_NAME), 'w') as f:
+    with open(out_file, 'w') as f:
         f.write(manifest.xml)
