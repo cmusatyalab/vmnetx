@@ -269,7 +269,15 @@ class ImageStatusWidget(gtk.VBox):
 
         # Chunk bitmap
         frame = gtk.Frame('Chunk bitmap')
-        frame.add(ScrollingImageChunkWidget(image))
+        vbox = gtk.VBox()
+        label = gtk.Label()
+        label.set_markup('<span size="small">Chunk size: %d KB</span>' %
+                (image.chunk_size / 1024))
+        label.set_alignment(0, 0.5)
+        label.set_padding(2, 2)
+        vbox.pack_start(label, expand=False)
+        vbox.pack_start(ScrollingImageChunkWidget(image))
+        frame.add(vbox)
         self.pack_start(frame)
 
 
