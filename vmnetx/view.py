@@ -15,6 +15,7 @@
 # for more details.
 #
 
+from __future__ import division
 import gobject
 import gtk
 import gtkvnc
@@ -53,6 +54,76 @@ class VNCWidget(gtkvnc.Display):
             self.emit('vnc-disconnected')
         finally:
             sock.close()
+
+
+class VNCContainer(gtk.Bin):
+    DEFAULT_DIMENSIONS = (640, 480)
+    SCREEN_SIZE_FUDGE = (-150, -150)
+
+    __gtype_name__ = 'VNCContainer'
+
+    def __init__(self, min_scale=0.25):
+        gtk.Bin.__init__(self)
+        self._min_scale = min_scale
+        self._forcing_size = True
+        self.connect('add', self._add)
+
+    def _add(self, _self, wid):
+        wid.set_scaling(True)
+        wid.connect('vnc-desktop-resize', self._vnc_resize)
+
+    def _vnc_resize(self, _wid, _width, _height):
+        # Use a larger size request for one cycle to resize the window to
+        # the native size
+        self._forcing_size = True
+
+    @property
+    def _child_dimensions(self):
+        child = self.get_child()
+        if child is not None:
+            w, h = child.get_width(), child.get_height()
+            if w > 0 and h > 0:
+                return (w, h)
+        # Return default size
+        return self.DEFAULT_DIMENSIONS
+
+    def do_size_request(self, req):
+        if self._forcing_size:
+            w, h = self._child_dimensions
+            # Avoid picking an initial window size larger than the monitor
+            screen = self.get_screen()
+            window = self.get_window()
+            if window is not None:
+                monitor = screen.get_monitor_at_window(window)
+                geom = screen.get_monitor_geometry(monitor)
+                mw, mh = geom.width, geom.height
+            else:
+                # Not realized yet, fall back on screen geometry
+                mw, mh = screen.get_width(), screen.get_height()
+            ow, oh = self.SCREEN_SIZE_FUDGE
+            req.width = min(w, mw + ow)
+            req.height = min(h, mh + oh)
+            self.queue_resize()
+            # The first size request occurs before we are mapped.
+            # Continue forcing size until then.
+            if self.get_mapped():
+                self._forcing_size = False
+        else:
+            req.width, req.height = [self._min_scale * v
+                    for v in self._child_dimensions]
+
+    def do_size_allocate(self, alloc):
+        self.set_allocation(alloc)
+        child = self.get_child()
+        if child is not None:
+            width, height = self._child_dimensions
+            scale = min(1.0, alloc.width / width, alloc.height / height)
+            rect = gtk.gdk.Rectangle()
+            rect.width = int(width * scale)
+            rect.height = int(height * scale)
+            rect.x = alloc.x + max(0, (alloc.width - rect.width) // 2)
+            rect.y = alloc.y + max(0, (alloc.height - rect.height) // 2)
+            child.size_allocate(rect)
 
 
 class StatusBarWidget(gtk.HBox):
@@ -133,7 +204,9 @@ class VMWindow(gtk.Window):
         self._vnc.connect('vnc-desktop-resize', self._vnc_resize)
         self._vnc.connect('vnc-disconnected',
                 lambda _obj: self.emit('vnc-disconnect'))
-        box.pack_start(self._vnc)
+        vncc = VNCContainer()
+        vncc.add(self._vnc)
+        box.pack_start(vncc)
         self._vnc.grab_focus()
 
         self._statusbar = StatusBarWidget(self._vnc)
