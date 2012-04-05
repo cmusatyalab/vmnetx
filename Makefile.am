@@ -44,8 +44,8 @@ vmnetx/system.py: vmnetx/system.py.in Makefile
 		-e "s:@version@:$(VERSION):g" $< > $@
 
 update-databases:
-	update-mime-database $(datarootdir)/mime
-	update-desktop-database $(applicationsdir)
+	-update-mime-database $(datarootdir)/mime
+	-update-desktop-database $(applicationsdir)
 
 install-data-hook: update-databases
 uninstall-hook: update-databases
