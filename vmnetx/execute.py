@@ -23,9 +23,17 @@ import urllib2
 from urlparse import urlparse
 import uuid
 
+try:
+    from selinux import chcon
+except ImportError:
+    def chcon(*_args, **_kwargs):
+        pass
+
 from vmnetx.domain import DomainXML
 from vmnetx.manifest import Manifest
 from vmnetx.vmnetfs import VMNetFS
+
+SOCKET_DIR_CONTEXT = 'unconfined_u:object_r:virt_home_t:s0'
 
 class NeedAuthentication(Exception):
     def __init__(self, host, realm):
@@ -115,6 +123,12 @@ class Machine(object):
         self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
         self._vnc_socket_dir = tempfile.mkdtemp(prefix='vmnetx-socket-')
         self.vnc_listen_address = os.path.join(self._vnc_socket_dir, 'vnc')
+
+        # Fix socket dir SELinux context
+        try:
+            chcon(self._vnc_socket_dir, SOCKET_DIR_CONTEXT)
+        except OSError:
+            pass
 
         # Start vmnetfs
         self._fs = VMNetFS(metadata.vmnetfs_args)
