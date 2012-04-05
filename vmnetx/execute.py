@@ -162,6 +162,9 @@ class Machine(object):
         # Delete VNC socket
         try:
             os.unlink(self.vnc_listen_address)
+        except OSError:
+            pass
+        try:
             os.rmdir(self._vnc_socket_dir)
         except OSError:
             pass
