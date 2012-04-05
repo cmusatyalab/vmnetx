@@ -51,7 +51,16 @@ install-data-hook: update-databases
 uninstall-hook: update-databases
 
 check-local: $(nobase_nodist_python_PYTHON)
+	@# Combine package sources and generated system.py into one directory
+	rm -rf lint
+	mkdir lint
+	cp -r $(srcdir)/vmnetx lint/vmnetx
+	@# "make distcheck" sets directories read-only; cp follows suit
+	chmod -R u+w lint
+	cp -r $(builddir)/vmnetx/* lint/vmnetx
+	find lint -type f ! -name \*.py -exec rm {} \;
 	@# Fail on serious pylint errors
-	PYTHONPATH=$(srcdir) \
-		$(PYLINT) --rcfile=$(srcdir)/pylintrc vmnetx || \
+	cd lint && PYTHONPATH=. \
+		$(PYLINT) --rcfile=$(abs_srcdir)/pylintrc vmnetx || \
 		[ $$(($$? & 3)) -eq 0 ]
+	rm -rf lint
