@@ -26,7 +26,7 @@ bool _vmnetfs_ll_modified_init(struct vmnetfs_image *img, GError **err)
 {
     char *file;
 
-    file = g_strdup_printf("%s/vmnetx-XXXXXX", g_get_tmp_dir());
+    file = g_strdup_printf("%s/vmnetfs-XXXXXX", g_get_tmp_dir());
     img->write_fd = mkstemp(file);
     if (img->write_fd == -1) {
         g_set_error(err, G_FILE_ERROR, g_file_error_from_errno(errno),

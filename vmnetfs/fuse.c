@@ -358,8 +358,8 @@ struct vmnetfs_fuse *_vmnetfs_fuse_new(struct vmnetfs *fs, GError **err)
     /* Build FUSE command line */
     argv = g_ptr_array_new();
     g_ptr_array_add(argv, g_strdup("-odefault_permissions"));
-    g_ptr_array_add(argv, g_strdup_printf("-ofsname=vmnetx#%d", getpid()));
-    g_ptr_array_add(argv, g_strdup("-osubtype=vmnetx"));
+    g_ptr_array_add(argv, g_strdup_printf("-ofsname=vmnetfs#%d", getpid()));
+    g_ptr_array_add(argv, g_strdup("-osubtype=vmnetfs"));
     g_ptr_array_add(argv, g_strdup("-obig_writes"));
     g_ptr_array_add(argv, g_strdup("-ointr"));
     /* Avoid kernel page cache in order to preserve semantics of read()
