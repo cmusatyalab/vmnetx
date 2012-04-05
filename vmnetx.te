@@ -1,0 +1,25 @@
+# SELinux policy for vmnetx
+
+module vmnetx 1.0;
+
+require {
+	type fusefs_t;
+	type svirt_t;
+	type virt_home_t;
+	class dir { getattr search open read write add_name ioctl };
+	class file { getattr open read write ioctl };
+	class sock_file create;
+}
+
+## Allow qemu access to files in the vmnetfs filesystem.  More-or-less
+## reimplements the virt_use_fusefs boolean.  There isn't really a better
+## way to do this; see bug #7.
+allow svirt_t fusefs_t:dir { getattr search open read ioctl };
+allow svirt_t fusefs_t:file { getattr open read write ioctl };
+
+## Work around RHBZ#809910
+# qemu logging
+allow svirt_t virt_home_t:dir { write add_name };
+allow svirt_t virt_home_t:file write;
+# Monitor socket
+allow svirt_t virt_home_t:sock_file create;
