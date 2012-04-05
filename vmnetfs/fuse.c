@@ -175,7 +175,7 @@ static int do_open(const char *path, struct fuse_file_info *fi)
     if (ret) {
         g_slice_free(struct vmnetfs_fuse_fh, fh);
     } else {
-        fi->fh = (uint64_t) fh;
+        fi->fh = (uintptr_t) fh;
         fi->nonseekable = fh->ops->nonseekable;
     }
     return ret;
@@ -184,7 +184,7 @@ static int do_open(const char *path, struct fuse_file_info *fi)
 static int do_read(const char *path G_GNUC_UNUSED, char *buf, size_t count,
         off_t start, struct fuse_file_info *fi)
 {
-    struct vmnetfs_fuse_fh *fh = (void *) fi->fh;
+    struct vmnetfs_fuse_fh *fh = (void *) (uintptr_t) fi->fh;
 
     if (fh->ops->read) {
         return fh->ops->read(fh, buf, start, count);
@@ -196,7 +196,7 @@ static int do_read(const char *path G_GNUC_UNUSED, char *buf, size_t count,
 static int do_write(const char *path G_GNUC_UNUSED, const char *buf,
         size_t count, off_t start, struct fuse_file_info *fi)
 {
-    struct vmnetfs_fuse_fh *fh = (void *) fi->fh;
+    struct vmnetfs_fuse_fh *fh = (void *) (uintptr_t) fi->fh;
 
     if (fh->ops->write) {
         return fh->ops->write(fh, buf, start, count);
@@ -208,7 +208,7 @@ static int do_write(const char *path G_GNUC_UNUSED, const char *buf,
 static int do_poll(const char *path G_GNUC_UNUSED, struct fuse_file_info *fi,
         struct fuse_pollhandle *ph, unsigned *reventsp)
 {
-    struct vmnetfs_fuse_fh *fh = (void *) fi->fh;
+    struct vmnetfs_fuse_fh *fh = (void *) (uintptr_t) fi->fh;
     bool readable = false;
     int ret;
 
@@ -228,7 +228,7 @@ static int do_poll(const char *path G_GNUC_UNUSED, struct fuse_file_info *fi,
 static int do_release(const char *path G_GNUC_UNUSED,
         struct fuse_file_info *fi)
 {
-    struct vmnetfs_fuse_fh *fh = (void *) fi->fh;
+    struct vmnetfs_fuse_fh *fh = (void *) (uintptr_t) fi->fh;
 
     if (fh->ops->release) {
         fh->ops->release(fh);
@@ -249,7 +249,7 @@ static int do_opendir(const char *path, struct fuse_file_info *fi)
     if (dentry->children == NULL) {
         return -ENOTDIR;
     }
-    fi->fh = (uint64_t) dentry;
+    fi->fh = (uintptr_t) dentry;
     return 0;
 }
 
@@ -272,7 +272,7 @@ static int do_readdir(const char *path G_GNUC_UNUSED, void *buf,
         fuse_fill_dir_t filler, off_t off G_GNUC_UNUSED,
         struct fuse_file_info *fi)
 {
-    struct vmnetfs_fuse_dentry *dentry = (void *) fi->fh;
+    struct vmnetfs_fuse_dentry *dentry = (void *) (uintptr_t) fi->fh;
     struct fill_data fill = {
         .filler = filler,
         .buf = buf,
