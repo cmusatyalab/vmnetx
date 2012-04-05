@@ -50,7 +50,7 @@ update-databases:
 install-data-hook: update-databases
 uninstall-hook: update-databases
 
-check-local:
+check-local: $(nobase_nodist_python_PYTHON)
 	@# Fail on serious pylint errors
 	PYTHONPATH=$(srcdir) \
 		$(PYLINT) --rcfile=$(srcdir)/pylintrc vmnetx || \
