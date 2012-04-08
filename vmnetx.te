@@ -6,7 +6,7 @@ require {
 	type fusefs_t;
 	type svirt_t;
 	type virt_home_t;
-	class dir { getattr search open read write add_name ioctl };
+	class dir { getattr search open read write add_name remove_name ioctl };
 	class file { getattr open read write ioctl };
 	class sock_file create;
 }
@@ -19,7 +19,7 @@ allow svirt_t fusefs_t:file { getattr open read write ioctl };
 
 ## Work around RHBZ#809910
 # qemu logging
-allow svirt_t virt_home_t:dir { write add_name };
+allow svirt_t virt_home_t:dir { write add_name remove_name };
 allow svirt_t virt_home_t:file write;
 # Monitor socket
 allow svirt_t virt_home_t:sock_file create;
