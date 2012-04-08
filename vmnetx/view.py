@@ -42,9 +42,6 @@ class VNCWidget(gtkvnc.Display):
         self.set_pointer_grab(True)
         self.set_keyboard_grab(True)
 
-        # Set initial widget size
-        self.set_size_request(640, 480)
-
     def connect_vnc(self):
         sock = socket.socket(socket.AF_UNIX)
         try:
@@ -56,68 +53,25 @@ class VNCWidget(gtkvnc.Display):
             sock.close()
 
 
-class VNCContainer(gtk.Bin):
-    DEFAULT_DIMENSIONS = (640, 480)
-    SCREEN_SIZE_FUDGE = (-150, -150)
+class AspectBin(gtk.Bin):
+    # Like an AspectFrame but without the frame.
 
-    __gtype_name__ = 'VNCContainer'
-
-    def __init__(self, min_scale=0.25):
-        gtk.Bin.__init__(self)
-        self._min_scale = min_scale
-        self._forcing_size = True
-        self.connect('add', self._add)
-
-    def _add(self, _self, wid):
-        wid.set_scaling(True)
-        wid.connect('vnc-desktop-resize', self._vnc_resize)
-
-    def _vnc_resize(self, _wid, _width, _height):
-        # Use a larger size request for one cycle to resize the window to
-        # the native size
-        self._forcing_size = True
-
-    @property
-    def _child_dimensions(self):
-        child = self.get_child()
-        if child is not None:
-            w, h = child.get_width(), child.get_height()
-            if w > 0 and h > 0:
-                return (w, h)
-        # Return default size
-        return self.DEFAULT_DIMENSIONS
+    __gtype_name__ = 'AspectBin'
 
     def do_size_request(self, req):
-        if self._forcing_size:
-            w, h = self._child_dimensions
-            # Avoid picking an initial window size larger than the monitor
-            screen = self.get_screen()
-            window = self.get_window()
-            if window is not None:
-                monitor = screen.get_monitor_at_window(window)
-                geom = screen.get_monitor_geometry(monitor)
-                mw, mh = geom.width, geom.height
-            else:
-                # Not realized yet, fall back on screen geometry
-                mw, mh = screen.get_width(), screen.get_height()
-            ow, oh = self.SCREEN_SIZE_FUDGE
-            req.width = min(w, mw + ow)
-            req.height = min(h, mh + oh)
-            self.queue_resize()
-            # The first size request occurs before we are mapped.
-            # Continue forcing size until then.
-            if self.get_mapped():
-                self._forcing_size = False
-        else:
-            req.width, req.height = [self._min_scale * v
-                    for v in self._child_dimensions]
+        child = self.get_child()
+        if child is not None:
+            req.width, req.height = child.get_size_request()
 
     def do_size_allocate(self, alloc):
         self.set_allocation(alloc)
         child = self.get_child()
         if child is not None:
-            width, height = self._child_dimensions
-            scale = min(1.0, alloc.width / width, alloc.height / height)
+            width, height = child.get_child_requisition()
+            if width > 0 and height > 0:
+                scale = min(1.0, alloc.width / width, alloc.height / height)
+            else:
+                scale = 1.0
             rect = gtk.gdk.Rectangle()
             rect.width = int(width * scale)
             rect.height = int(height * scale)
@@ -170,6 +124,10 @@ class StatusBarWidget(gtk.HBox):
 
 
 class VMWindow(gtk.Window):
+    INITIAL_VNC_SIZE = (640, 480)
+    MIN_SCALE = 0.25
+    SCREEN_SIZE_FUDGE = (-100, -100)
+
     __gsignals__ = {
         'vnc-disconnect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'user-restart': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
@@ -201,12 +159,16 @@ class VMWindow(gtk.Window):
         box.pack_start(tbar, expand=False)
 
         self._vnc = VNCWidget(path)
+        self._vnc.set_scaling(True)
         self._vnc.connect('vnc-desktop-resize', self._vnc_resize)
         self._vnc.connect('vnc-disconnected',
                 lambda _obj: self.emit('vnc-disconnect'))
-        vncc = VNCContainer()
-        vncc.add(self._vnc)
-        box.pack_start(vncc)
+        aspect = AspectBin()
+        aspect.add(self._vnc)
+        box.pack_start(aspect)
+        w, h = self.INITIAL_VNC_SIZE
+        self.set_geometry_hints(self._vnc, min_width=w, max_width=w,
+                min_height=h, max_height=h)
         self._vnc.grab_focus()
 
         self._statusbar = StatusBarWidget(self._vnc)
@@ -221,10 +183,22 @@ class VMWindow(gtk.Window):
     def add_warning(self, icon, message):
         self._statusbar.add_warning(icon, message)
 
-    def _vnc_resize(self, _wid, _width, _height):
-        # Resize the window to the minimum allowed by its geometry
-        # constraints
-        self.resize(1, 1)
+    def _vnc_resize(self, _wid, width, height):
+        # Update window geometry constraints for the new guest size.
+        # We would like to use min_aspect and max_aspect as well, but they
+        # seem to apply to the whole window rather than the geometry widget.
+        self.set_geometry_hints(self._vnc,
+                min_width=int(width * self.MIN_SCALE),
+                min_height=int(height * self.MIN_SCALE),
+                max_width=width, max_height=height)
+
+        # Resize the window to the largest size that can comfortably fit on
+        # the screen, constrained by the maximums.
+        screen = self.get_screen()
+        monitor = screen.get_monitor_at_window(self.get_window())
+        geom = screen.get_monitor_geometry(monitor)
+        ow, oh = self.SCREEN_SIZE_FUDGE
+        self.resize(max(1, geom.width + ow), max(1, geom.height + oh))
 
     def _destroy(self, _wid):
         self._activity.destroy()
