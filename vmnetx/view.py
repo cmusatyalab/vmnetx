@@ -64,7 +64,7 @@ class AspectBin(gtk.Bin):
             req.width, req.height = child.get_size_request()
 
     def do_size_allocate(self, alloc):
-        self.set_allocation(alloc)
+        self.allocation = alloc
         child = self.get_child()
         if child is not None:
             width, height = child.get_child_requisition()
@@ -178,7 +178,10 @@ class VMWindow(gtk.Window):
         self._vnc.connect_vnc()
 
     def show_activity(self, enabled):
-        self._activity.set_visible(enabled)
+        if enabled:
+            self._activity.show()
+        else:
+            self._activity.hide()
 
     def add_warning(self, icon, message):
         self._statusbar.add_warning(icon, message)
@@ -398,19 +401,21 @@ class ErrorWindow(gtk.MessageDialog):
             error = ErrorBuffer()
         self.format_secondary_text(error.exception)
 
-        content = self.get_message_area()
+        content = self.get_content_area()
         expander = gtk.Expander('Details')
         content.pack_start(expander)
 
         view = gtk.TextView()
         view.get_buffer().set_text(error.detail)
         view.set_editable(False)
-        scroller = gtk.ScrolledWindow(view.get_hadjustment(),
-                view.get_vadjustment())
+        scroller = gtk.ScrolledWindow()
+        view.set_scroll_adjustments(scroller.get_hadjustment(),
+                scroller.get_vadjustment())
         scroller.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
         scroller.add(view)
         scroller.set_size_request(600, 150)
         expander.add(scroller)
 
-        self.get_widget_for_response(gtk.RESPONSE_OK).grab_focus()
+        # RHEL 6 doesn't have MessageDialog.get_widget_for_response()
+        self.get_action_area().get_children()[0].grab_focus()
         content.show_all()
