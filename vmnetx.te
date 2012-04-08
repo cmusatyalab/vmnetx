@@ -1,6 +1,6 @@
 # SELinux policy for vmnetx
 
-module vmnetx 1.0;
+module vmnetx 1.1;
 
 require {
 	type fusefs_t;
