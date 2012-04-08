@@ -83,7 +83,8 @@ class DomainXML(object):
         # Return new instance
         return type(self)(self._to_xml(tree))
 
-    def get_for_execution(self, name, disk_image_path, vnc_listen_address):
+    def get_for_execution(self, conn, name, disk_image_path,
+            vnc_listen_address):
         # Parse XML
         tree = etree.fromstring(self.xml)
 
@@ -92,6 +93,12 @@ class DomainXML(object):
         if len(name_nodes) != 1:
             raise DomainXMLError('Error locating machine name XML node')
         name_nodes[0].text = name
+
+        # Update path to emulator
+        emulator_nodes = tree.xpath('/domain/devices/emulator')
+        if len(emulator_nodes) != 1:
+            raise DomainXMLError('Error locating machine emulator XML node')
+        emulator_nodes[0].text = self._get_emulator(conn, tree)
 
         # Update path to hard disk
         source_nodes = tree.xpath('/domain/devices/disk[@device="disk"]/source')
@@ -111,3 +118,42 @@ class DomainXML(object):
 
         # Return new instance
         return type(self)(self._to_xml(tree))
+
+    @staticmethod
+    def _get_emulator(conn, tree):
+        caps = etree.fromstring(conn.getCapabilities())
+
+        # Get desired emulator properties
+        type_nodes = tree.xpath('/domain/os/type')
+        if len(type_nodes) != 1:
+            raise DomainXMLError('Error locating machine OS type XML node')
+        type = type_nodes[0].text
+        arch = type_nodes[0].get('arch')
+        machine = type_nodes[0].get('machine')
+
+        # Find a suitable emulator
+        for guest in caps.xpath('/capabilities/guest'):
+            # Check type
+            type_nodes = guest.xpath('os_type')
+            if len(type_nodes) != 1:
+                continue
+            if type_nodes[0].text != type:
+                continue
+
+            # Check architectures
+            for arch_node in guest.xpath('arch'):
+                if arch_node.get('name') != arch:
+                    continue
+
+                # Check supported machines
+                for machine_node in arch_node.xpath('machine'):
+                    if machine_node.text == machine:
+                        # Found a match!
+                        emulator_nodes = arch_node.xpath('emulator')
+                        if len(emulator_nodes) != 1:
+                            continue
+                        return emulator_nodes[0].text
+
+        # Failed.
+        raise DomainXMLError('No suitable emulator for %s/%s/%s' %
+                (type, arch, machine))

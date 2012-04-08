@@ -146,7 +146,7 @@ class Machine(object):
 
         # Get execution domain XML
         self._domain_xml = metadata.domain_xml.get_for_execution(
-                self._domain_name, disk_image_path,
+                self._conn, self._domain_name, disk_image_path,
                 self.vnc_listen_address).xml
 
     def start_vm(self, cold=False):
