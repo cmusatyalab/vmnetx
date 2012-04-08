@@ -127,6 +127,7 @@ class DomainXML(object):
         type_nodes = tree.xpath('/domain/os/type')
         if len(type_nodes) != 1:
             raise DomainXMLError('Error locating machine OS type XML node')
+        domain_type = tree.get('type')
         type = type_nodes[0].text
         arch = type_nodes[0].get('arch')
         machine = type_nodes[0].get('machine')
@@ -148,11 +149,14 @@ class DomainXML(object):
                 # Check supported machines
                 for machine_node in arch_node.xpath('machine'):
                     if machine_node.text == machine:
-                        # Found a match!
-                        emulator_nodes = arch_node.xpath('emulator')
-                        if len(emulator_nodes) != 1:
-                            continue
-                        return emulator_nodes[0].text
+                        # Check domain types
+                        for domain_node in arch_node.xpath('domain'):
+                            if domain_node.get('type') == domain_type:
+                                # Found a match!
+                                emulator_nodes = domain_node.xpath('emulator')
+                                if len(emulator_nodes) != 1:
+                                    continue
+                                return emulator_nodes[0].text
 
         # Failed.
         raise DomainXMLError('No suitable emulator for %s/%s/%s' %
