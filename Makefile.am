@@ -29,7 +29,7 @@ nobase_python_PYTHON = vmnetx/__init__.py \
 	vmnetx/status/monitor.py
 nobase_nodist_python_PYTHON = vmnetx/system.py
 CLEANFILES = vmnetx/system.py
-EXTRA_DIST = vmnetx/system.py.in pylintrc vmnetx.te
+EXTRA_DIST = vmnetx/system.py.in pylintrc vmnetx.te README.rst
 
 dist_pkgpython_DATA = manifest.xsd
 
