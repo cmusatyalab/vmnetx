@@ -306,6 +306,7 @@ class PasswordWindow(gtk.Dialog):
         self.connect('response', self._response)
 
         table = gtk.Table()
+        table.set_border_width(5)
         self.get_content_area().pack_start(table)
 
         row = 0
