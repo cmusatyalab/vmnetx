@@ -19,6 +19,7 @@ Installing
 ----------
 
 You will need:
+
 * QEMU and KVM
 * pygtk2
 * gtk-vnc Python bindings
@@ -30,13 +31,15 @@ You will need:
 * libselinux Python bindings if SELinux is in use
 
 If building from the Git repository, you will also need:
+
 * Autoconf
 * Automake
 * libtool
 
 To install:
+
 1. If building from Git, run `autoreconf -i`.
-1. `./configure && make && sudo make install`
+2. `./configure && make && sudo make install`
 
 Executing a virtual machine image
 ---------------------------------
@@ -52,7 +55,7 @@ Generating a virtual machine image
 software into it.  When finished, you may either shut down the virtual
 machine or suspend it.
 
-1. Use `vmnetx-generate` to create a VMNetX virtual machine package
+2. Use `vmnetx-generate` to create a VMNetX virtual machine package
 from the libvirt domain XML file.  For example, if you named your
 virtual machine "test" and want to make it accessible under
 `http://www.example.com/test/`, you can use::
@@ -61,9 +64,9 @@ virtual machine "test" and want to make it accessible under
     vmnetx-generate -n "Test Machine" ~/.libvirt/qemu/test.xml \
         http://www.example.com/test/ package/test.netx
 
-1. Upload the resulting package (in our example, the contents of the
+3. Upload the resulting package (in our example, the contents of the
 `package` directory) under the URL you have chosen, and publish a link
 to the `.netx` file.  The web server should be configured to associate
 the `.netx` extension with the `application/x-vmnetx+xml` content type.
 
-_virt-manager: http://virt-manager.org/
+.. _virt-manager: http://virt-manager.org/
