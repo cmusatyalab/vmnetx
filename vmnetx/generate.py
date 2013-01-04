@@ -146,10 +146,10 @@ def copy_memory(in_path, out_path, xml=None):
         raise IOError('XZ compressor failed')
 
 
-def copy_disk(in_path, out_path):
+def copy_disk(in_path, type, out_path):
     print 'Copying and compressing disk image...'
-    if subprocess.call(['qemu-img', 'convert', '-cp', '-O', 'qcow2',
-            in_path, out_path]) != 0:
+    if subprocess.call(['qemu-img', 'convert', '-cp', '-f', type,
+            '-O', 'qcow2', in_path, out_path]) != 0:
         raise MachineGenerationError('qemu-img failed')
 
 
@@ -212,7 +212,7 @@ def generate_machine(name, in_xml, base_url, out_file, segment_size=0):
     out_dir = os.path.dirname(out_file)
     temp = NamedTemporaryFile(dir=out_dir, prefix='disk-', delete=False)
     temp.close()
-    copy_disk(domain.disk_path, temp.name)
+    copy_disk(domain.disk_path, domain.disk_type, temp.name)
     out_disk, out_disk_size = finalize_blob(temp.name, DISK_TEMPLATE,
             segment_size)
 

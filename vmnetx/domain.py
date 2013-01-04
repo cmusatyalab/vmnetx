@@ -29,14 +29,19 @@ class DomainXML(object):
         self.xml = xml
         self._validate()
 
-        # Get disk path
+        # Get disk path and type
         tree = etree.fromstring(xml)
-        in_disks = tree.xpath('/domain/devices/disk/source/@file')
+        in_disks = tree.xpath('/domain/devices/disk[@device="disk"]')
         if len(in_disks) == 0:
             raise DomainXMLError('Could not locate machine disk image')
         if len(in_disks) > 1:
             raise DomainXMLError('Machine has multiple disk images')
-        self.disk_path = in_disks[0]
+        disk_paths = in_disks[0].xpath('source/@file')
+        disk_types = in_disks[0].xpath('driver/@type')
+        if len(disk_paths) != 1 or len(disk_types) != 1:
+            raise DomainXMLError('Could not read machine disk declaration')
+        self.disk_path = disk_paths[0]
+        self.disk_type = disk_types[0]
 
     @classmethod
     def _to_xml(cls, tree):
