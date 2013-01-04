@@ -28,6 +28,7 @@ from vmnetx.manifest import Manifest, ReferenceInfo
 
 DOMAIN_TEMPLATE = 'domain-%s.xml'
 DISK_TEMPLATE = 'disk-%s.qcow'
+DISK_RAW_TEMPLATE = 'disk-%s.raw'
 MEMORY_TEMPLATE = 'memory-%s.img'
 
 class MachineGenerationError(Exception):
@@ -117,8 +118,8 @@ class _Progress(object):
             print
 
 
-def copy_memory(in_path, out_path, xml=None):
-    # Recompress if possible
+def copy_memory(in_path, out_path, xml=None, compress=True):
+    # Ensure the input is uncompressed, even if we will not be compressing
     fin = open(in_path)
     fout = open(out_path, 'w')
     hdr = _QemuMemoryHeader(fin)
@@ -127,7 +128,8 @@ def copy_memory(in_path, out_path, xml=None):
                 hdr.compressed)
 
     # Write header
-    hdr.compressed = hdr.COMPRESS_XZ
+    if compress:
+        hdr.compressed = hdr.COMPRESS_XZ
     if xml is not None:
         hdr.xml = xml
     hdr.write(fout)
@@ -136,20 +138,40 @@ def copy_memory(in_path, out_path, xml=None):
     fin.seek(0, 2)
     total = fin.tell()
     hdr.seek_body(fin)
-    print 'Copying and compressing memory image (%d MB)...' % (
-            (total - fin.tell()) >> 20)
+    if compress:
+        action = 'Copying and compressing'
+    else:
+        action = 'Copying'
+    print '%s memory image (%d MB)...' % (action, (total - fin.tell()) >> 20)
 
     # Write body
     fout.flush()
-    ret = subprocess.call(['xz', '-9cv'], stdin=fin, stdout=fout)
-    if ret:
-        raise IOError('XZ compressor failed')
+    if compress:
+        ret = subprocess.call(['xz', '-9cv'], stdin=fin, stdout=fout)
+        if ret:
+            raise IOError('XZ compressor failed')
+    else:
+        while True:
+            buf = fin.read(1 << 20)
+            if not buf:
+                break
+            fout.write(buf)
+            print '  %3d%%\r' % (100 * fout.tell() / total),
+            sys.stdout.flush()
+        print
 
 
-def copy_disk(in_path, type, out_path):
-    print 'Copying and compressing disk image...'
-    if subprocess.call(['qemu-img', 'convert', '-cp', '-f', type,
-            '-O', 'qcow2', in_path, out_path]) != 0:
+def copy_disk(in_path, type, out_path, raw=False):
+    if raw:
+        print 'Copying disk image...'
+        ret = subprocess.call(['qemu-img', 'convert', '-p', '-f', type,
+                '-O', 'raw', in_path, out_path])
+    else:
+        print 'Copying and compressing disk image...'
+        ret = subprocess.call(['qemu-img', 'convert', '-cp', '-f', type,
+                '-O', 'qcow2', in_path, out_path])
+
+    if ret != 0:
         raise MachineGenerationError('qemu-img failed')
 
 
@@ -196,7 +218,8 @@ def finalize_blob(in_path, name_template, segment_size=0):
 # pylint: enable=E1101
 
 
-def generate_machine(name, in_xml, base_url, out_file, segment_size=0):
+def generate_machine(name, in_xml, base_url, out_file, segment_size=0,
+        compress=True):
     # Parse domain XML
     try:
         with open(in_xml) as fh:
@@ -212,18 +235,20 @@ def generate_machine(name, in_xml, base_url, out_file, segment_size=0):
     out_dir = os.path.dirname(out_file)
     temp = NamedTemporaryFile(dir=out_dir, prefix='disk-', delete=False)
     temp.close()
-    copy_disk(domain.disk_path, domain.disk_type, temp.name)
-    out_disk, out_disk_size = finalize_blob(temp.name, DISK_TEMPLATE,
-            segment_size)
+    copy_disk(domain.disk_path, domain.disk_type, temp.name,
+            raw=not compress)
+    out_disk, out_disk_size = finalize_blob(temp.name,
+            DISK_TEMPLATE if compress else DISK_RAW_TEMPLATE, segment_size)
 
     # Generate domain XML
-    domain_xml = domain.get_for_storage(os.path.basename(out_disk)).xml
+    domain_xml = domain.get_for_storage(os.path.basename(out_disk),
+            disk_type='qcow2' if compress else 'raw').xml
 
     # Copy memory
     if os.path.exists(in_memory):
         temp = NamedTemporaryFile(dir=out_dir, prefix='memory-', delete=False)
         temp.close()
-        copy_memory(in_memory, temp.name, domain_xml)
+        copy_memory(in_memory, temp.name, domain_xml, compress=compress)
         out_memory, out_memory_size = finalize_blob(temp.name,
                 MEMORY_TEMPLATE, segment_size)
     else:

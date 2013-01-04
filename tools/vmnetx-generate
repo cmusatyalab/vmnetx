@@ -32,6 +32,9 @@ parser.add_option('-n', '--name', dest='name', default='Virtual Machine',
 parser.add_option('-s', '--segment-size', dest='segment_size', type='int',
         default=0,
         help='Maximum size of disk/memory segments', metavar='BYTES')
+parser.add_option('-u', '--uncompressed', dest='compress',
+        action='store_false', default=True,
+        help='Skip compression of disk/memory images')
 
 opts, args = parser.parse_args()
 if len(args) != 3:
@@ -40,7 +43,7 @@ domain_xml, base_url, out_file = args
 
 try:
     generate_machine(opts.name, domain_xml, base_url, out_file,
-            opts.segment_size)
+            opts.segment_size, compress=opts.compress)
 except KeyboardInterrupt:
     sys.exit(1)
 except Exception, e:
