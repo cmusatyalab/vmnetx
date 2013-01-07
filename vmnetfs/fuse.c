@@ -221,7 +221,11 @@ static int do_poll(const char *path G_GNUC_UNUSED, struct fuse_file_info *fi,
         }
         return ret;
     } else {
-        return -ENOSYS;
+        /* Assume readable and writable (linux/poll.h DEFAULT_POLLMASK) */
+        *reventsp = POLLIN | POLLOUT | POLLRDNORM | POLLWRNORM;
+        fuse_notify_poll(ph);
+        fuse_pollhandle_destroy(ph);
+        return 0;
     }
 }
 
