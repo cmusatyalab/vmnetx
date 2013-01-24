@@ -37,8 +37,6 @@ struct vmnetfs_image {
     char *password;
     char *read_base;
     uint64_t initial_size;
-    /* if nonzero, server file is divided into segments of this size */
-    uint64_t segment_size;
     uint32_t chunk_size;
 
     /* io */

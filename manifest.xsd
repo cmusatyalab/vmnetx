@@ -76,15 +76,6 @@ A large remote resource such as a disk or memory image.
 The total size of the resource, in bytes.
           </xsd:documentation></xsd:annotation>
         </xsd:attribute>
-        <xsd:attribute name="segmentSize" type="xsd:nonNegativeInteger"
-            default="0">
-          <xsd:annotation><xsd:documentation>
-If non-zero, the resource is divided into multiple segments, where each
-segment except the last is this number of bytes.  Segment URLs are obtained
-by appending ".%d" to the specified location, where "%d" is a segment
-number starting from 0.
-          </xsd:documentation></xsd:annotation>
-        </xsd:attribute>
       </xsd:extension>
     </xsd:complexContent>
   </xsd:complexType>

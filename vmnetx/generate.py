@@ -177,12 +177,9 @@ def copy_disk(in_path, type, out_path, raw=False):
 
 # pylint is confused by hashlib.sha256()
 # pylint: disable=E1101
-def finalize_blob(in_path, name_template, segment_size=0):
-    # Rename a blob to include its SHA-256 hash, splitting it into segments
-    # if segment_size > 0.  Template must contain "%s".  Return the new base
-    # path (excluding segment numbers) and blob size.
-
-    # Calculate the hash
+def finalize_blob(in_path, name_template):
+    # Rename a blob to include its SHA-256 hash.  Template must contain "%s".
+    # Return the new path and blob size.
     hash = hashlib.sha256()
     size = os.stat(in_path).st_size
     prog = _Progress('Computing hash', size, size > 1 << 20)
@@ -193,33 +190,12 @@ def finalize_blob(in_path, name_template, segment_size=0):
     prog.finish()
     out_path = os.path.join(os.path.dirname(in_path),
             name_template % hash.hexdigest())
-
-    # Segment, if desired.  This means we read the file twice.
-    if segment_size > 0:
-        if segment_size < size:
-            prog = _Progress('Segmenting image', size)
-            with open(in_path) as infh:
-                for i in range((size + segment_size - 1) // segment_size):
-                    with open('%s.%d' % (out_path, i), 'w') as outfh:
-                        remaining = min(segment_size,
-                                size - (i * segment_size))
-                        while remaining > 0:
-                            buf = infh.read(min(128 << 10, remaining))
-                            outfh.write(buf)
-                            remaining -= len(buf)
-                            prog.update(len(buf))
-            prog.finish()
-            os.unlink(in_path)
-        else:
-            os.rename(in_path, out_path + '.0')
-    else:
-        os.rename(in_path, out_path)
+    os.rename(in_path, out_path)
     return out_path, size
 # pylint: enable=E1101
 
 
-def generate_machine(name, in_xml, base_url, out_file, segment_size=0,
-        compress=True):
+def generate_machine(name, in_xml, base_url, out_file, compress=True):
     # Parse domain XML
     try:
         with open(in_xml) as fh:
@@ -238,7 +214,7 @@ def generate_machine(name, in_xml, base_url, out_file, segment_size=0,
     copy_disk(domain.disk_path, domain.disk_type, temp.name,
             raw=not compress)
     out_disk, out_disk_size = finalize_blob(temp.name,
-            DISK_TEMPLATE if compress else DISK_RAW_TEMPLATE, segment_size)
+            DISK_TEMPLATE if compress else DISK_RAW_TEMPLATE)
 
     # Generate domain XML
     domain_xml = domain.get_for_storage(os.path.basename(out_disk),
@@ -250,7 +226,7 @@ def generate_machine(name, in_xml, base_url, out_file, segment_size=0,
         temp.close()
         copy_memory(in_memory, temp.name, domain_xml, compress=compress)
         out_memory, out_memory_size = finalize_blob(temp.name,
-                MEMORY_TEMPLATE, segment_size)
+                MEMORY_TEMPLATE)
     else:
         print 'No memory image found'
         out_memory = None
@@ -267,7 +243,6 @@ def generate_machine(name, in_xml, base_url, out_file, segment_size=0,
         return ReferenceInfo(
             location=os.path.join(base_url, os.path.basename(path)),
             size=size,
-            segment_size=size and segment_size or 0,
         )
     domain = blob_info(out_domain)
     disk = blob_info(out_disk, out_disk_size)

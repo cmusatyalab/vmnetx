@@ -181,38 +181,12 @@ static void chunk_unlock(struct vmnetfs_image *img, uint64_t chunk)
     g_mutex_unlock(cs->lock);
 }
 
-/* Fetch the specified byte range from the image, accounting for possible
-   segmentation into multiple URLs. */
+/* Fetch the specified byte range from the image. */
 static bool fetch_data(struct vmnetfs_image *img, void *buf, uint64_t start,
         uint64_t count, GError **err)
 {
-    char *url;
-    uint64_t cur_start;
-    uint64_t cur_count;
-    bool ret;
-
-    while (count > 0) {
-        if (img->segment_size) {
-            url = g_strdup_printf("%s.%"PRIu64, img->url,
-                    start / img->segment_size);
-            cur_start = start % img->segment_size;
-            cur_count = MIN(img->segment_size - cur_start, count);
-        } else {
-            url = g_strdup(img->url);
-            cur_start = start;
-            cur_count = count;
-        }
-        ret = _vmnetfs_transport_fetch(img->cpool, url, img->username,
-                img->password, buf, cur_start, cur_count, err);
-        g_free(url);
-        if (!ret) {
-            return false;
-        }
-        buf += cur_count;
-        start += cur_count;
-        count -= cur_count;
-    }
-    return true;
+    return _vmnetfs_transport_fetch(img->cpool, img->url, img->username,
+            img->password, buf, start, count, err);
 }
 
 bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err)

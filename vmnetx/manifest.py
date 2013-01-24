@@ -37,7 +37,7 @@ class ManifestError(Exception):
 # This is a class, even if pylint doesn't think so
 # pylint: disable=C0103
 ReferenceInfo = collections.namedtuple('ReferenceInfo',
-        ('location', 'size', 'segment_size'))
+        ('location', 'size'))
 # pylint: enable=C0103
 
 
@@ -85,18 +85,11 @@ class Manifest(object):
         size = element.get('size')
         if size is not None:
             size = int(size)
-        segment_size = element.get('segmentSize')
-        if segment_size is None:
-            segment_size = 0
-        return ReferenceInfo(location=element.get('location'), size=size,
-                segment_size=segment_size)
+        return ReferenceInfo(location=element.get('location'), size=size)
 
     @staticmethod
     def _make_element_args(refinfo):
-        args = {
+        return {
             'location': refinfo.location,
             'size': str(refinfo.size),
         }
-        if refinfo.segment_size > 0:
-            args['segmentSize'] = str(refinfo.segment_size)
-        return args

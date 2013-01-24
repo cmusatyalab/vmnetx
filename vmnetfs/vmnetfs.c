@@ -26,7 +26,7 @@
 #include <errno.h>
 #include "vmnetfs-private.h"
 
-#define IMAGE_ARG_COUNT 5
+#define IMAGE_ARG_COUNT 4
 
 static void _image_free(struct vmnetfs_image *img)
 {
@@ -137,11 +137,6 @@ static struct vmnetfs_image *image_new(char **argv, const char *username,
         g_propagate_error(err, my_err);
         return NULL;
     }
-    const uint64_t segment_size = parse_uint(argv[arg++], &my_err);
-    if (my_err) {
-        g_propagate_error(err, my_err);
-        return NULL;
-    }
     const uint32_t chunk_size = parse_uint(argv[arg++], &my_err);
     if (my_err) {
         g_propagate_error(err, my_err);
@@ -154,7 +149,6 @@ static struct vmnetfs_image *image_new(char **argv, const char *username,
     img->password = g_strdup(password);
     img->read_base = g_strdup(cache);
     img->initial_size = size;
-    img->segment_size = segment_size;
     img->chunk_size = chunk_size;
 
     img->io_stream = _vmnetfs_stream_group_new(NULL, NULL);
