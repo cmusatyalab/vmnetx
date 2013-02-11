@@ -1,6 +1,6 @@
 ACLOCAL_AMFLAGS = -I m4
 
-AM_CPPFLAGS = -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64
+AM_CPPFLAGS = -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 $(GLIB_VER_DEFINES)
 AM_CFLAGS = -std=gnu99 -W -Wall -Wstrict-prototypes -pthread \
 	$(libcurl_CFLAGS) $(glib_CFLAGS) $(gthread_CFLAGS) $(fuse_CFLAGS)
 AM_LDFLAGS = -pthread $(libcurl_LIBS) $(glib_LIBS) $(gthread_LIBS) \

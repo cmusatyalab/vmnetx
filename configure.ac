@@ -41,6 +41,9 @@ PKG_CHECK_MODULES([libcurl], [libcurl >= 7.19.1])
 PKG_CHECK_MODULES([fuse], [fuse >= 2.7])
 PKG_CHECK_MODULES([glib], [glib-2.0 >= 2.22])
 PKG_CHECK_MODULES([gthread], [gthread-2.0])
+# glib doesn't have special handling for API changes back to 2.22, so
+# set the threshold to 2.26
+AC_SUBST([GLIB_VER_DEFINES], ['-DGLIB_VERSION_MIN_REQUIRED=GLIB_VERSION_2_26 -DGLIB_VERSION_MAX_ALLOWED=GLIB_VERSION_MIN_REQUIRED'])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
