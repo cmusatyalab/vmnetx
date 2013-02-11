@@ -22,6 +22,7 @@ You will need:
 
 * QEMU and KVM
 * pygtk2
+* Requests
 * gtk-vnc Python bindings
 * libvirt Python bindings
 * libcurl

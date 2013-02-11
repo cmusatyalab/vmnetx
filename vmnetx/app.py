@@ -79,11 +79,11 @@ class VMNetXApp(object):
             signal.signal(signal.SIGTERM, self._signal)
 
             # Fetch and parse metadata
-            pw_wind = username = password = None
+            pw_wind = scheme = username = password = None
             while True:
                 try:
-                    metadata = MachineMetadata(self._manifest_file, username,
-                            password)
+                    metadata = MachineMetadata(self._manifest_file, scheme,
+                            username, password)
                 except NeedAuthentication, e:
                     if pw_wind is None:
                         username = self._username_cache.get(e.host, e.realm)
@@ -96,6 +96,7 @@ class VMNetXApp(object):
                     if pw_wind.run() != gtk.RESPONSE_OK:
                         pw_wind.destroy()
                         raise KeyboardInterrupt
+                    scheme = e.scheme
                     username = pw_wind.username
                     password = pw_wind.password
                     self._username_cache.put(e.host, e.realm, username)

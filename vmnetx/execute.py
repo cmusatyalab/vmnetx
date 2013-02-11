@@ -18,8 +18,8 @@
 import libvirt
 import os
 import re
+import requests
 import tempfile
-import urllib2
 from urlparse import urlparse
 import uuid
 
@@ -36,10 +36,11 @@ from vmnetx.vmnetfs import VMNetFS
 SOCKET_DIR_CONTEXT = 'unconfined_u:object_r:virt_home_t:s0'
 
 class NeedAuthentication(Exception):
-    def __init__(self, host, realm):
+    def __init__(self, host, realm, scheme):
         Exception.__init__(self, 'Authentication required')
         self.host = host
         self.realm = realm
+        self.scheme = scheme
 
 
 class MachineExecutionError(Exception):
@@ -66,7 +67,8 @@ class _ReferencedObject(object):
 class MachineMetadata(object):
     # pylint doesn't understand named tuples
     # pylint: disable=E1101
-    def __init__(self, manifest_path, username=None, password=None):
+    def __init__(self, manifest_path, scheme=None, username=None,
+            password=None):
         # Parse manifest
         with open(manifest_path) as fh:
             manifest = Manifest(xml=fh.read())
@@ -76,23 +78,19 @@ class MachineMetadata(object):
         # Fetch and validate domain XML
         domain = _ReferencedObject(manifest.domain)
         try:
-            manager = urllib2.HTTPPasswordMgrWithDefaultRealm()
-            if username is not None and password is not None:
-                manager.add_password(None, domain.url, username, password)
-            opener = urllib2.build_opener(
-                urllib2.HTTPBasicAuthHandler(manager),
-                urllib2.HTTPDigestAuthHandler(manager),
-            )
-            fh = opener.open(domain.url)
-            try:
-                xml = fh.read()
-            finally:
-                fh.close()
-            self.domain_xml = DomainXML(xml)
-        except urllib2.HTTPError, e:
-            if e.code == 401:
+            if scheme == 'Basic':
+                auth = (username, password)
+            elif scheme == 'Digest':
+                auth = requests.auth.HTTPDigestAuth(username, password)
+            elif scheme is None:
+                auth = None
+            else:
+                raise ValueError('Unknown authentication scheme')
+            resp = requests.get(domain.url, auth=auth)
+            if resp.status_code == 401:
                 # Assumes a single challenge.
-                scheme, parameters = e.hdrs['WWW-Authenticate'].split(None, 1)
+                scheme, parameters = resp.headers['WWW-Authenticate'].split(
+                        None, 1)
                 if scheme != 'Basic' and scheme != 'Digest':
                     raise MachineExecutionError('Server requested unknown ' +
                             'authentication scheme: %s' % scheme)
@@ -100,11 +98,11 @@ class MachineMetadata(object):
                 for param in parameters.split(', '):
                     match = re.match('^realm=\"([^"]*)\"$', param)
                     if match:
-                        raise NeedAuthentication(host, match.group(1))
+                        raise NeedAuthentication(host, match.group(1), scheme)
                 raise MachineExecutionError('Unknown authentication realm')
-            else:
-                raise MachineExecutionError(str(e))
-        except urllib2.URLError, e:
+            resp.raise_for_status()
+            self.domain_xml = DomainXML(resp.content)
+        except requests.exceptions.RequestException, e:
             raise MachineExecutionError(str(e))
 
         # Create vmnetfs arguments
