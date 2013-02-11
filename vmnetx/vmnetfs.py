@@ -36,8 +36,9 @@ class VMNetFS(object):
         self._pipe = None
         self.mountpoint = None
 
-    # pylint is confused by the values returned from Popen.communicate()
-    # pylint: disable=E1103
+    # pylint is confused by Popen.returncode and the values returned from
+    # Popen.communicate()
+    # pylint: disable=E1101,E1103
     def start(self):
         read, write = os.pipe()
         try:
@@ -62,7 +63,7 @@ class VMNetFS(object):
             raise
         finally:
             os.close(read)
-    # pylint: enable=E1103
+    # pylint: enable=E1101,E1103
 
     def terminate(self):
         if self._pipe is not None:

@@ -65,8 +65,9 @@ class _ReferencedObject(object):
 
 
 class MachineMetadata(object):
-    # pylint doesn't understand named tuples
-    # pylint: disable=E1101
+    # pylint doesn't understand named tuples, and is confused by the return
+    # type of requests.get()
+    # pylint: disable=E1101,E1103
     def __init__(self, manifest_path, scheme=None, username=None,
             password=None):
         # Parse manifest
@@ -111,7 +112,7 @@ class MachineMetadata(object):
         if self.have_memory:
             self.vmnetfs_args.extend(_ReferencedObject(manifest.memory).
                     vmnetfs_args)
-    # pylint: enable=E1101
+    # pylint: enable=E1101,E1103
 
 
 class Machine(object):

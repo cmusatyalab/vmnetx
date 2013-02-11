@@ -23,6 +23,9 @@ import os
 
 from .monitor import ImageMonitor, ChunkMapMonitor
 
+# pylint chokes on Gtk widgets, #112550
+# pylint: disable=R0924
+
 class ImageChunkWidget(gtk.DrawingArea):
     PATTERNS = {
         ChunkMapMonitor.INVALID: cairo.SolidPattern(0, 0, 0),
@@ -296,3 +299,5 @@ class LoadProgressWidget(gtk.ProgressBar):
             self.set_fraction(count / total)
         else:
             self.set_fraction(1)
+
+# pylint: enable=R0924

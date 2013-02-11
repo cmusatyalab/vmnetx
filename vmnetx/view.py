@@ -26,6 +26,9 @@ import traceback
 
 from vmnetx.status import ImageStatusWidget, LoadProgressWidget
 
+# pylint chokes on Gtk widgets, #112550
+# pylint: disable=R0924
+
 class VNCWidget(gtkvnc.Display):
     def __init__(self, path):
         gtkvnc.Display.__init__(self)
@@ -419,3 +422,5 @@ class ErrorWindow(gtk.MessageDialog):
         # RHEL 6 doesn't have MessageDialog.get_widget_for_response()
         self.get_action_area().get_children()[0].grab_focus()
         content.show_all()
+
+# pylint: enable=R0924

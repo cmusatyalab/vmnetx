@@ -49,6 +49,8 @@ class _QemuMemoryHeader(object):
     COMPRESS_RAW = 0
     COMPRESS_XZ = 3
 
+    # pylint is confused by "\0", #111799
+    # pylint: disable=W1401
     def __init__(self, f):
         # Read header struct
         f.seek(0)
@@ -73,6 +75,7 @@ class _QemuMemoryHeader(object):
         self.xml = f.read(self._xml_len - 1).rstrip('\0')
         if f.read(1) != '\0':
             raise MachineGenerationError('Missing NUL byte after XML')
+    # pylint: enable=W1401
 
     def seek_body(self, f):
         f.seek(self.HEADER_LENGTH + self._xml_len)
