@@ -186,7 +186,7 @@ static bool fetch_data(struct vmnetfs_image *img, void *buf, uint64_t start,
         uint64_t count, GError **err)
 {
     return _vmnetfs_transport_fetch(img->cpool, img->url, img->username,
-            img->password, buf, start, count, err);
+            img->password, buf, start + img->fetch_offset, count, err);
 }
 
 bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err)

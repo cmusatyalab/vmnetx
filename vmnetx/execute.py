@@ -82,7 +82,8 @@ class _ReferencedObject(object):
         if not os.path.exists(urlfile):
             with open(urlfile, 'w') as fh:
                 fh.write('%s\n' % self._cache_url)
-        return [self.url, self.cache, str(self.size), str(self.chunk_size)]
+        return [self.url, self.cache, '0', str(self.size),
+                str(self.chunk_size)]
 
 
 class MachineMetadata(object):
