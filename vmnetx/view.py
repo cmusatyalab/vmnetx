@@ -1,7 +1,7 @@
 #
 # vmnetx.view - vmnetx GUI
 #
-# Copyright (C) 2009-2012 Carnegie Mellon University
+# Copyright (C) 2009-2013 Carnegie Mellon University
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of version 2 of the GNU General Public License as published
@@ -133,6 +133,8 @@ class VMWindow(gtk.Window):
 
     __gsignals__ = {
         'vnc-disconnect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'user-screenshot': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (gtk.gdk.Pixbuf,)),
         'user-restart': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'user-quit': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
@@ -142,6 +144,7 @@ class VMWindow(gtk.Window):
         agrp = VMActionGroup(self)
         for sig in 'user-restart', 'user-quit':
             agrp.connect(sig, lambda _obj, s: self.emit(s), sig)
+        agrp.connect('user-screenshot', self._screenshot)
 
         self.set_title(name)
         self.connect('delete-event',
@@ -157,6 +160,7 @@ class VMWindow(gtk.Window):
         tbar = gtk.Toolbar()
         tbar.insert(agrp.get_action('quit').create_tool_item(), -1)
         tbar.insert(agrp.get_action('restart').create_tool_item(), -1)
+        tbar.insert(agrp.get_action('screenshot').create_tool_item(), -1)
         tbar.insert(gtk.SeparatorToolItem(), -1)
         tbar.insert(agrp.get_action('show-activity').create_tool_item(), -1)
         box.pack_start(tbar, expand=False)
@@ -206,6 +210,9 @@ class VMWindow(gtk.Window):
         ow, oh = self.SCREEN_SIZE_FUDGE
         self.resize(max(1, geom.width + ow), max(1, geom.height + oh))
 
+    def _screenshot(self, _obj):
+        self.emit('user-screenshot', self._vnc.get_pixbuf())
+
     def _destroy(self, _wid):
         self._activity.destroy()
 gobject.type_register(VMWindow)
@@ -213,16 +220,24 @@ gobject.type_register(VMWindow)
 
 class VMActionGroup(gtk.ActionGroup):
     __gsignals__ = {
+        'user-screenshot': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'user-restart': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'user-quit': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
     def __init__(self, parent):
         gtk.ActionGroup.__init__(self, 'vmnetx-global')
+        def add_nonstock(name, label, tooltip, icon, handler):
+            action = gtk.Action(name, label, tooltip, None)
+            action.set_icon_name(icon)
+            action.connect('activate', handler, parent)
+            self.add_action(action)
         self.add_actions((
             ('restart', 'gtk-refresh', None, None, 'Restart', self._restart),
             ('quit', 'gtk-quit', None, None, 'Quit', self._quit),
         ), user_data=parent)
+        add_nonstock('screenshot', 'Screenshot', 'Take Screenshot', 'camera',
+                self._screenshot)
         self.add_toggle_actions((
             ('show-activity', 'gtk-properties', 'Activity', None,
                     'Show virtual machine activity', self._show_activity),
@@ -239,6 +254,9 @@ class VMActionGroup(gtk.ActionGroup):
         dlg.destroy()
         if result == gtk.RESPONSE_OK:
             self.emit(signal)
+
+    def _screenshot(self, _action, _parent):
+        self.emit('user-screenshot')
 
     def _restart(self, _action, parent):
         self._confirm(parent, 'user-restart',
@@ -386,6 +404,40 @@ class PasswordWindow(gtk.Dialog):
         self._set_sensitive(True)
         self._invalid.show()
         self._password.grab_focus()
+
+
+class SaveMediaWindow(gtk.FileChooserDialog):
+    PREVIEW_SIZE = 250
+
+    def __init__(self, parent, title, filename, preview):
+        gtk.FileChooserDialog.__init__(self, title, parent,
+                gtk.FILE_CHOOSER_ACTION_SAVE,
+                (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+                gtk.STOCK_SAVE, gtk.RESPONSE_OK))
+        self.set_current_name(filename)
+        self.set_do_overwrite_confirmation(True)
+
+        w, h = preview.get_width(), preview.get_height()
+        scale = min(1, self.PREVIEW_SIZE / w, self.PREVIEW_SIZE / h)
+        preview = preview.scale_simple(int(w * scale), int(h * scale),
+                gtk.gdk.INTERP_BILINEAR)
+        image = gtk.Image()
+        image.set_from_pixbuf(preview)
+        image.set_padding(5, 5)
+        frame = gtk.Frame('Preview')
+        frame.add(image)
+        image.show()
+        self.set_preview_widget(frame)
+        self.set_use_preview_label(False)
+
+
+class ErrorWindow(gtk.MessageDialog):
+    def __init__(self, parent, message):
+        gtk.MessageDialog.__init__(self, parent=parent,
+                flags=gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
+                type=gtk.MESSAGE_ERROR, buttons=gtk.BUTTONS_OK,
+                message_format='Error')
+        self.format_secondary_text(message)
 
 
 class ErrorBuffer(object):

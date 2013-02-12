@@ -1,7 +1,7 @@
 #
 # vmnetx.app - VMNetX GUI application
 #
-# Copyright (C) 2012 Carnegie Mellon University
+# Copyright (C) 2012-2013 Carnegie Mellon University
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of version 2 of the GNU General Public License as published
@@ -25,7 +25,7 @@ import threading
 
 from vmnetx.execute import Machine, MachineMetadata, NeedAuthentication
 from vmnetx.view import (VMWindow, LoadProgressWindow, PasswordWindow,
-        FatalErrorWindow, ErrorBuffer)
+        SaveMediaWindow, ErrorWindow, FatalErrorWindow, ErrorBuffer)
 from vmnetx.status.monitor import ImageMonitor, LoadProgressMonitor
 
 class _UsernameCache(object):
@@ -121,6 +121,7 @@ class VMNetXApp(object):
             self._wind.connect('vnc-disconnect', self._restart)
             self._wind.connect('user-restart', self._user_restart)
             self._wind.connect('user-quit', self._shutdown)
+            self._wind.connect('user-screenshot', self._screenshot)
             self._wind.show_all()
 
             # Show loading window
@@ -220,3 +221,15 @@ class VMNetXApp(object):
         self._wind.show_activity(False)
         self._wind.hide()
         gobject.idle_add(gtk.main_quit)
+
+    def _screenshot(self, _obj, pixbuf):
+        sw = SaveMediaWindow(self._wind, 'Save Screenshot',
+                self._machine.name + '.png', pixbuf)
+        if sw.run() == gtk.RESPONSE_OK:
+            try:
+                pixbuf.save(sw.get_filename(), 'png')
+            except gobject.GError, e:
+                ew = ErrorWindow(self._wind, str(e))
+                ew.run()
+                ew.destroy()
+        sw.destroy()
