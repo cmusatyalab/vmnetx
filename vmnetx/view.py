@@ -170,8 +170,8 @@ class VMWindow(gtk.Window):
         self._vnc = VNCWidget(path)
         self._vnc.set_scaling(True)
         self._vnc.connect('vnc-desktop-resize', self._vnc_resize)
-        self._vnc.connect('vnc-disconnected',
-                lambda _obj: self.emit('vnc-disconnect'))
+        self._vnc.connect('vnc-connected', self._vnc_connected)
+        self._vnc.connect('vnc-disconnected', self._vnc_disconnected)
         aspect = AspectBin()
         aspect.add(self._vnc)
         box.pack_start(aspect)
@@ -194,6 +194,13 @@ class VMWindow(gtk.Window):
 
     def add_warning(self, icon, message):
         self._statusbar.add_warning(icon, message)
+
+    def _vnc_connected(self, _obj):
+        self._agrp.set_vm_running(True)
+
+    def _vnc_disconnected(self, _obj):
+        self._agrp.set_vm_running(False)
+        self.emit('vnc-disconnect')
 
     def _vnc_resize(self, _wid, width, height):
         # Update window geometry constraints for the new guest size.
@@ -244,6 +251,11 @@ class VMActionGroup(gtk.ActionGroup):
             ('show-activity', 'gtk-properties', 'Activity', None,
                     'Show virtual machine activity', self._show_activity),
         ), user_data=parent)
+        self.set_vm_running(False)
+
+    def set_vm_running(self, running):
+        for name in 'screenshot', 'restart':
+            self.get_action(name).set_sensitive(running)
 
     def _confirm(self, parent, signal, message):
         dlg = gtk.MessageDialog(parent=parent,
