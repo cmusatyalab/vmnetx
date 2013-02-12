@@ -25,7 +25,7 @@ import threading
 
 from vmnetx.execute import Machine, MachineMetadata, NeedAuthentication
 from vmnetx.view import (VMWindow, LoadProgressWindow, PasswordWindow,
-        ErrorWindow, ErrorBuffer)
+        FatalErrorWindow, ErrorBuffer)
 from vmnetx.status.monitor import ImageMonitor, LoadProgressMonitor
 
 class _UsernameCache(object):
@@ -139,7 +139,7 @@ class VMNetXApp(object):
             pass
         except:
             # Show error window with exception
-            ErrorWindow(self._wind).run()
+            FatalErrorWindow(self._wind).run()
         finally:
             # Shut down
             if self._wind is not None:
@@ -203,7 +203,7 @@ class VMNetXApp(object):
             self._load_window.destroy()
             self._load_monitor.close()
         if error is not None:
-            ew = ErrorWindow(self._wind, error)
+            ew = FatalErrorWindow(self._wind, error)
             ew.run()
             ew.destroy()
         self._shutdown()

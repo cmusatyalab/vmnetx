@@ -394,7 +394,7 @@ class ErrorBuffer(object):
         self.detail = traceback.format_exc()
 
 
-class ErrorWindow(gtk.MessageDialog):
+class FatalErrorWindow(gtk.MessageDialog):
     def __init__(self, parent, error=None):
         gtk.MessageDialog.__init__(self, parent=parent,
                 flags=gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
