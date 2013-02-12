@@ -141,28 +141,30 @@ class VMWindow(gtk.Window):
 
     def __init__(self, name, path, monitor):
         gtk.Window.__init__(self)
-        agrp = VMActionGroup(self)
+        self._agrp = VMActionGroup(self)
         for sig in 'user-restart', 'user-quit':
-            agrp.connect(sig, lambda _obj, s: self.emit(s), sig)
-        agrp.connect('user-screenshot', self._screenshot)
+            self._agrp.connect(sig, lambda _obj, s: self.emit(s), sig)
+        self._agrp.connect('user-screenshot', self._screenshot)
 
         self.set_title(name)
         self.connect('delete-event',
-                lambda _wid, _ev: agrp.get_action('quit').activate() or True)
+                lambda _wid, _ev:
+                self._agrp.get_action('quit').activate() or True)
         self.connect('destroy', self._destroy)
 
         self._activity = ActivityWindow(name, monitor,
-                agrp.get_action('show-activity'))
+                self._agrp.get_action('show-activity'))
 
         box = gtk.VBox()
         self.add(box)
 
         tbar = gtk.Toolbar()
-        tbar.insert(agrp.get_action('quit').create_tool_item(), -1)
-        tbar.insert(agrp.get_action('restart').create_tool_item(), -1)
-        tbar.insert(agrp.get_action('screenshot').create_tool_item(), -1)
+        tbar.insert(self._agrp.get_action('quit').create_tool_item(), -1)
+        tbar.insert(self._agrp.get_action('restart').create_tool_item(), -1)
+        tbar.insert(self._agrp.get_action('screenshot').create_tool_item(), -1)
         tbar.insert(gtk.SeparatorToolItem(), -1)
-        tbar.insert(agrp.get_action('show-activity').create_tool_item(), -1)
+        tbar.insert(self._agrp.get_action('show-activity').create_tool_item(),
+                -1)
         box.pack_start(tbar, expand=False)
 
         self._vnc = VNCWidget(path)
