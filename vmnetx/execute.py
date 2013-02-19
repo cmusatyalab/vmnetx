@@ -20,7 +20,7 @@ import os
 import re
 import requests
 import tempfile
-from urlparse import urlparse
+from urlparse import urlsplit
 import uuid
 
 try:
@@ -53,10 +53,13 @@ class _ReferencedObject(object):
         self.size = info.size
         self.chunk_size = chunk_size
 
-        # Ensure a crafted URL can't escape the cache directory
         basepath = os.path.expanduser(os.path.join('~', '.vmnetx', 'cache'))
+        # Exclude query string from cache path
+        parsed_url = urlsplit(self.url)
         self.cache = os.path.realpath(os.path.join(basepath, str(chunk_size),
-                self.url))
+                parsed_url.scheme, parsed_url.netloc,
+                parsed_url.path.lstrip('/')))
+        # Ensure a crafted URL can't escape the cache directory
         if not self.cache.startswith(basepath):
             raise MachineExecutionError('Invalid object URL')
 
@@ -95,7 +98,7 @@ class MachineMetadata(object):
                 if scheme != 'Basic' and scheme != 'Digest':
                     raise MachineExecutionError('Server requested unknown ' +
                             'authentication scheme: %s' % scheme)
-                host = urlparse(domain.url).netloc
+                host = urlsplit(domain.url).netloc
                 for param in parameters.split(', '):
                     match = re.match('^realm=\"([^"]*)\"$', param)
                     if match:
