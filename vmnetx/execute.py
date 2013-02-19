@@ -55,8 +55,8 @@ class _ReferencedObject(object):
 
         # Ensure a crafted URL can't escape the cache directory
         basepath = os.path.expanduser(os.path.join('~', '.vmnetx', 'cache'))
-        self.cache = os.path.realpath(os.path.join(basepath, self.url,
-                str(chunk_size)))
+        self.cache = os.path.realpath(os.path.join(basepath, str(chunk_size),
+                self.url))
         if not self.cache.startswith(basepath):
             raise MachineExecutionError('Invalid object URL')
 
