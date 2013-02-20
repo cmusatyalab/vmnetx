@@ -340,6 +340,7 @@ struct vmnetfs_fuse *_vmnetfs_fuse_new(struct vmnetfs *fs, GError **err)
     struct vmnetfs_fuse *fuse;
     GPtrArray *argv;
     struct fuse_args args;
+    char *runtime_dir;
 
     /* Set up data structures */
     fuse = g_slice_new0(struct vmnetfs_fuse);
@@ -351,7 +352,12 @@ struct vmnetfs_fuse *_vmnetfs_fuse_new(struct vmnetfs *fs, GError **err)
     }
 
     /* Construct mountpoint */
-    fuse->mountpoint = g_strdup("/var/tmp/vmnetfs-XXXXXX");
+    runtime_dir = getenv("XDG_RUNTIME_DIR");
+    if (runtime_dir != NULL) {
+        fuse->mountpoint = g_strdup_printf("%s/vmnetfs-XXXXXX", runtime_dir);
+    } else {
+        fuse->mountpoint = g_strdup("/var/tmp/vmnetfs-XXXXXX");
+    }
     if (mkdtemp(fuse->mountpoint) == NULL) {
         g_set_error(err, VMNETFS_FUSE_ERROR,
                 VMNETFS_FUSE_ERROR_BAD_MOUNTPOINT,

@@ -23,6 +23,7 @@ nobase_python_PYTHON = vmnetx/__init__.py \
 	vmnetx/execute.py \
 	vmnetx/generate.py \
 	vmnetx/manifest.py \
+	vmnetx/util.py \
 	vmnetx/view.py \
 	vmnetx/vmnetfs.py \
 	vmnetx/status/__init__.py \

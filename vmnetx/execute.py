@@ -31,6 +31,7 @@ except ImportError:
 
 from vmnetx.domain import DomainXML
 from vmnetx.manifest import Manifest
+from vmnetx.util import get_cache_dir, get_temp_dir
 from vmnetx.vmnetfs import VMNetFS
 
 SOCKET_DIR_CONTEXT = 'unconfined_u:object_r:virt_home_t:s0'
@@ -48,12 +49,14 @@ class MachineExecutionError(Exception):
 
 
 class _ReferencedObject(object):
+    # pylint doesn't understand named tuples
+    # pylint: disable=E1103
     def __init__(self, info, chunk_size=131072):
         self.url = info.location
         self.size = info.size
         self.chunk_size = chunk_size
 
-        basepath = os.path.expanduser(os.path.join('~', '.vmnetx', 'cache'))
+        basepath = os.path.join(get_cache_dir(), 'chunks')
         # Exclude query string from cache path
         parsed_url = urlsplit(self.url)
         self.cache = os.path.realpath(os.path.join(basepath, str(chunk_size),
@@ -65,6 +68,7 @@ class _ReferencedObject(object):
 
         self.vmnetfs_args = [self.url, self.cache, str(self.size),
                 str(self.chunk_size)]
+    # pylint: enable=E1103
 
 
 class MachineMetadata(object):
@@ -122,7 +126,8 @@ class Machine(object):
     def __init__(self, metadata):
         self.name = metadata.name
         self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
-        self._vnc_socket_dir = tempfile.mkdtemp(prefix='vmnetx-socket-')
+        self._vnc_socket_dir = tempfile.mkdtemp(dir=get_temp_dir(),
+                prefix='vmnetx-socket-')
         self.vnc_listen_address = os.path.join(self._vnc_socket_dir, 'vnc')
 
         # Fix socket dir SELinux context

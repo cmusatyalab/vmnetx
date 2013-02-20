@@ -24,16 +24,15 @@ from tempfile import NamedTemporaryFile
 import threading
 
 from vmnetx.execute import Machine, MachineMetadata, NeedAuthentication
+from vmnetx.util import get_cache_dir
 from vmnetx.view import (VMWindow, LoadProgressWindow, PasswordWindow,
         SaveMediaWindow, ErrorWindow, FatalErrorWindow, ErrorBuffer)
 from vmnetx.status.monitor import ImageMonitor, LoadProgressMonitor
 
 class _UsernameCache(object):
     def __init__(self):
-        self._configdir = os.path.expanduser('~/.vmnetx')
-        if not os.path.exists(self._configdir):
-            os.makedirs(self._configdir)
-        self._path = os.path.join(self._configdir, 'usernames')
+        self._cachedir = get_cache_dir()
+        self._path = os.path.join(self._cachedir, 'usernames')
 
     def _load(self):
         try:
@@ -51,7 +50,7 @@ class _UsernameCache(object):
     def put(self, host, realm, username):
         map = self._load()
         map.setdefault(host, {})[realm] = username
-        with NamedTemporaryFile(dir=self._configdir, delete=False) as fh:
+        with NamedTemporaryFile(dir=self._cachedir, delete=False) as fh:
             json.dump(map, fh)
             fh.write('\n')
         os.rename(fh.name, self._path)
