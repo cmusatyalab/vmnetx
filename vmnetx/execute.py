@@ -15,13 +15,16 @@
 # for more details.
 #
 
+from hashlib import sha256
 import libvirt
 import os
 import re
 import requests
 import tempfile
-from urlparse import urlsplit
+from urlparse import urlsplit, urlunsplit
 import uuid
+
+from .util import ensure_dir
 
 try:
     from selinux import chcon
@@ -59,16 +62,24 @@ class _ReferencedObject(object):
         basepath = os.path.join(get_cache_dir(), 'chunks')
         # Exclude query string from cache path
         parsed_url = urlsplit(self.url)
-        self.cache = os.path.realpath(os.path.join(basepath, str(chunk_size),
-                parsed_url.scheme, parsed_url.netloc,
-                parsed_url.path.lstrip('/')))
-        # Ensure a crafted URL can't escape the cache directory
-        if not self.cache.startswith(basepath):
-            raise MachineExecutionError('Invalid object URL')
-
-        self.vmnetfs_args = [self.url, self.cache, str(self.size),
-                str(self.chunk_size)]
+        self._cache_url = urlunsplit((parsed_url.scheme, parsed_url.netloc,
+                parsed_url.path, '', ''))
+        self._urlpath = os.path.join(basepath,
+                sha256(self._cache_url).hexdigest())
+        # Hash collisions will allow cache poisoning!
+        self.cache = os.path.join(self._urlpath, str(chunk_size))
     # pylint: enable=E1103
+
+    @property
+    def vmnetfs_args(self):
+        # Write URL into file for ease of debugging.  Defer creation of
+        # cache directory until needed.
+        ensure_dir(self._urlpath)
+        urlfile = os.path.join(self._urlpath, 'url')
+        if not os.path.exists(urlfile):
+            with open(urlfile, 'w') as fh:
+                fh.write('%s\n' % self._cache_url)
+        return [self.url, self.cache, str(self.size), str(self.chunk_size)]
 
 
 class MachineMetadata(object):

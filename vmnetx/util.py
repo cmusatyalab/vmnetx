@@ -15,6 +15,7 @@
 # for more details.
 #
 
+import errno
 import os
 
 def get_cache_dir():
@@ -33,3 +34,12 @@ def get_temp_dir():
         return path
     else:
         return '/tmp'
+
+
+def ensure_dir(path):
+    try:
+        os.makedirs(path)
+    except OSError, e:
+        if e.errno == errno.EEXIST and os.path.isdir(path):
+            return
+        raise
