@@ -16,20 +16,30 @@
 #
 
 from lxml import etree
+import os
 import subprocess
 from tempfile import NamedTemporaryFile
 import uuid
 
 from vmnetx.util import DetailException
 
+STRICT_SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'libvirt',
+        'domain.rng')
+
+# We want this to be a public attribute
+# pylint: disable=C0103
+strict_schema = etree.RelaxNG(file=STRICT_SCHEMA_PATH)
+# pylint: enable=C0103
+
+
 class DomainXMLError(DetailException):
     pass
 
 
 class DomainXML(object):
-    def __init__(self, xml):
+    def __init__(self, xml, strict=False):
         self.xml = xml
-        self._validate()
+        self._validate(strict)
 
         # Get disk path and type
         tree = etree.fromstring(xml)
@@ -52,19 +62,27 @@ class DomainXML(object):
 
     # pylint is confused by Popen.returncode
     # pylint: disable=E1101
-    def _validate(self):
+    def _validate(self, strict=False):
         # Validate schema
-        with NamedTemporaryFile(prefix='vmnetx-xml-') as fh:
-            fh.write(self.xml)
-            fh.flush()
+        if strict:
+            # Validate against schema from minimum supported libvirt
+            try:
+                strict_schema.assertValid(etree.fromstring(self.xml))
+            except (etree.XMLSyntaxError, etree.DocumentInvalid), e:
+                raise DomainXMLError('Domain XML does not validate', str(e))
+        else:
+            # Validate against schema from installed libvirt
+            with NamedTemporaryFile(prefix='vmnetx-xml-') as fh:
+                fh.write(self.xml)
+                fh.flush()
 
-            proc = subprocess.Popen(['virt-xml-validate', fh.name,
-                    'domain'], stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE)
-            out, err = proc.communicate()
-            if proc.returncode:
-                raise DomainXMLError('Domain XML does not validate',
-                        (out.strip() + '\n' + err.strip()).strip())
+                proc = subprocess.Popen(['virt-xml-validate', fh.name,
+                        'domain'], stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE)
+                out, err = proc.communicate()
+                if proc.returncode:
+                    raise DomainXMLError('Domain XML does not validate',
+                            (out.strip() + '\n' + err.strip()).strip())
 
         # Run sanity checks
         '''

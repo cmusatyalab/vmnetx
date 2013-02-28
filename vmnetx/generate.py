@@ -203,7 +203,7 @@ def generate_machine(name, in_xml, base_url, out_file, compress=True):
     # Parse domain XML
     try:
         with open(in_xml) as fh:
-            domain = DomainXML(fh.read())
+            domain = DomainXML(fh.read(), strict=True)
     except (IOError, DomainXMLError), e:
         raise MachineGenerationError(str(e), getattr(e, 'detail', None))
 
