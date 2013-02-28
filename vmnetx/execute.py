@@ -15,7 +15,10 @@
 # for more details.
 #
 
+# pylint doesn't understand hashlib.sha256
+# pylint: disable=E0611
 from hashlib import sha256
+# pylint: enable=E0611
 import libvirt
 import os
 import re
