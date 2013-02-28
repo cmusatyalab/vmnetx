@@ -63,12 +63,18 @@ class DomainXML(object):
     # pylint is confused by Popen.returncode
     # pylint: disable=E1101
     def _validate(self, strict=False):
+        # Parse XML
+        try:
+            tree = etree.fromstring(self.xml)
+        except etree.XMLSyntaxError, e:
+            raise DomainXMLError('Domain XML does not parse', str(e))
+
         # Validate schema
         if strict:
             # Validate against schema from minimum supported libvirt
             try:
-                strict_schema.assertValid(etree.fromstring(self.xml))
-            except (etree.XMLSyntaxError, etree.DocumentInvalid), e:
+                strict_schema.assertValid(tree)
+            except etree.DocumentInvalid, e:
                 raise DomainXMLError('Domain XML does not validate', str(e))
         else:
             # Validate against schema from installed libvirt
@@ -85,6 +91,23 @@ class DomainXML(object):
                             (out.strip() + '\n' + err.strip()).strip())
 
         # Run sanity checks
+        if strict:
+            # For now, require hvm/i686/pc:
+            # - The client may not have emulators for arbitrary arches.
+            # - KVM won't run x86_64 guests on i686 host kernels.
+            # - "pc" is the only machine type supported by both RHEL 6 and
+            #   mainline qemu.  It's an alias, so it doesn't buy us any
+            #   virtual hw consistency, but at least the VM will start.
+            type = tree.xpath('/domain/os/type')
+            if len(type) != 1:
+                raise DomainXMLError('Could not locate machine hardware type')
+            type = type[0]
+            machine = '%s/%s/%s' % (type.text, type.get('arch', 'unknown'),
+                    type.get('machine', 'unknown'))
+            if machine != 'hvm/i686/pc':
+                raise DomainXMLError(
+                        'Found machine type %s; must be hvm/i686/pc' % machine)
+
         '''
         XXX:
         - ensure there is only one disk
