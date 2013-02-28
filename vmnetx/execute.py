@@ -27,7 +27,7 @@ import tempfile
 from urlparse import urlsplit, urlunsplit
 import uuid
 
-from .util import ensure_dir
+from vmnetx.util import ensure_dir
 
 try:
     from selinux import chcon
