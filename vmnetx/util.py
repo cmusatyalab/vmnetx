@@ -18,6 +18,13 @@
 import errno
 import os
 
+class DetailException(Exception):
+    def __init__(self, msg, detail=None):
+        Exception.__init__(self, msg)
+        if detail:
+            self.detail = detail
+
+
 def get_cache_dir():
     base = os.environ.get('XDG_CACHE_HOME')
     if not base:

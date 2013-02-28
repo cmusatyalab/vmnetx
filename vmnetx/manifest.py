@@ -20,6 +20,8 @@ from lxml import etree
 from lxml.builder import ElementMaker
 import os
 
+from vmnetx.util import DetailException
+
 NS = 'http://olivearchive.org/xmlns/vmnetx/manifest'
 NSP = '{' + NS + '}'
 SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'manifest.xsd')
@@ -30,7 +32,7 @@ schema = etree.XMLSchema(etree.parse(SCHEMA_PATH))
 # pylint: enable=C0103
 
 
-class ManifestError(Exception):
+class ManifestError(DetailException):
     pass
 
 
@@ -56,7 +58,7 @@ class Manifest(object):
                 self.disk = self._make_refinfo(tree.find(NSP + 'disk'))
                 self.memory = self._make_refinfo(tree.find(NSP + 'memory'))
             except etree.XMLSyntaxError, e:
-                raise ManifestError(str(e))
+                raise ManifestError('Manifest XML does not validate', str(e))
         else:
             # Save passed parameters; memory is optional
             assert name and domain and disk

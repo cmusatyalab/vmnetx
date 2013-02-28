@@ -45,4 +45,7 @@ except KeyboardInterrupt:
     sys.exit(1)
 except Exception, e:
     print str(e)
+    detail = getattr(e, 'detail', None)
+    if detail:
+        print detail
     sys.exit(1)

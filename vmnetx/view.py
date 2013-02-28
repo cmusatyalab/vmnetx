@@ -456,8 +456,14 @@ class ErrorWindow(gtk.MessageDialog):
 
 class ErrorBuffer(object):
     def __init__(self):
-        self.exception = str(sys.exc_info()[1])
-        self.detail = traceback.format_exc()
+        exception = sys.exc_info()[1]
+        detail = getattr(exception, 'detail', None)
+        tb = traceback.format_exc()
+        self.exception = str(exception)
+        if detail:
+            self.detail = detail + '\n\n' + tb
+        else:
+            self.detail = tb
 
 
 class FatalErrorWindow(gtk.MessageDialog):

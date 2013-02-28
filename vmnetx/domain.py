@@ -20,7 +20,9 @@ import subprocess
 from tempfile import NamedTemporaryFile
 import uuid
 
-class DomainXMLError(Exception):
+from vmnetx.util import DetailException
+
+class DomainXMLError(DetailException):
     pass
 
 
@@ -48,16 +50,21 @@ class DomainXML(object):
         return etree.tostring(tree, pretty_print=True, encoding='UTF-8',
                 xml_declaration=True)
 
+    # pylint is confused by Popen.returncode
+    # pylint: disable=E1101
     def _validate(self):
         # Validate schema
         with NamedTemporaryFile(prefix='vmnetx-xml-') as fh:
             fh.write(self.xml)
             fh.flush()
 
-            with open('/dev/null', 'w') as null:
-                if subprocess.call(['virt-xml-validate', fh.name, 'domain'],
-                        stdout=null, stderr=null):
-                    raise DomainXMLError('Domain XML does not validate')
+            proc = subprocess.Popen(['virt-xml-validate', fh.name,
+                    'domain'], stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE)
+            out, err = proc.communicate()
+            if proc.returncode:
+                raise DomainXMLError('Domain XML does not validate',
+                        (out.strip() + '\n' + err.strip()).strip())
 
         # Run sanity checks
         '''
@@ -66,6 +73,7 @@ class DomainXML(object):
         - ensure the local filesystem is not touched
         - check for bindings directly to hardware
         '''
+    # pylint: enable=E1101
 
     def get_for_storage(self, disk_name, disk_type='qcow2', keep_uuid=False):
         # Parse XML

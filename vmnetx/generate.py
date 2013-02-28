@@ -25,13 +25,14 @@ from tempfile import NamedTemporaryFile
 
 from vmnetx.domain import DomainXML, DomainXMLError
 from vmnetx.manifest import Manifest, ReferenceInfo
+from vmnetx.util import DetailException
 
 DOMAIN_TEMPLATE = 'domain-%s.xml'
 DISK_TEMPLATE = 'disk-%s.qcow'
 DISK_RAW_TEMPLATE = 'disk-%s.raw'
 MEMORY_TEMPLATE = 'memory-%s.img'
 
-class MachineGenerationError(Exception):
+class MachineGenerationError(DetailException):
     pass
 
 
@@ -204,7 +205,7 @@ def generate_machine(name, in_xml, base_url, out_file, compress=True):
         with open(in_xml) as fh:
             domain = DomainXML(fh.read())
     except (IOError, DomainXMLError), e:
-        raise MachineGenerationError(str(e))
+        raise MachineGenerationError(str(e), getattr(e, 'detail', None))
 
     # Get memory path
     in_memory = os.path.join(os.path.dirname(in_xml), 'save',
