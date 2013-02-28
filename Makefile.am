@@ -32,7 +32,12 @@ nobase_nodist_python_PYTHON = vmnetx/system.py
 CLEANFILES = vmnetx/system.py
 EXTRA_DIST = vmnetx/system.py.in pylintrc vmnetx.te README.rst
 
-dist_pkgpython_DATA = manifest.xsd
+nobase_dist_pkgpython_DATA = manifest.xsd \
+	libvirt/basictypes.rng \
+	libvirt/domaincommon.rng \
+	libvirt/domain.rng \
+	libvirt/networkcommon.rng \
+	libvirt/storageencryption.rng
 
 applicationsdir = $(datarootdir)/applications
 mimedir = $(datarootdir)/mime/packages
