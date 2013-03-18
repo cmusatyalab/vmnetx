@@ -458,107 +458,19 @@
       <xs:choice minOccurs="0" maxOccurs="unbounded">
         <xs:element ref="memory"/>
         <xs:element ref="currentMemory"/>
-        <xs:element ref="memoryBacking"/>
-        <xs:element ref="blkiotune"/>
-        <xs:element ref="memtune"/>
         <xs:element ref="vcpu"/>
-        <xs:element ref="cputune"/>
-        <xs:element ref="numatune"/>
       </xs:choice>
     </xs:sequence>
   </xs:group>
   <xs:element name="memory" type="memoryKB"/>
   <xs:element name="currentMemory" type="memoryKB"/>
-  <xs:element name="memoryBacking">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:element minOccurs="0" ref="hugepages"/>
-      </xs:sequence>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="hugepages">
-    <xs:complexType/>
-  </xs:element>
-  <xs:element name="blkiotune">
-    <xs:complexType>
-      <xs:choice minOccurs="0" maxOccurs="unbounded">
-        <xs:element ref="weight"/>
-        <xs:element ref="device"/>
-      </xs:choice>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="weight" type="weight"/>
-  <xs:element name="device">
-    <xs:complexType>
-      <xs:all>
-        <xs:element ref="path"/>
-        <xs:element ref="weight"/>
-      </xs:all>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="path" type="absFilePath"/>
-  <xs:element name="memtune">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:element minOccurs="0" ref="hard_limit"/>
-        <xs:element minOccurs="0" ref="soft_limit"/>
-        <xs:element minOccurs="0" ref="min_guarantee"/>
-        <xs:element minOccurs="0" ref="swap_hard_limit"/>
-      </xs:sequence>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="hard_limit" type="memoryKB"/>
-  <xs:element name="soft_limit" type="memoryKB"/>
-  <xs:element name="min_guarantee" type="memoryKB"/>
-  <xs:element name="swap_hard_limit" type="memoryKB"/>
   <xs:element name="vcpu">
-    <xs:complexType>
-      <xs:simpleContent>
-        <xs:extension base="countCPU">
-          <xs:attribute name="cpuset" type="cpuset"/>
-          <xs:attribute name="current" type="countCPU"/>
-        </xs:extension>
-      </xs:simpleContent>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="cputune">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:element minOccurs="0" ref="shares"/>
-        <xs:element minOccurs="0" ref="period"/>
-        <xs:element minOccurs="0" ref="quota"/>
-        <xs:element minOccurs="0" maxOccurs="unbounded" ref="vcpupin"/>
-      </xs:sequence>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="shares" type="cpushares"/>
-  <xs:element name="period" type="cpuperiod"/>
-  <xs:element name="quota" type="cpuquota"/>
-  <xs:element name="vcpupin">
-    <xs:complexType>
-      <xs:attribute name="vcpu" use="required" type="vcpuid"/>
-      <xs:attribute name="cpuset" use="required" type="cpuset"/>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="numatune">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:element minOccurs="0" name="memory">
-          <xs:complexType>
-            <xs:attribute name="mode" use="required">
-              <xs:simpleType>
-                <xs:restriction base="xs:token">
-                  <xs:enumeration value="strict"/>
-                  <xs:enumeration value="preferred"/>
-                  <xs:enumeration value="interleave"/>
-                </xs:restriction>
-              </xs:simpleType>
-            </xs:attribute>
-            <xs:attribute name="nodeset" use="required" type="cpuset"/>
-          </xs:complexType>
-        </xs:element>
-      </xs:sequence>
-    </xs:complexType>
+    <xs:simpleType>
+      <xs:restriction base="xs:unsignedShort">
+        <xs:pattern value="[0-9]+"/>
+        <xs:minInclusive value="1"/>
+      </xs:restriction>
+    </xs:simpleType>
   </xs:element>
   <xs:group name="clock">
     <xs:sequence>
@@ -2039,17 +1951,10 @@
     
     A domain name should be made of ascii, numbers, _-+ and is non-empty
     memoryKB request at least 4Mbytes though Xen will grow bigger if too low
-    weight currently is in range [100, 1000]
   -->
   <xs:simpleType name="cpuset">
     <xs:restriction base="xs:string">
       <xs:pattern value="([0-9]+(-[0-9]+)?|\^[0-9]+)(,([0-9]+(-[0-9]+)?|\^[0-9]+))*"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="countCPU">
-    <xs:restriction base="xs:unsignedShort">
-      <xs:pattern value="[0-9]+"/>
-      <xs:minInclusive value="1"/>
     </xs:restriction>
   </xs:simpleType>
   <xs:simpleType name="vcpuid">
@@ -2079,13 +1984,6 @@
   <xs:simpleType name="PortNumber">
     <xs:restriction base="xs:short">
       <xs:minInclusive value="-1"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="weight">
-    <xs:restriction base="xs:unsignedInt">
-      <xs:pattern value="[0-9]+"/>
-      <xs:minInclusive value="100"/>
-      <xs:maxInclusive value="1000"/>
     </xs:restriction>
   </xs:simpleType>
   <xs:simpleType name="memoryKB">
