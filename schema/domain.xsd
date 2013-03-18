@@ -1708,32 +1708,10 @@
     <xs:attributeGroup ref="qemucdevSrcType"/>
     <xs:attribute name="tty" type="absFilePath"/>
   </xs:attributeGroup>
-  <xs:attributeGroup name="qemucdevConsoleTgtType">
-    <xs:attribute name="type" use="required">
-      <xs:simpleType>
-        <xs:restriction base="xs:token">
-          <xs:enumeration value="xen"/>
-          <xs:enumeration value="serial"/>
-          <xs:enumeration value="uml"/>
-          <xs:enumeration value="virtio"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-  </xs:attributeGroup>
   <xs:group name="qemucdevTgtDef">
     <xs:sequence>
       <xs:element name="target">
         <xs:complexType>
-          <xs:attribute name="type">
-            <xs:simpleType>
-              <xs:restriction base="xs:token">
-                <xs:enumeration value="xen"/>
-                <xs:enumeration value="serial"/>
-                <xs:enumeration value="uml"/>
-                <xs:enumeration value="virtio"/>
-              </xs:restriction>
-            </xs:simpleType>
-          </xs:attribute>
           <xs:attribute name="port"/>
         </xs:complexType>
       </xs:element>
@@ -1741,17 +1719,7 @@
   </xs:group>
   <xs:simpleType name="qemucdevSrcTypeChoice">
     <xs:restriction base="xs:token">
-      <xs:enumeration value="dev"/>
-      <xs:enumeration value="file"/>
-      <xs:enumeration value="pipe"/>
-      <xs:enumeration value="unix"/>
-      <xs:enumeration value="tcp"/>
-      <xs:enumeration value="udp"/>
       <xs:enumeration value="null"/>
-      <xs:enumeration value="stdio"/>
-      <xs:enumeration value="vc"/>
-      <xs:enumeration value="pty"/>
-      <xs:enumeration value="spicevmc"/>
     </xs:restriction>
   </xs:simpleType>
   <xs:attributeGroup name="qemucdevSrcType">
@@ -1763,17 +1731,6 @@
       <xs:element minOccurs="0" ref="protocol"/>
     </xs:sequence>
   </xs:group>
-  <!--
-    The description for a console
-    just a tty device
-  -->
-  <xs:element name="console">
-    <xs:complexType>
-      <xs:group minOccurs="0" ref="qemucdev"/>
-      <xs:attribute name="tty" type="absFilePath"/>
-      <xs:attribute name="type" type="qemucdevSrcTypeChoice"/>
-    </xs:complexType>
-  </xs:element>
   <xs:element name="sound">
     <xs:complexType>
       <xs:group minOccurs="0" ref="address"/>
@@ -1785,31 +1742,6 @@
             <xs:enumeration value="pcspk"/>
             <xs:enumeration value="ac97"/>
             <xs:enumeration value="ich6"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="watchdog">
-    <xs:complexType>
-      <xs:group minOccurs="0" ref="address"/>
-      <xs:attribute name="model" use="required">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:enumeration value="i6300esb"/>
-            <xs:enumeration value="ib700"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
-      <xs:attribute name="action">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:enumeration value="reset"/>
-            <xs:enumeration value="shutdown"/>
-            <xs:enumeration value="poweroff"/>
-            <xs:enumeration value="pause"/>
-            <xs:enumeration value="none"/>
-            <xs:enumeration value="dump"/>
           </xs:restriction>
         </xs:simpleType>
       </xs:attribute>
@@ -1878,56 +1810,6 @@
       </xs:element>
     </xs:sequence>
   </xs:group>
-  <xs:element name="channel">
-    <xs:complexType>
-      <xs:choice minOccurs="0" maxOccurs="unbounded">
-        <xs:choice>
-          <xs:element ref="source"/>
-          <xs:element ref="protocol"/>
-        </xs:choice>
-        <xs:choice>
-          <xs:group ref="guestfwdTarget"/>
-          <xs:group ref="virtioTarget"/>
-        </xs:choice>
-        <xs:group ref="address"/>
-      </xs:choice>
-      <xs:attributeGroup ref="qemucdevSrcType"/>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="smartcard">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:choice minOccurs="0">
-          <xs:sequence>
-            <xs:element ref="certificate"/>
-            <xs:element ref="certificate"/>
-            <xs:element ref="certificate"/>
-            <xs:element minOccurs="0" ref="database"/>
-          </xs:sequence>
-          <xs:choice minOccurs="0" maxOccurs="unbounded">
-            <xs:choice>
-              <xs:element ref="source"/>
-              <xs:element ref="protocol"/>
-            </xs:choice>
-            <xs:group ref="qemucdevTgtDef"/>
-          </xs:choice>
-        </xs:choice>
-        <xs:group minOccurs="0" ref="address"/>
-      </xs:sequence>
-      <xs:attribute name="mode" use="required">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:enumeration value="host"/>
-            <xs:enumeration value="host-certificates"/>
-            <xs:enumeration value="passthrough"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
-      <xs:attribute name="type" type="qemucdevSrcTypeChoice"/>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="database" type="absDirPath"/>
-  <xs:element name="certificate" type="xs:string"/>
   <xs:element name="input">
     <xs:complexType>
       <xs:group minOccurs="0" ref="address"/>
@@ -1960,22 +1842,6 @@
           </xs:restriction>
         </xs:simpleType>
       </xs:attribute>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="redirdev">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:group ref="qemucdevSrcDef"/>
-        <xs:group minOccurs="0" ref="address"/>
-      </xs:sequence>
-      <xs:attribute name="bus" use="required">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:enumeration value="usb"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
-      <xs:attribute name="type" use="required" type="qemucdevSrcTypeChoice"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="hostdev">
@@ -2117,15 +1983,10 @@
           <xs:element ref="hostdev"/>
           <xs:element ref="graphics"/>
           <xs:element ref="video"/>
-          <xs:element ref="console"/>
           <xs:element ref="parallel"/>
           <xs:group ref="serial"/>
-          <xs:element ref="channel"/>
-          <xs:element ref="smartcard"/>
           <xs:element ref="hub"/>
-          <xs:element ref="redirdev"/>
         </xs:choice>
-        <xs:element ref="watchdog"/>
         <xs:element ref="memballoon"/>
       </xs:choice>
     </xs:complexType>
