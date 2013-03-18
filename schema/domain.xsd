@@ -1108,87 +1108,6 @@
       </xs:attribute>
     </xs:complexType>
   </xs:element>
-  <xs:element name="filesystem">
-    <xs:complexType>
-      <xs:choice>
-        <xs:choice minOccurs="0" maxOccurs="unbounded">
-          <xs:element name="source">
-            <xs:complexType>
-              <xs:attribute name="file" use="required" type="absFilePath"/>
-            </xs:complexType>
-          </xs:element>
-          <xs:group ref="filesystemtgt"/>
-        </xs:choice>
-        <xs:choice minOccurs="0" maxOccurs="unbounded">
-          <xs:element name="source">
-            <xs:complexType>
-              <xs:attribute name="dev" use="required" type="absFilePath"/>
-            </xs:complexType>
-          </xs:element>
-          <xs:group ref="filesystemtgt"/>
-        </xs:choice>
-        <xs:choice minOccurs="0" maxOccurs="unbounded">
-          <xs:element name="source">
-            <xs:complexType>
-              <xs:attribute name="dir" use="required" type="absFilePath"/>
-            </xs:complexType>
-          </xs:element>
-          <xs:element name="driver">
-            <xs:complexType>
-              <xs:attribute name="type" use="required">
-                <xs:simpleType>
-                  <xs:restriction base="xs:token">
-                    <xs:enumeration value="path"/>
-                    <xs:enumeration value="handle"/>
-                  </xs:restriction>
-                </xs:simpleType>
-              </xs:attribute>
-            </xs:complexType>
-          </xs:element>
-          <xs:group ref="filesystemtgt"/>
-        </xs:choice>
-        <xs:choice minOccurs="0" maxOccurs="unbounded">
-          <xs:element name="source">
-            <xs:complexType>
-              <xs:attribute name="name" use="required" type="genericName"/>
-            </xs:complexType>
-          </xs:element>
-          <xs:group ref="filesystemtgt"/>
-        </xs:choice>
-      </xs:choice>
-      <xs:attribute name="type">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:enumeration value="file"/>
-            <xs:enumeration value="block"/>
-            <xs:enumeration value="mount"/>
-            <xs:enumeration value="template"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
-      <xs:attribute name="accessmode">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:enumeration value="passthrough"/>
-            <xs:enumeration value="mapped"/>
-            <xs:enumeration value="squash"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
-    </xs:complexType>
-  </xs:element>
-  <xs:group name="filesystemtgt">
-    <xs:sequence>
-      <xs:choice minOccurs="0" maxOccurs="unbounded">
-        <xs:group ref="address"/>
-        <xs:element name="target">
-          <xs:complexType>
-            <xs:attribute name="dir" use="required" type="absDirPath"/>
-          </xs:complexType>
-        </xs:element>
-      </xs:choice>
-    </xs:sequence>
-  </xs:group>
   <!--
     An interface description can either be of type bridge in which case
     it will use a bridging source, or of type ethernet which uses a device
@@ -1844,55 +1763,6 @@
       </xs:attribute>
     </xs:complexType>
   </xs:element>
-  <xs:element name="hostdev">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:element name="source">
-          <xs:complexType>
-            <xs:choice>
-              <xs:sequence>
-                <xs:group ref="usbproduct"/>
-                <xs:group minOccurs="0" ref="usbaddress"/>
-              </xs:sequence>
-              <xs:group ref="usbaddress"/>
-              <xs:element name="address">
-                <xs:complexType>
-                  <xs:attributeGroup ref="pciaddress"/>
-                </xs:complexType>
-              </xs:element>
-            </xs:choice>
-          </xs:complexType>
-        </xs:element>
-        <xs:group minOccurs="0" ref="deviceBoot"/>
-        <xs:group minOccurs="0" ref="address"/>
-        <xs:element minOccurs="0" ref="rom"/>
-      </xs:sequence>
-      <xs:attribute name="mode">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:enumeration value="subsystem"/>
-            <xs:enumeration value="capabilities"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
-      <xs:attribute name="type" use="required">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:enumeration value="usb"/>
-            <xs:enumeration value="pci"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
-      <xs:attribute name="managed">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:enumeration value="yes"/>
-            <xs:enumeration value="no"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
-    </xs:complexType>
-  </xs:element>
   <xs:element name="rom">
     <xs:complexType>
       <xs:attribute name="bar" use="required">
@@ -1976,11 +1846,9 @@
           <xs:element ref="disk"/>
           <xs:element ref="controller"/>
           <xs:element ref="lease"/>
-          <xs:element ref="filesystem"/>
           <xs:element ref="interface"/>
           <xs:element ref="input"/>
           <xs:element ref="sound"/>
-          <xs:element ref="hostdev"/>
           <xs:element ref="graphics"/>
           <xs:element ref="video"/>
           <xs:element ref="parallel"/>
