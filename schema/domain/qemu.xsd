@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" targetNamespace="http://libvirt.org/schemas/domain/qemu/1.0" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
+  <xs:import schemaLocation="domain.xsd"/>
+  <xs:element name="commandline">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="qemu:arg"/>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="qemu:env"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="arg">
+    <xs:complexType>
+      <xs:attribute name="value" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="env">
+    <xs:complexType>
+      <xs:attribute name="name" use="required" type="filter-param-name"/>
+      <xs:attribute name="value"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

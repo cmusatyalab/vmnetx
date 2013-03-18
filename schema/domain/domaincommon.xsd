@@ -1,0 +1,2524 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
+  <xs:include schemaLocation="basictypes.xsd"/>
+  <xs:include schemaLocation="storageencryption.xsd"/>
+  <xs:include schemaLocation="networkcommon.xsd"/>
+  <xs:import namespace="http://libvirt.org/schemas/domain/qemu/1.0" schemaLocation="qemu.xsd"/>
+  <!-- domain-related definitions used in multiple grammars -->
+  <!-- description element, may be placed anywhere under the root -->
+  <xs:element name="description" type="xs:string"/>
+  <!-- We handle only document defining a domain -->
+  <xs:element name="domain">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="ids">
+          <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:element ref="description"/>
+            <xs:element ref="cpu"/>
+            <xs:element ref="sysinfo"/>
+            <xs:choice>
+              <xs:choice>
+                <xs:choice>
+                  <xs:group ref="bootloader"/>
+                  <xs:element name="os">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:group ref="ostypexen"/>
+                        <xs:group ref="osbootkernel"/>
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:choice>
+                <xs:choice>
+                  <xs:group ref="bootloader"/>
+                  <xs:element name="os">
+                    <xs:complexType>
+                      <xs:sequence>
+                        <xs:group ref="ostypexen"/>
+                        <xs:group minOccurs="0" ref="osbootkernel"/>
+                      </xs:sequence>
+                    </xs:complexType>
+                  </xs:element>
+                </xs:choice>
+              </xs:choice>
+              <xs:group ref="oshvm"/>
+              <xs:group ref="osexe"/>
+            </xs:choice>
+            <xs:group ref="clock"/>
+            <xs:group ref="resources"/>
+            <xs:group ref="features"/>
+            <xs:group ref="termination"/>
+            <xs:element ref="devices"/>
+            <xs:element ref="seclabel"/>
+            <xs:element ref="qemu:commandline"/>
+          </xs:choice>
+          <xs:attributeGroup ref="hvs"/>
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="seclabel">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="label"/>
+        <xs:element ref="imagelabel"/>
+        <xs:element ref="baselabel"/>
+      </xs:sequence>
+      <xs:attribute name="model" use="required"/>
+      <xs:attribute name="type" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="dynamic"/>
+            <xs:enumeration value="static"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="relabel" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="yes"/>
+            <xs:enumeration value="no"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="label" type="xs:string"/>
+  <xs:element name="imagelabel" type="xs:string"/>
+  <xs:element name="baselabel" type="xs:string"/>
+  <xs:attributeGroup name="hvs">
+    <xs:attribute name="type" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:token">
+          <xs:enumeration value="qemu"/>
+          <xs:enumeration value="kqemu"/>
+          <xs:enumeration value="kvm"/>
+          <xs:enumeration value="xen"/>
+          <xs:enumeration value="lxc"/>
+          <xs:enumeration value="uml"/>
+          <xs:enumeration value="openvz"/>
+          <xs:enumeration value="test"/>
+          <xs:enumeration value="vmware"/>
+          <xs:enumeration value="hyperv"/>
+          <xs:enumeration value="vbox"/>
+          <xs:enumeration value="phyp"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:attributeGroup>
+  <xs:group name="os">
+    <xs:choice>
+      <xs:group ref="osxen"/>
+      <xs:group ref="oshvm"/>
+      <xs:group ref="osexe"/>
+    </xs:choice>
+  </xs:group>
+  <xs:group name="osxen">
+    <xs:choice>
+      <xs:sequence>
+        <xs:group minOccurs="0" ref="bootloader"/>
+        <xs:element name="os">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:group ref="ostypexen"/>
+              <xs:group ref="osbootkernel"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+      <xs:sequence>
+        <xs:group ref="bootloader"/>
+        <xs:element minOccurs="0" name="os">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:group ref="ostypexen"/>
+              <xs:group minOccurs="0" ref="osbootkernel"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:choice>
+  </xs:group>
+  <xs:group name="oshvm">
+    <xs:sequence>
+      <xs:element name="os">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:group ref="ostypehvm"/>
+            <xs:choice minOccurs="0" maxOccurs="unbounded">
+              <xs:element ref="loader"/>
+              <xs:choice>
+                <xs:group ref="osbootkernel"/>
+                <xs:group ref="osbootdev"/>
+              </xs:choice>
+              <xs:element ref="bootmenu"/>
+              <xs:element ref="smbios"/>
+              <xs:element ref="bios"/>
+            </xs:choice>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:element name="loader" type="absFilePath"/>
+  <xs:element name="bootmenu">
+    <xs:complexType>
+      <xs:attribute name="enable" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="yes"/>
+            <xs:enumeration value="no"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:group name="ostypexen">
+    <xs:sequence>
+      <xs:element name="type">
+        <xs:complexType>
+          <xs:simpleContent>
+            <xs:restriction base="xs:anyType">
+              <xs:simpleType>
+                <xs:restriction base="xs:token">
+                  <xs:enumeration value="xen"/>
+                  <xs:enumeration value="linux"/>
+                </xs:restriction>
+              </xs:simpleType>
+              <xs:attribute name="arch">
+                <xs:simpleType>
+                  <xs:restriction base="xs:token">
+                    <xs:enumeration value="i686"/>
+                    <xs:enumeration value="x86_64"/>
+                    <xs:enumeration value="ia64"/>
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:attribute>
+              <xs:attribute name="machine">
+                <xs:simpleType>
+                  <xs:restriction base="xs:token">
+                    <xs:enumeration value="xenpv"/>
+                    <xs:enumeration value="xenner"/>
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:attribute>
+            </xs:restriction>
+          </xs:simpleContent>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:group name="ostypehvm">
+    <xs:sequence>
+      <xs:element name="type">
+        <xs:complexType>
+          <xs:simpleContent>
+            <xs:restriction base="xs:anyType">
+              <xs:simpleType>
+                <xs:restriction base="xs:token">
+                  <xs:enumeration value="hvm"/>
+                </xs:restriction>
+              </xs:simpleType>
+              <xs:attribute name="arch">
+                <xs:simpleType>
+                  <xs:restriction base="xs:token">
+                    <xs:enumeration value="i686"/>
+                    <xs:enumeration value="x86_64"/>
+                    <xs:enumeration value="mips"/>
+                    <xs:enumeration value="sparc"/>
+                    <xs:enumeration value="ppc"/>
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:attribute>
+              <xs:attribute name="machine">
+                <xs:simpleType>
+                  <xs:union>
+                    <xs:simpleType>
+                      <xs:restriction base="xs:string">
+                        <xs:pattern value="[a-zA-Z0-9_\.\-]+"/>
+                      </xs:restriction>
+                    </xs:simpleType>
+                    <xs:simpleType>
+                      <xs:restriction base="xs:token">
+                        <xs:enumeration value="mips"/>
+                      </xs:restriction>
+                    </xs:simpleType>
+                    <xs:simpleType>
+                      <xs:restriction base="xs:token">
+                        <xs:enumeration value="sun4m"/>
+                      </xs:restriction>
+                    </xs:simpleType>
+                    <xs:simpleType>
+                      <xs:restriction base="xs:token">
+                        <xs:enumeration value="g3beige"/>
+                        <xs:enumeration value="mac99"/>
+                        <xs:enumeration value="prep"/>
+                      </xs:restriction>
+                    </xs:simpleType>
+                  </xs:union>
+                </xs:simpleType>
+              </xs:attribute>
+            </xs:restriction>
+          </xs:simpleContent>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:attributeGroup name="hvmx86">
+    <xs:attribute name="arch">
+      <xs:simpleType>
+        <xs:restriction base="xs:token">
+          <xs:enumeration value="i686"/>
+          <xs:enumeration value="x86_64"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="machine">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:pattern value="[a-zA-Z0-9_\.\-]+"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:attributeGroup>
+  <xs:attributeGroup name="hvmmips">
+    <xs:attribute name="arch">
+      <xs:simpleType>
+        <xs:restriction base="xs:token">
+          <xs:enumeration value="mips"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="machine">
+      <xs:simpleType>
+        <xs:restriction base="xs:token">
+          <xs:enumeration value="mips"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:attributeGroup>
+  <xs:attributeGroup name="hvmsparc">
+    <xs:attribute name="arch">
+      <xs:simpleType>
+        <xs:restriction base="xs:token">
+          <xs:enumeration value="sparc"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="machine">
+      <xs:simpleType>
+        <xs:restriction base="xs:token">
+          <xs:enumeration value="sun4m"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:attributeGroup>
+  <xs:attributeGroup name="hvmppc">
+    <xs:attribute name="arch">
+      <xs:simpleType>
+        <xs:restriction base="xs:token">
+          <xs:enumeration value="ppc"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+    <xs:attribute name="machine">
+      <xs:simpleType>
+        <xs:restriction base="xs:token">
+          <xs:enumeration value="g3beige"/>
+          <xs:enumeration value="mac99"/>
+          <xs:enumeration value="prep"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:attributeGroup>
+  <xs:group name="osexe">
+    <xs:sequence>
+      <xs:element name="os">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="type">
+              <xs:simpleType>
+                <xs:restriction base="xs:token">
+                  <xs:enumeration value="exe"/>
+                </xs:restriction>
+              </xs:simpleType>
+            </xs:element>
+            <xs:element minOccurs="0" ref="init"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:element name="init" type="absFilePath"/>
+  <!--
+    The Identifiers can be:
+    - an optional id attribute with a number on the domain element
+    - a mandatory name
+    - an optional uuid
+  -->
+  <xs:complexType name="ids">
+    <xs:choice minOccurs="0" maxOccurs="unbounded">
+      <xs:element ref="name"/>
+      <xs:element ref="uuid"/>
+    </xs:choice>
+    <xs:attribute name="id" type="unsignedInt"/>
+  </xs:complexType>
+  <xs:element name="name" type="domainName"/>
+  <xs:element name="uuid" type="UUID"/>
+  <!--
+    Resources usage defines the amount of memory (maximum and possibly
+    current usage) and number of virtual CPUs used by that domain.
+    We can't check here the rule that currentMemory <= memory
+  -->
+  <xs:group name="resources">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="memory"/>
+        <xs:element ref="currentMemory"/>
+        <xs:element ref="memoryBacking"/>
+        <xs:element ref="blkiotune"/>
+        <xs:element ref="memtune"/>
+        <xs:element ref="vcpu"/>
+        <xs:element ref="cputune"/>
+        <xs:element ref="numatune"/>
+      </xs:choice>
+    </xs:sequence>
+  </xs:group>
+  <xs:element name="memory" type="memoryKB"/>
+  <xs:element name="currentMemory" type="memoryKB"/>
+  <xs:element name="memoryBacking">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="hugepages"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="hugepages">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="blkiotune">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="weight"/>
+        <xs:element ref="device"/>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="weight" type="weight"/>
+  <xs:element name="device">
+    <xs:complexType>
+      <xs:all>
+        <xs:element ref="path"/>
+        <xs:element ref="weight"/>
+      </xs:all>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="path" type="absFilePath"/>
+  <xs:element name="memtune">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="hard_limit"/>
+        <xs:element minOccurs="0" ref="soft_limit"/>
+        <xs:element minOccurs="0" ref="min_guarantee"/>
+        <xs:element minOccurs="0" ref="swap_hard_limit"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="hard_limit" type="memoryKB"/>
+  <xs:element name="soft_limit" type="memoryKB"/>
+  <xs:element name="min_guarantee" type="memoryKB"/>
+  <xs:element name="swap_hard_limit" type="memoryKB"/>
+  <xs:element name="vcpu">
+    <xs:complexType>
+      <xs:simpleContent>
+        <xs:extension base="countCPU">
+          <xs:attribute name="cpuset" type="cpuset"/>
+          <xs:attribute name="current" type="countCPU"/>
+        </xs:extension>
+      </xs:simpleContent>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="cputune">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="shares"/>
+        <xs:element minOccurs="0" ref="period"/>
+        <xs:element minOccurs="0" ref="quota"/>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="vcpupin"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="shares" type="cpushares"/>
+  <xs:element name="period" type="cpuperiod"/>
+  <xs:element name="quota" type="cpuquota"/>
+  <xs:element name="vcpupin">
+    <xs:complexType>
+      <xs:attribute name="vcpu" use="required" type="vcpuid"/>
+      <xs:attribute name="cpuset" use="required" type="cpuset"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="numatune">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" name="memory">
+          <xs:complexType>
+            <xs:attribute name="mode" use="required">
+              <xs:simpleType>
+                <xs:restriction base="xs:token">
+                  <xs:enumeration value="strict"/>
+                  <xs:enumeration value="preferred"/>
+                  <xs:enumeration value="interleave"/>
+                </xs:restriction>
+              </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="nodeset" use="required" type="cpuset"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:group name="clock">
+    <xs:sequence>
+      <xs:element minOccurs="0" ref="clock"/>
+    </xs:sequence>
+  </xs:group>
+  <xs:element name="clock">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="timer"/>
+      </xs:sequence>
+      <xs:attribute name="offset" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="localtime"/>
+            <xs:enumeration value="utc"/>
+            <xs:enumeration value="timezone"/>
+            <xs:enumeration value="variable"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="timezone" type="timeZone"/>
+      <xs:attribute name="adjustment" type="timeDelta"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="timer">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="catchup"/>
+      </xs:sequence>
+      <xs:attribute name="name" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="platform"/>
+            <xs:enumeration value="pit"/>
+            <xs:enumeration value="rtc"/>
+            <xs:enumeration value="hpet"/>
+            <xs:enumeration value="tsc"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="track">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="boot"/>
+            <xs:enumeration value="guest"/>
+            <xs:enumeration value="wall"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="tickpolicy">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="delay"/>
+            <xs:enumeration value="catchup"/>
+            <xs:enumeration value="merge"/>
+            <xs:enumeration value="discard"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="frequency" type="unsignedInt"/>
+      <xs:attribute name="mode">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="auto"/>
+            <xs:enumeration value="native"/>
+            <xs:enumeration value="emulate"/>
+            <xs:enumeration value="paravirt"/>
+            <xs:enumeration value="smpsafe"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="present">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="yes"/>
+            <xs:enumeration value="no"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="catchup">
+    <xs:complexType>
+      <xs:attribute name="threshold" type="unsignedInt"/>
+      <xs:attribute name="slew" type="unsignedInt"/>
+      <xs:attribute name="limit" type="unsignedInt"/>
+    </xs:complexType>
+  </xs:element>
+  <!--
+    A bootloader may be used to extract the OS information instead of
+    defining the OS parameter in the instance. It points just to the
+    binary or script used to extract the data from the first disk device.
+  -->
+  <xs:group name="bootloader">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="bootloader"/>
+        <xs:element ref="bootloader_args"/>
+      </xs:choice>
+    </xs:sequence>
+  </xs:group>
+  <xs:element name="bootloader">
+    <xs:simpleType>
+      <xs:union memberTypes="absFilePath">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:length value="0"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:union>
+    </xs:simpleType>
+  </xs:element>
+  <xs:element name="bootloader_args" type="xs:string"/>
+  <xs:group name="osbootkernel">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="kernel"/>
+        <xs:element ref="initrd"/>
+        <xs:element ref="root"/>
+        <xs:element ref="cmdline"/>
+      </xs:choice>
+    </xs:sequence>
+  </xs:group>
+  <xs:element name="kernel" type="absFilePath"/>
+  <xs:element name="initrd" type="absFilePath"/>
+  <xs:element name="root" type="absFilePath"/>
+  <xs:element name="cmdline" type="xs:string"/>
+  <xs:group name="osbootdev">
+    <xs:sequence>
+      <xs:element name="boot">
+        <xs:complexType>
+          <xs:attribute name="dev" use="required">
+            <xs:simpleType>
+              <xs:restriction base="xs:token">
+                <xs:enumeration value="hd"/>
+                <xs:enumeration value="fd"/>
+                <xs:enumeration value="cdrom"/>
+                <xs:enumeration value="network"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:group name="diskspec">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:group ref="driver"/>
+        <xs:element ref="auth"/>
+        <xs:group ref="target"/>
+        <xs:group ref="deviceBoot"/>
+        <xs:element ref="readonly"/>
+        <xs:element ref="shareable"/>
+        <xs:element ref="transient"/>
+        <xs:element name="serial" type="diskSerial"/>
+        <xs:element ref="encryption"/>
+        <xs:element ref="iotune"/>
+        <xs:group ref="address"/>
+      </xs:choice>
+    </xs:sequence>
+  </xs:group>
+  <xs:element name="readonly">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="shareable">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="transient">
+    <xs:complexType/>
+  </xs:element>
+  <xs:attributeGroup name="snapshot">
+    <xs:attribute name="snapshot" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:token">
+          <xs:enumeration value="no"/>
+          <xs:enumeration value="internal"/>
+          <xs:enumeration value="external"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:attributeGroup>
+  <xs:element name="lease">
+    <xs:complexType>
+      <xs:all>
+        <xs:element ref="lockspace"/>
+        <xs:element ref="key"/>
+        <xs:element name="target">
+          <xs:complexType>
+            <xs:attribute name="path" use="required"/>
+            <xs:attribute name="offset" type="unsignedInt"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:all>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="lockspace" type="xs:string"/>
+  <xs:element name="key" type="xs:string"/>
+  <xs:attributeGroup name="startupPolicy">
+    <xs:attribute name="startupPolicy" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:token">
+          <xs:enumeration value="mandatory"/>
+          <xs:enumeration value="requisite"/>
+          <xs:enumeration value="optional"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:attributeGroup>
+  <!--
+    A disk description can be either of type file or block
+    The name of the attribute on the source element depends on the type
+    
+  -->
+  <xs:element name="disk">
+    <xs:complexType>
+      <xs:choice>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element name="source">
+            <xs:complexType>
+              <xs:attribute name="file" type="absFilePath"/>
+              <xs:attribute name="startupPolicy">
+                <xs:simpleType>
+                  <xs:restriction base="xs:token">
+                    <xs:enumeration value="mandatory"/>
+                    <xs:enumeration value="requisite"/>
+                    <xs:enumeration value="optional"/>
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:attribute>
+            </xs:complexType>
+          </xs:element>
+          <xs:group ref="diskspec"/>
+        </xs:choice>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element name="source">
+            <xs:complexType>
+              <xs:attribute name="dev" use="required" type="absFilePath"/>
+            </xs:complexType>
+          </xs:element>
+          <xs:group ref="diskspec"/>
+        </xs:choice>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element name="source">
+            <xs:complexType>
+              <xs:attribute name="dir" use="required" type="absFilePath"/>
+            </xs:complexType>
+          </xs:element>
+          <xs:group ref="diskspec"/>
+        </xs:choice>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element name="source">
+            <xs:complexType>
+              <xs:sequence>
+                <xs:element minOccurs="0" maxOccurs="unbounded" ref="host"/>
+              </xs:sequence>
+              <xs:attribute name="protocol" use="required">
+                <xs:simpleType>
+                  <xs:restriction base="xs:token">
+                    <xs:enumeration value="nbd"/>
+                    <xs:enumeration value="rbd"/>
+                    <xs:enumeration value="sheepdog"/>
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:attribute>
+              <xs:attribute name="name"/>
+            </xs:complexType>
+          </xs:element>
+          <xs:group ref="diskspec"/>
+        </xs:choice>
+        <xs:group ref="diskspec"/>
+      </xs:choice>
+      <xs:attribute name="device">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="floppy"/>
+            <xs:enumeration value="disk"/>
+            <xs:enumeration value="cdrom"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="snapshot">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="no"/>
+            <xs:enumeration value="internal"/>
+            <xs:enumeration value="external"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="type">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="file"/>
+            <xs:enumeration value="block"/>
+            <xs:enumeration value="dir"/>
+            <xs:enumeration value="network"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="host">
+    <xs:complexType>
+      <xs:attribute name="name" use="required" type="dnsName"/>
+      <xs:attribute name="port" use="required" type="unsignedInt"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:simpleType name="diskTarget">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(ioemu:)?(fd|hd|sd|vd|xvd|ubd)[a-zA-Z0-9_]+"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:group name="target">
+    <xs:sequence>
+      <xs:element name="target">
+        <xs:complexType>
+          <xs:attribute name="dev" use="required" type="diskTarget"/>
+          <xs:attribute name="bus">
+            <xs:simpleType>
+              <xs:restriction base="xs:token">
+                <xs:enumeration value="ide"/>
+                <xs:enumeration value="fdc"/>
+                <xs:enumeration value="scsi"/>
+                <xs:enumeration value="virtio"/>
+                <xs:enumeration value="xen"/>
+                <xs:enumeration value="usb"/>
+                <xs:enumeration value="uml"/>
+                <xs:enumeration value="sata"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <!--
+    Disk may use a special driver for access. Currently this is
+    only defined for Xen for tap/aio and file, but will certainly be
+    extended in the future, and libvirt doesn't look for specific values.
+  -->
+  <xs:group name="driver">
+    <xs:sequence>
+      <xs:element name="driver">
+        <xs:complexType>
+          <xs:attribute name="name" type="genericName"/>
+          <xs:attribute name="type" type="genericName"/>
+          <xs:attribute name="cache">
+            <xs:simpleType>
+              <xs:restriction base="xs:token">
+                <xs:enumeration value="none"/>
+                <xs:enumeration value="writeback"/>
+                <xs:enumeration value="writethrough"/>
+                <xs:enumeration value="directsync"/>
+                <xs:enumeration value="unsafe"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="error_policy">
+            <xs:simpleType>
+              <xs:restriction base="xs:token">
+                <xs:enumeration value="stop"/>
+                <xs:enumeration value="report"/>
+                <xs:enumeration value="ignore"/>
+                <xs:enumeration value="enospace"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="rerror_policy">
+            <xs:simpleType>
+              <xs:restriction base="xs:token">
+                <xs:enumeration value="stop"/>
+                <xs:enumeration value="report"/>
+                <xs:enumeration value="ignore"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="io">
+            <xs:simpleType>
+              <xs:restriction base="xs:token">
+                <xs:enumeration value="threads"/>
+                <xs:enumeration value="native"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="ioeventfd">
+            <xs:simpleType>
+              <xs:restriction base="xs:token">
+                <xs:enumeration value="on"/>
+                <xs:enumeration value="off"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="event_idx">
+            <xs:simpleType>
+              <xs:restriction base="xs:token">
+                <xs:enumeration value="on"/>
+                <xs:enumeration value="off"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:attributeGroup name="driverFormat">
+    <xs:attribute name="name" use="required" type="genericName"/>
+    <xs:attribute name="type" type="genericName"/>
+  </xs:attributeGroup>
+  <xs:attributeGroup name="driverCache">
+    <xs:attribute name="cache" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:token">
+          <xs:enumeration value="none"/>
+          <xs:enumeration value="writeback"/>
+          <xs:enumeration value="writethrough"/>
+          <xs:enumeration value="directsync"/>
+          <xs:enumeration value="unsafe"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:attributeGroup>
+  <xs:attributeGroup name="driverErrorPolicy">
+    <xs:attribute name="error_policy" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:token">
+          <xs:enumeration value="stop"/>
+          <xs:enumeration value="report"/>
+          <xs:enumeration value="ignore"/>
+          <xs:enumeration value="enospace"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:attributeGroup>
+  <xs:attributeGroup name="driverRerrorPolicy">
+    <xs:attribute name="rerror_policy" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:token">
+          <xs:enumeration value="stop"/>
+          <xs:enumeration value="report"/>
+          <xs:enumeration value="ignore"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:attributeGroup>
+  <xs:attributeGroup name="driverIO">
+    <xs:attribute name="io" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:token">
+          <xs:enumeration value="threads"/>
+          <xs:enumeration value="native"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:attributeGroup>
+  <xs:attributeGroup name="ioeventfd">
+    <xs:attribute name="ioeventfd" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:token">
+          <xs:enumeration value="on"/>
+          <xs:enumeration value="off"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:attributeGroup>
+  <xs:attributeGroup name="event_idx">
+    <xs:attribute name="event_idx" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:token">
+          <xs:enumeration value="on"/>
+          <xs:enumeration value="off"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:attributeGroup>
+  <xs:element name="controller">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="master"/>
+        <xs:group minOccurs="0" ref="address"/>
+      </xs:sequence>
+      <xs:attribute name="type">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="fdc"/>
+            <xs:enumeration value="ide"/>
+            <xs:enumeration value="scsi"/>
+            <xs:enumeration value="sata"/>
+            <xs:enumeration value="ccid"/>
+            <xs:enumeration value="usb"/>
+            <xs:enumeration value="virtio-serial"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="ports" type="unsignedInt"/>
+      <xs:attribute name="vectors" type="unsignedInt"/>
+      <xs:attribute name="index" use="required" type="unsignedInt"/>
+      <xs:attribute name="model">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="auto"/>
+            <xs:enumeration value="buslogic"/>
+            <xs:enumeration value="lsilogic"/>
+            <xs:enumeration value="lsisas1068"/>
+            <xs:enumeration value="vmpvscsi"/>
+            <xs:enumeration value="piix3-uhci"/>
+            <xs:enumeration value="piix4-uhci"/>
+            <xs:enumeration value="ehci"/>
+            <xs:enumeration value="ich9-ehci1"/>
+            <xs:enumeration value="ich9-uhci1"/>
+            <xs:enumeration value="ich9-uhci2"/>
+            <xs:enumeration value="ich9-uhci3"/>
+            <xs:enumeration value="vt82c686b-uhci"/>
+            <xs:enumeration value="pci-ohci"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="filesystem">
+    <xs:complexType>
+      <xs:choice>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element name="source">
+            <xs:complexType>
+              <xs:attribute name="file" use="required" type="absFilePath"/>
+            </xs:complexType>
+          </xs:element>
+          <xs:group ref="filesystemtgt"/>
+        </xs:choice>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element name="source">
+            <xs:complexType>
+              <xs:attribute name="dev" use="required" type="absFilePath"/>
+            </xs:complexType>
+          </xs:element>
+          <xs:group ref="filesystemtgt"/>
+        </xs:choice>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element name="source">
+            <xs:complexType>
+              <xs:attribute name="dir" use="required" type="absFilePath"/>
+            </xs:complexType>
+          </xs:element>
+          <xs:element name="driver">
+            <xs:complexType>
+              <xs:attribute name="type" use="required">
+                <xs:simpleType>
+                  <xs:restriction base="xs:token">
+                    <xs:enumeration value="path"/>
+                    <xs:enumeration value="handle"/>
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:attribute>
+            </xs:complexType>
+          </xs:element>
+          <xs:group ref="filesystemtgt"/>
+        </xs:choice>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element name="source">
+            <xs:complexType>
+              <xs:attribute name="name" use="required" type="genericName"/>
+            </xs:complexType>
+          </xs:element>
+          <xs:group ref="filesystemtgt"/>
+        </xs:choice>
+      </xs:choice>
+      <xs:attribute name="type">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="file"/>
+            <xs:enumeration value="block"/>
+            <xs:enumeration value="mount"/>
+            <xs:enumeration value="template"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="accessmode">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="passthrough"/>
+            <xs:enumeration value="mapped"/>
+            <xs:enumeration value="squash"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:group name="filesystemtgt">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:group ref="address"/>
+        <xs:element name="target">
+          <xs:complexType>
+            <xs:attribute name="dir" use="required" type="absDirPath"/>
+          </xs:complexType>
+        </xs:element>
+      </xs:choice>
+    </xs:sequence>
+  </xs:group>
+  <!--
+    An interface description can either be of type bridge in which case
+    it will use a bridging source, or of type ethernet which uses a device
+    source and a device target instead. They both share a set of interface
+    options. FIXME
+  -->
+  <xs:element name="interface">
+    <xs:complexType>
+      <xs:choice>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element name="source">
+            <xs:complexType>
+              <xs:attribute name="bridge" use="required" type="deviceName"/>
+            </xs:complexType>
+          </xs:element>
+          <xs:group ref="interface-options"/>
+        </xs:choice>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element name="source">
+            <xs:complexType>
+              <xs:attribute name="dev" use="required" type="deviceName"/>
+            </xs:complexType>
+          </xs:element>
+          <xs:group ref="interface-options"/>
+        </xs:choice>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element name="source">
+            <xs:complexType>
+              <xs:attribute name="network" use="required" type="deviceName"/>
+              <xs:attribute name="portgroup" type="deviceName"/>
+            </xs:complexType>
+          </xs:element>
+          <xs:group ref="virtualPortProfile"/>
+          <xs:group ref="interface-options"/>
+        </xs:choice>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element name="source">
+            <xs:complexType>
+              <xs:attribute name="dev" use="required" type="deviceName"/>
+              <xs:attribute name="mode" type="bridgeMode"/>
+            </xs:complexType>
+          </xs:element>
+          <xs:group ref="virtualPortProfile"/>
+          <xs:group ref="interface-options"/>
+        </xs:choice>
+        <xs:group ref="interface-options"/>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element name="source">
+            <xs:complexType>
+              <xs:attribute name="name" use="required" type="deviceName"/>
+            </xs:complexType>
+          </xs:element>
+          <xs:group ref="interface-options"/>
+        </xs:choice>
+      </xs:choice>
+      <xs:attribute name="type" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="bridge"/>
+            <xs:enumeration value="ethernet"/>
+            <xs:enumeration value="network"/>
+            <xs:enumeration value="direct"/>
+            <xs:enumeration value="user"/>
+            <xs:enumeration value="internal"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <!--
+    The interface options possible are:
+      - the MAC address
+      - the IP address bound to the interface
+      - the name of the script used to set up the binding
+      - the target device used
+      - boot order
+  -->
+  <xs:group name="interface-options">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="target">
+          <xs:complexType>
+            <xs:attribute name="dev" use="required" type="deviceName"/>
+          </xs:complexType>
+        </xs:element>
+        <xs:element ref="mac"/>
+        <xs:element ref="ip"/>
+        <xs:element ref="script"/>
+        <xs:element name="model">
+          <xs:complexType>
+            <xs:attribute name="type" use="required"/>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="driver">
+          <xs:complexType>
+            <xs:attribute name="name">
+              <xs:simpleType>
+                <xs:restriction base="xs:token">
+                  <xs:enumeration value="qemu"/>
+                  <xs:enumeration value="vhost"/>
+                </xs:restriction>
+              </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="txmode">
+              <xs:simpleType>
+                <xs:restriction base="xs:token">
+                  <xs:enumeration value="iothread"/>
+                  <xs:enumeration value="timer"/>
+                </xs:restriction>
+              </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="ioeventfd">
+              <xs:simpleType>
+                <xs:restriction base="xs:token">
+                  <xs:enumeration value="on"/>
+                  <xs:enumeration value="off"/>
+                </xs:restriction>
+              </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="event_idx">
+              <xs:simpleType>
+                <xs:restriction base="xs:token">
+                  <xs:enumeration value="on"/>
+                  <xs:enumeration value="off"/>
+                </xs:restriction>
+              </xs:simpleType>
+            </xs:attribute>
+          </xs:complexType>
+        </xs:element>
+        <xs:group ref="address"/>
+        <xs:element ref="filterref"/>
+        <xs:element ref="tune"/>
+        <xs:group ref="deviceBoot"/>
+        <xs:element ref="bandwidth"/>
+      </xs:choice>
+    </xs:sequence>
+  </xs:group>
+  <xs:element name="mac">
+    <xs:complexType>
+      <xs:attribute name="address" use="required" type="macAddr"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="ip">
+    <xs:complexType>
+      <xs:attribute name="address" use="required" type="ipv4Addr"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="script">
+    <xs:complexType>
+      <xs:attribute name="path" use="required" type="filePath"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="filterref" type="filterref-node-attributes"/>
+  <xs:element name="tune">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="sndbuf"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="sndbuf" type="unsignedInt"/>
+  <!-- An emulator description is just a path to the binary used for the task -->
+  <xs:element name="emulator" type="absFilePath"/>
+  <!--
+    A graphic description, currently in Xen only 2 types are supported:
+      - sdl with optional display, xauth and fullscreen
+      - vnc with a required port and optional listen IP address, password
+        and keymap
+  -->
+  <xs:element name="graphics">
+    <xs:complexType>
+      <xs:choice minOccurs="0">
+        <xs:group ref="listenElements"/>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:group ref="listenElements"/>
+          <xs:element name="channel">
+            <xs:complexType>
+              <xs:attribute name="name" use="required">
+                <xs:simpleType>
+                  <xs:restriction base="xs:token">
+                    <xs:enumeration value="main"/>
+                    <xs:enumeration value="display"/>
+                    <xs:enumeration value="inputs"/>
+                    <xs:enumeration value="cursor"/>
+                    <xs:enumeration value="playback"/>
+                    <xs:enumeration value="record"/>
+                    <xs:enumeration value="smartcard"/>
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:attribute>
+              <xs:attribute name="mode" use="required">
+                <xs:simpleType>
+                  <xs:restriction base="xs:token">
+                    <xs:enumeration value="any"/>
+                    <xs:enumeration value="secure"/>
+                    <xs:enumeration value="insecure"/>
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:attribute>
+            </xs:complexType>
+          </xs:element>
+          <xs:element ref="image"/>
+          <xs:element ref="jpeg"/>
+          <xs:element ref="zlib"/>
+          <xs:element ref="playback"/>
+          <xs:element ref="streaming"/>
+          <xs:element ref="clipboard"/>
+        </xs:choice>
+        <xs:group ref="listenElements"/>
+      </xs:choice>
+      <xs:attribute name="connected">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="keep"/>
+            <xs:enumeration value="fail"/>
+            <xs:enumeration value="disconnect"/>
+            <xs:enumeration value="keep"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="type" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="sdl"/>
+            <xs:enumeration value="vnc"/>
+            <xs:enumeration value="spice"/>
+            <xs:enumeration value="rdp"/>
+            <xs:enumeration value="desktop"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="display"/>
+      <xs:attribute name="xauth"/>
+      <xs:attribute name="fullscreen">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="yes"/>
+            <xs:enumeration value="no"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="port" type="PortNumber"/>
+      <xs:attribute name="autoport">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="yes"/>
+            <xs:enumeration value="no"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="listen" type="addrIPorName"/>
+      <xs:attribute name="socket" type="absFilePath"/>
+      <xs:attribute name="passwd"/>
+      <xs:attribute name="keymap"/>
+      <xs:attribute name="passwdValidTo" type="xs:dateTime"/>
+      <xs:attribute name="tlsPort" type="PortNumber"/>
+      <xs:attribute name="replaceUser">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="yes"/>
+            <xs:enumeration value="no"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="multiUser">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="yes"/>
+            <xs:enumeration value="no"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="image">
+    <xs:complexType>
+      <xs:attribute name="compression" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="auto_glz"/>
+            <xs:enumeration value="auto_lz"/>
+            <xs:enumeration value="quic"/>
+            <xs:enumeration value="glz"/>
+            <xs:enumeration value="lz"/>
+            <xs:enumeration value="off"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="jpeg">
+    <xs:complexType>
+      <xs:attribute name="compression" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="auto"/>
+            <xs:enumeration value="never"/>
+            <xs:enumeration value="always"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="zlib">
+    <xs:complexType>
+      <xs:attribute name="compression" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="auto"/>
+            <xs:enumeration value="never"/>
+            <xs:enumeration value="always"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="playback">
+    <xs:complexType>
+      <xs:attribute name="compression" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="on"/>
+            <xs:enumeration value="off"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="streaming">
+    <xs:complexType>
+      <xs:attribute name="mode" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="filter"/>
+            <xs:enumeration value="all"/>
+            <xs:enumeration value="off"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="clipboard">
+    <xs:complexType>
+      <xs:attribute name="copypaste" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="yes"/>
+            <xs:enumeration value="no"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:group name="listenElements">
+    <xs:sequence>
+      <xs:element minOccurs="0" maxOccurs="unbounded" ref="listen"/>
+    </xs:sequence>
+  </xs:group>
+  <xs:element name="listen">
+    <xs:complexType>
+      <xs:attribute name="type" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="address"/>
+            <xs:enumeration value="network"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="address" type="addrIPorName"/>
+      <xs:attribute name="network"/>
+    </xs:complexType>
+  </xs:element>
+  <!--
+    A video adapter description, allowing configuration of device
+    model, number of virtual heads, and video ram size
+  -->
+  <xs:element name="video">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" name="model">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element minOccurs="0" ref="acceleration"/>
+            </xs:sequence>
+            <xs:attribute name="type" use="required">
+              <xs:simpleType>
+                <xs:restriction base="xs:token">
+                  <xs:enumeration value="vga"/>
+                  <xs:enumeration value="cirrus"/>
+                  <xs:enumeration value="vmvga"/>
+                  <xs:enumeration value="xen"/>
+                  <xs:enumeration value="vbox"/>
+                  <xs:enumeration value="qxl"/>
+                </xs:restriction>
+              </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="vram" type="unsignedInt"/>
+            <xs:attribute name="heads" type="unsignedInt"/>
+          </xs:complexType>
+        </xs:element>
+        <xs:group minOccurs="0" ref="address"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="acceleration">
+    <xs:complexType>
+      <xs:attribute name="accel3d">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="yes"/>
+            <xs:enumeration value="no"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="accel2d">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="yes"/>
+            <xs:enumeration value="no"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <!--
+    When a domain terminates multiple policies can be applied depending
+    on how it ended:
+  -->
+  <xs:group name="termination">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="on_reboot"/>
+        <xs:element ref="on_poweroff"/>
+        <xs:element ref="on_crash"/>
+      </xs:choice>
+    </xs:sequence>
+  </xs:group>
+  <xs:element name="on_reboot" type="offOptions"/>
+  <xs:element name="on_poweroff" type="offOptions"/>
+  <xs:element name="on_crash" type="crashOptions"/>
+  <!--
+    Options when a domain terminates:
+    destroy: The domain is cleaned up
+    restart: A new domain is started in place of the old one
+    preserve: The domain will remain in memory until it is destroyed manually
+    rename-restart: a variant of the previous one but where the old domain is
+                    renamed before being saved to allow a restart
+  -->
+  <xs:simpleType name="offOptions">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="destroy"/>
+      <xs:enumeration value="restart"/>
+      <xs:enumeration value="preserve"/>
+      <xs:enumeration value="rename-restart"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <!--
+    Options when a domain crashes:
+    destroy: The domain is cleaned up
+    restart: A new domain is started in place of the old one
+    preserve: The domain will remain in memory until it is destroyed manually
+    rename-restart: a variant of the previous one but where the old domain is
+                    renamed before being saved to allow a restart
+    coredump-destroy: The crashed domain's core will be dumped, and then the
+                      domain will be terminated completely and all resources
+                      released
+    coredump-restart: The crashed domain's core will be dumped, and then the
+                      domain will be restarted with the same configuration
+  -->
+  <xs:simpleType name="crashOptions">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="destroy"/>
+      <xs:enumeration value="restart"/>
+      <xs:enumeration value="preserve"/>
+      <xs:enumeration value="rename-restart"/>
+      <xs:enumeration value="coredump-destroy"/>
+      <xs:enumeration value="coredump-restart"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <!--
+    Specific setup for a qemu emulated character device.  Note: this
+    definition doesn't fully specify the constraints on this node.
+  -->
+  <xs:group name="qemucdev">
+    <xs:sequence>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:choice>
+          <xs:element ref="source"/>
+          <xs:element ref="protocol"/>
+        </xs:choice>
+        <xs:group ref="qemucdevTgtDef"/>
+        <xs:group ref="address"/>
+      </xs:choice>
+    </xs:sequence>
+  </xs:group>
+  <xs:element name="source">
+    <xs:complexType>
+      <xs:attribute name="mode"/>
+      <xs:attribute name="path"/>
+      <xs:attribute name="host"/>
+      <xs:attribute name="service"/>
+      <xs:attribute name="wiremode"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="protocol">
+    <xs:complexType>
+      <xs:attribute name="type">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="raw"/>
+            <xs:enumeration value="telnet"/>
+            <xs:enumeration value="telnets"/>
+            <xs:enumeration value="tls"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:attributeGroup name="qemucdev">
+    <xs:attributeGroup ref="qemucdevSrcType"/>
+    <xs:attribute name="tty" type="absFilePath"/>
+  </xs:attributeGroup>
+  <xs:attributeGroup name="qemucdevConsoleTgtType">
+    <xs:attribute name="type" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:token">
+          <xs:enumeration value="xen"/>
+          <xs:enumeration value="serial"/>
+          <xs:enumeration value="uml"/>
+          <xs:enumeration value="virtio"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:attributeGroup>
+  <xs:group name="qemucdevTgtDef">
+    <xs:sequence>
+      <xs:element name="target">
+        <xs:complexType>
+          <xs:attribute name="type">
+            <xs:simpleType>
+              <xs:restriction base="xs:token">
+                <xs:enumeration value="xen"/>
+                <xs:enumeration value="serial"/>
+                <xs:enumeration value="uml"/>
+                <xs:enumeration value="virtio"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="port"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:simpleType name="qemucdevSrcTypeChoice">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="dev"/>
+      <xs:enumeration value="file"/>
+      <xs:enumeration value="pipe"/>
+      <xs:enumeration value="unix"/>
+      <xs:enumeration value="tcp"/>
+      <xs:enumeration value="udp"/>
+      <xs:enumeration value="null"/>
+      <xs:enumeration value="stdio"/>
+      <xs:enumeration value="vc"/>
+      <xs:enumeration value="pty"/>
+      <xs:enumeration value="spicevmc"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:attributeGroup name="qemucdevSrcType">
+    <xs:attribute name="type" use="required" type="qemucdevSrcTypeChoice"/>
+  </xs:attributeGroup>
+  <xs:group name="qemucdevSrcDef">
+    <xs:sequence>
+      <xs:element minOccurs="0" maxOccurs="unbounded" ref="source"/>
+      <xs:element minOccurs="0" ref="protocol"/>
+    </xs:sequence>
+  </xs:group>
+  <!--
+    The description for a console
+    just a tty device
+  -->
+  <xs:element name="console">
+    <xs:complexType>
+      <xs:group minOccurs="0" ref="qemucdev"/>
+      <xs:attribute name="tty" type="absFilePath"/>
+      <xs:attribute name="type" type="qemucdevSrcTypeChoice"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="sound">
+    <xs:complexType>
+      <xs:group minOccurs="0" ref="address"/>
+      <xs:attribute name="model" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="sb16"/>
+            <xs:enumeration value="es1370"/>
+            <xs:enumeration value="pcspk"/>
+            <xs:enumeration value="ac97"/>
+            <xs:enumeration value="ich6"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="watchdog">
+    <xs:complexType>
+      <xs:group minOccurs="0" ref="address"/>
+      <xs:attribute name="model" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="i6300esb"/>
+            <xs:enumeration value="ib700"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="action">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="reset"/>
+            <xs:enumeration value="shutdown"/>
+            <xs:enumeration value="poweroff"/>
+            <xs:enumeration value="pause"/>
+            <xs:enumeration value="none"/>
+            <xs:enumeration value="dump"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="memballoon">
+    <xs:complexType>
+      <xs:group minOccurs="0" ref="address"/>
+      <xs:attribute name="model" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="virtio"/>
+            <xs:enumeration value="xen"/>
+            <xs:enumeration value="none"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="parallel">
+    <xs:complexType>
+      <xs:group ref="qemucdev"/>
+      <xs:attributeGroup ref="qemucdev"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:group name="serial">
+    <xs:sequence>
+      <xs:element name="serial">
+        <xs:complexType>
+          <xs:group ref="qemucdev"/>
+          <xs:attributeGroup ref="qemucdev"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:group name="guestfwdTarget">
+    <xs:sequence>
+      <xs:element name="target">
+        <xs:complexType>
+          <xs:attribute name="type" use="required">
+            <xs:simpleType>
+              <xs:restriction base="xs:token">
+                <xs:enumeration value="guestfwd"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="address" use="required"/>
+          <xs:attribute name="port" use="required"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:group name="virtioTarget">
+    <xs:sequence>
+      <xs:element name="target">
+        <xs:complexType>
+          <xs:attribute name="type" use="required">
+            <xs:simpleType>
+              <xs:restriction base="xs:token">
+                <xs:enumeration value="virtio"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="name"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:element name="channel">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:choice>
+          <xs:element ref="source"/>
+          <xs:element ref="protocol"/>
+        </xs:choice>
+        <xs:choice>
+          <xs:group ref="guestfwdTarget"/>
+          <xs:group ref="virtioTarget"/>
+        </xs:choice>
+        <xs:group ref="address"/>
+      </xs:choice>
+      <xs:attributeGroup ref="qemucdevSrcType"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="smartcard">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:choice minOccurs="0">
+          <xs:sequence>
+            <xs:element ref="certificate"/>
+            <xs:element ref="certificate"/>
+            <xs:element ref="certificate"/>
+            <xs:element minOccurs="0" ref="database"/>
+          </xs:sequence>
+          <xs:choice minOccurs="0" maxOccurs="unbounded">
+            <xs:choice>
+              <xs:element ref="source"/>
+              <xs:element ref="protocol"/>
+            </xs:choice>
+            <xs:group ref="qemucdevTgtDef"/>
+          </xs:choice>
+        </xs:choice>
+        <xs:group minOccurs="0" ref="address"/>
+      </xs:sequence>
+      <xs:attribute name="mode" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="host"/>
+            <xs:enumeration value="host-certificates"/>
+            <xs:enumeration value="passthrough"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="type" type="qemucdevSrcTypeChoice"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="database" type="absDirPath"/>
+  <xs:element name="certificate" type="xs:string"/>
+  <xs:element name="input">
+    <xs:complexType>
+      <xs:group minOccurs="0" ref="address"/>
+      <xs:attribute name="type" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="tablet"/>
+            <xs:enumeration value="mouse"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="bus">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="ps2"/>
+            <xs:enumeration value="usb"/>
+            <xs:enumeration value="xen"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="hub">
+    <xs:complexType>
+      <xs:group minOccurs="0" ref="address"/>
+      <xs:attribute name="type" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="usb"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="redirdev">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:group ref="qemucdevSrcDef"/>
+        <xs:group minOccurs="0" ref="address"/>
+      </xs:sequence>
+      <xs:attribute name="bus" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="usb"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="type" use="required" type="qemucdevSrcTypeChoice"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="hostdev">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="source">
+          <xs:complexType>
+            <xs:choice>
+              <xs:sequence>
+                <xs:group ref="usbproduct"/>
+                <xs:group minOccurs="0" ref="usbaddress"/>
+              </xs:sequence>
+              <xs:group ref="usbaddress"/>
+              <xs:element name="address">
+                <xs:complexType>
+                  <xs:attributeGroup ref="pciaddress"/>
+                </xs:complexType>
+              </xs:element>
+            </xs:choice>
+          </xs:complexType>
+        </xs:element>
+        <xs:group minOccurs="0" ref="deviceBoot"/>
+        <xs:group minOccurs="0" ref="address"/>
+        <xs:element minOccurs="0" ref="rom"/>
+      </xs:sequence>
+      <xs:attribute name="mode">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="subsystem"/>
+            <xs:enumeration value="capabilities"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="type" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="usb"/>
+            <xs:enumeration value="pci"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="managed">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="yes"/>
+            <xs:enumeration value="no"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="rom">
+    <xs:complexType>
+      <xs:attribute name="bar" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="on"/>
+            <xs:enumeration value="off"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:group name="usbproduct">
+    <xs:sequence>
+      <xs:element name="vendor">
+        <xs:complexType>
+          <xs:attribute name="id" use="required" type="usbId"/>
+        </xs:complexType>
+      </xs:element>
+      <xs:element ref="product"/>
+    </xs:sequence>
+  </xs:group>
+  <xs:element name="product">
+    <xs:complexType>
+      <xs:attribute name="id" use="required" type="usbId"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:group name="usbaddress">
+    <xs:sequence>
+      <xs:element name="address">
+        <xs:complexType>
+          <xs:attribute name="bus" use="required" type="usbAddr"/>
+          <xs:attribute name="device" use="required" type="usbPort"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:attributeGroup name="usbportaddress">
+    <xs:attribute name="bus" use="required" type="usbAddr"/>
+    <xs:attribute name="port" use="required" type="usbPort"/>
+  </xs:attributeGroup>
+  <xs:attributeGroup name="pciaddress">
+    <xs:attribute name="domain" type="pciDomain"/>
+    <xs:attribute name="bus" use="required" type="pciBus"/>
+    <xs:attribute name="slot" use="required" type="pciSlot"/>
+    <xs:attribute name="function" use="required" type="pciFunc"/>
+    <xs:attribute name="multifunction">
+      <xs:simpleType>
+        <xs:restriction base="xs:token">
+          <xs:enumeration value="on"/>
+          <xs:enumeration value="off"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:attributeGroup>
+  <xs:attributeGroup name="driveaddress">
+    <xs:attribute name="controller" type="driveController"/>
+    <xs:attribute name="bus" type="driveBus"/>
+    <xs:attribute name="unit" use="required" type="driveUnit"/>
+  </xs:attributeGroup>
+  <xs:attributeGroup name="virtioserialaddress">
+    <xs:attribute name="controller" use="required" type="driveController"/>
+    <xs:attribute name="bus" type="driveBus"/>
+    <xs:attribute name="port" type="driveUnit"/>
+  </xs:attributeGroup>
+  <xs:attributeGroup name="ccidaddress">
+    <xs:attribute name="controller" use="required" type="driveController"/>
+    <xs:attribute name="slot" type="driveUnit"/>
+  </xs:attributeGroup>
+  <!--
+    Devices attached to a domain.
+    Sub-elements such as <alias> are not documented here, as they
+    can only exist when generated for a live domain and are ignored
+    when defining a domain.
+  -->
+  <xs:element name="devices">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="emulator"/>
+        <xs:choice>
+          <xs:element ref="disk"/>
+          <xs:element ref="controller"/>
+          <xs:element ref="lease"/>
+          <xs:element ref="filesystem"/>
+          <xs:element ref="interface"/>
+          <xs:element ref="input"/>
+          <xs:element ref="sound"/>
+          <xs:element ref="hostdev"/>
+          <xs:element ref="graphics"/>
+          <xs:element ref="video"/>
+          <xs:element ref="console"/>
+          <xs:element ref="parallel"/>
+          <xs:group ref="serial"/>
+          <xs:element ref="channel"/>
+          <xs:element ref="smartcard"/>
+          <xs:element ref="hub"/>
+          <xs:element ref="redirdev"/>
+        </xs:choice>
+        <xs:element ref="watchdog"/>
+        <xs:element ref="memballoon"/>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+  <!-- A set of optional features: PAE, APIC, ACPI, and HAP support -->
+  <xs:group name="features">
+    <xs:sequence>
+      <xs:element minOccurs="0" ref="features"/>
+    </xs:sequence>
+  </xs:group>
+  <xs:element name="features">
+    <xs:complexType>
+      <xs:all>
+        <xs:element minOccurs="0" ref="pae"/>
+        <xs:element minOccurs="0" ref="apic"/>
+        <xs:element minOccurs="0" ref="acpi"/>
+        <xs:element minOccurs="0" ref="hap"/>
+      </xs:all>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="pae">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="apic">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="acpi">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="hap">
+    <xs:complexType/>
+  </xs:element>
+  <!-- CPU specification -->
+  <xs:element name="cpu">
+    <xs:complexType>
+      <xs:choice>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element ref="topology"/>
+          <xs:element ref="numa"/>
+        </xs:choice>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:group ref="cpuModel"/>
+          <xs:group ref="cpuVendor"/>
+          <xs:element ref="topology"/>
+          <xs:element ref="feature"/>
+          <xs:element ref="numa"/>
+        </xs:choice>
+      </xs:choice>
+      <xs:attribute name="match">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="minimum"/>
+            <xs:enumeration value="exact"/>
+            <xs:enumeration value="strict"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:attributeGroup name="cpuMatch">
+    <xs:attribute name="match" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:token">
+          <xs:enumeration value="minimum"/>
+          <xs:enumeration value="exact"/>
+          <xs:enumeration value="strict"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
+  </xs:attributeGroup>
+  <xs:group name="cpuModel">
+    <xs:sequence>
+      <xs:element name="model" type="xs:string"/>
+    </xs:sequence>
+  </xs:group>
+  <xs:group name="cpuVendor">
+    <xs:sequence>
+      <xs:element name="vendor" type="xs:string"/>
+    </xs:sequence>
+  </xs:group>
+  <xs:element name="feature">
+    <xs:complexType>
+      <xs:attribute name="policy" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="force"/>
+            <xs:enumeration value="require"/>
+            <xs:enumeration value="optional"/>
+            <xs:enumeration value="disable"/>
+            <xs:enumeration value="forbid"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+      <xs:attribute name="name" use="required" type="featureName"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="topology">
+    <xs:complexType>
+      <xs:attribute name="sockets" use="required" type="positiveInteger"/>
+      <xs:attribute name="cores" use="required" type="positiveInteger"/>
+      <xs:attribute name="threads" use="required" type="positiveInteger"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="numa">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="cell"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="cell">
+    <xs:complexType>
+      <xs:attribute name="cpus" use="required" type="cpuset"/>
+      <xs:attribute name="memory" use="required" type="memoryKB"/>
+    </xs:complexType>
+  </xs:element>
+  <!--
+    System information specification:
+     Placeholder for system specific informations likes the ones
+     contained in the SMBIOS area.
+     Only a limited subset of entries can be modified there, so we
+     fully enumerate each case here.
+     The DMTF spec doesn't specify any string subset, just 0 terminated
+     byte strings, but better be safe and restrict at least the names
+     to avoid problems with space normalization in attribute values,
+     the value is kept as the element body for maximum flexibility.
+     A priori we allow only type 0 and type 1 string updates
+  -->
+  <xs:element name="sysinfo">
+    <xs:complexType>
+      <xs:all>
+        <xs:element minOccurs="0" name="bios">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element maxOccurs="unbounded" name="entry">
+                <xs:complexType>
+                  <xs:simpleContent>
+                    <xs:extension base="sysinfo-value">
+                      <xs:attribute name="name" use="required" type="sysinfo-bios-name"/>
+                    </xs:extension>
+                  </xs:simpleContent>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element minOccurs="0" ref="system"/>
+      </xs:all>
+      <xs:attribute name="type" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="smbios"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="system">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" name="entry">
+          <xs:complexType>
+            <xs:simpleContent>
+              <xs:extension base="sysinfo-value">
+                <xs:attribute name="name" use="required" type="sysinfo-system-name"/>
+              </xs:extension>
+            </xs:simpleContent>
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:simpleType name="sysinfo-bios-name">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="vendor"/>
+      <xs:enumeration value="version"/>
+      <xs:enumeration value="date"/>
+      <xs:enumeration value="release"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="sysinfo-system-name">
+    <xs:restriction base="xs:token">
+      <xs:enumeration value="manufacturer"/>
+      <xs:enumeration value="product"/>
+      <xs:enumeration value="version"/>
+      <xs:enumeration value="serial"/>
+      <xs:enumeration value="uuid"/>
+      <xs:enumeration value="sku"/>
+      <xs:enumeration value="family"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="sysinfo-value">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[a-zA-Z0-9/\-_\. \(\)]+"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="smbios">
+    <xs:complexType>
+      <xs:attribute name="mode" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="emulate"/>
+            <xs:enumeration value="host"/>
+            <xs:enumeration value="sysinfo"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="bios">
+    <xs:complexType>
+      <xs:attribute name="useserial" use="required">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="yes"/>
+            <xs:enumeration value="no"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:group name="address">
+    <xs:sequence>
+      <xs:element name="address">
+        <xs:complexType>
+          <xs:attribute name="port">
+            <xs:simpleType>
+              <xs:union memberTypes="driveUnit usbPort"/>
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="bus">
+            <xs:simpleType>
+              <xs:union memberTypes="pciBus driveBus driveBus usbAddr"/>
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="type" use="required">
+            <xs:simpleType>
+              <xs:restriction base="xs:token">
+                <xs:enumeration value="pci"/>
+                <xs:enumeration value="drive"/>
+                <xs:enumeration value="virtio-serial"/>
+                <xs:enumeration value="ccid"/>
+                <xs:enumeration value="usb"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="slot">
+            <xs:simpleType>
+              <xs:union memberTypes="pciSlot driveUnit"/>
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="domain" type="pciDomain"/>
+          <xs:attribute name="function" type="pciFunc"/>
+          <xs:attribute name="multifunction">
+            <xs:simpleType>
+              <xs:restriction base="xs:token">
+                <xs:enumeration value="on"/>
+                <xs:enumeration value="off"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="controller" type="driveController"/>
+          <xs:attribute name="unit" type="driveUnit"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:element name="master">
+    <xs:complexType>
+      <xs:attribute name="startport" use="required" type="usbPort"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:complexType name="filterref-node-attributes">
+    <xs:sequence>
+      <xs:element minOccurs="0" ref="parameter"/>
+    </xs:sequence>
+    <xs:attribute name="filter" use="required" type="xs:NCName"/>
+  </xs:complexType>
+  <xs:element name="parameter">
+    <xs:complexType>
+      <xs:attribute name="name" use="required" type="filter-param-name"/>
+      <xs:attribute name="value" use="required" type="filter-param-value"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:group name="deviceBoot">
+    <xs:sequence>
+      <xs:element name="boot">
+        <xs:complexType>
+          <xs:attribute name="order" use="required" type="positiveInteger"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:group>
+  <xs:element name="auth">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="diskAuthSecret">
+          <xs:attribute name="username" use="required" type="genericName"/>
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+  <xs:complexType name="diskAuthSecret">
+    <xs:sequence>
+      <xs:element name="secret">
+        <xs:complexType>
+          <xs:attribute name="type" use="required">
+            <xs:simpleType>
+              <xs:restriction base="xs:token">
+                <xs:enumeration value="ceph"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+          <xs:attribute name="uuid" type="UUID"/>
+          <xs:attribute name="usage" type="genericName"/>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="iotune">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:choice>
+          <xs:element ref="total_bytes_sec"/>
+          <xs:choice>
+            <xs:element ref="read_bytes_sec"/>
+            <xs:element ref="write_bytes_sec"/>
+          </xs:choice>
+        </xs:choice>
+        <xs:choice>
+          <xs:element ref="total_iops_sec"/>
+          <xs:choice>
+            <xs:element ref="read_iops_sec"/>
+            <xs:element ref="write_iops_sec"/>
+          </xs:choice>
+        </xs:choice>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="total_bytes_sec" type="xs:unsignedLong"/>
+  <xs:element name="read_bytes_sec" type="xs:unsignedLong"/>
+  <xs:element name="write_bytes_sec" type="xs:unsignedLong"/>
+  <xs:element name="total_iops_sec" type="xs:unsignedLong"/>
+  <xs:element name="read_iops_sec" type="xs:unsignedLong"/>
+  <xs:element name="write_iops_sec" type="xs:unsignedLong"/>
+  <!--
+    Optional hypervisor extensions in their own namespace:
+      QEmu
+  -->
+  <!--
+    Type library
+    
+    A domain name should be made of ascii, numbers, _-+ and is non-empty
+    memoryKB request at least 4Mbytes though Xen will grow bigger if too low
+    weight currently is in range [100, 1000]
+  -->
+  <xs:simpleType name="cpuset">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([0-9]+(-[0-9]+)?|\^[0-9]+)(,([0-9]+(-[0-9]+)?|\^[0-9]+))*"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="countCPU">
+    <xs:restriction base="xs:unsignedShort">
+      <xs:pattern value="[0-9]+"/>
+      <xs:minInclusive value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="vcpuid">
+    <xs:restriction base="xs:unsignedShort">
+      <xs:pattern value="[0-9]+"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="cpushares">
+    <xs:restriction base="xs:unsignedInt">
+      <xs:pattern value="[0-9]+"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="cpuperiod">
+    <xs:restriction base="xs:unsignedLong">
+      <xs:pattern value="[0-9]+"/>
+      <xs:minInclusive value="1000"/>
+      <xs:maxInclusive value="1000000"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="cpuquota">
+    <xs:restriction base="xs:long">
+      <xs:pattern value="-?[0-9]+"/>
+      <xs:maxInclusive value="18446744073709551"/>
+      <xs:minInclusive value="-1"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="PortNumber">
+    <xs:restriction base="xs:short">
+      <xs:minInclusive value="-1"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="weight">
+    <xs:restriction base="xs:unsignedInt">
+      <xs:pattern value="[0-9]+"/>
+      <xs:minInclusive value="100"/>
+      <xs:maxInclusive value="1000"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="memoryKB">
+    <xs:restriction base="xs:unsignedInt">
+      <xs:pattern value="[0-9]+"/>
+      <xs:minInclusive value="4000"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="domainName">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Za-z0-9_\.\+\-&amp;:/]+"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="diskSerial">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Za-z0-9_\.\+\-]+"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="bridgeMode">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(vepa|bridge|private|passthrough)"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="addrIPorName">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(([0-2]?[0-9]?[0-9]\.){3}[0-2]?[0-9]?[0-9])|(([0-9a-fA-F]+|:)+[0-9a-fA-F]+)|([a-zA-Z0-9_\.\+\-]*)"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="usbId">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(0x)?[0-9a-fA-F]{1,4}"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="usbAddr">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(0x)?[0-9a-fA-F]{1,3}"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="usbPort">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="((0x)?[0-9a-fA-F]{1,3}\.){0,3}(0x)?[0-9a-fA-F]{1,3}"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="pciDomain">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(0x)?[0-9a-fA-F]{1,4}"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="pciBus">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(0x)?[0-9a-fA-F]{1,2}"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="pciSlot">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(0x)?[0-1]?[0-9a-fA-F]"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="pciFunc">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(0x)?[0-7]"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="driveController">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9]{1,2}"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="driveBus">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9]{1,2}"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="driveUnit">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9]{1,2}"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="featureName">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[a-zA-Z0-9\-_]+"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="timeDelta">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="(-|\+)?[0-9]+"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="timeZone">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[a-zA-Z0-9_\.\+\-/]+"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="filter-param-name">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[a-zA-Z0-9_]+"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="filter-param-value">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[a-zA-Z0-9_\.:]+"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>
