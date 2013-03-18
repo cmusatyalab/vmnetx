@@ -24,7 +24,7 @@ from vmnetx.util import DetailException
 
 NS = 'http://olivearchive.org/xmlns/vmnetx/manifest'
 NSP = '{' + NS + '}'
-SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'manifest.xsd')
+SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'schema', 'manifest.xsd')
 
 # We want this to be a public attribute
 # pylint: disable=C0103
