@@ -23,8 +23,8 @@ import uuid
 
 from vmnetx.util import DetailException
 
-STRICT_SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'libvirt',
-        'domain.rng')
+STRICT_SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'schema',
+        'libvirt', 'domain.rng')
 
 # We want this to be a public attribute
 # pylint: disable=C0103

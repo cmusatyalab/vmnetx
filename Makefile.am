@@ -33,11 +33,11 @@ CLEANFILES = vmnetx/system.py
 EXTRA_DIST = vmnetx/system.py.in pylintrc vmnetx.te README.rst
 
 nobase_dist_pkgpython_DATA = manifest.xsd \
-	libvirt/basictypes.rng \
-	libvirt/domaincommon.rng \
-	libvirt/domain.rng \
-	libvirt/networkcommon.rng \
-	libvirt/storageencryption.rng
+	schema/libvirt/basictypes.rng \
+	schema/libvirt/domaincommon.rng \
+	schema/libvirt/domain.rng \
+	schema/libvirt/networkcommon.rng \
+	schema/libvirt/storageencryption.rng
 
 applicationsdir = $(datarootdir)/applications
 mimedir = $(datarootdir)/mime/packages
