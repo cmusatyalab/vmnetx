@@ -1108,137 +1108,28 @@
       </xs:attribute>
     </xs:complexType>
   </xs:element>
-  <!--
-    An interface description can either be of type bridge in which case
-    it will use a bridging source, or of type ethernet which uses a device
-    source and a device target instead. They both share a set of interface
-    options. FIXME
-  -->
   <xs:element name="interface">
     <xs:complexType>
-      <xs:choice>
-        <xs:choice minOccurs="0" maxOccurs="unbounded">
-          <xs:element name="source">
-            <xs:complexType>
-              <xs:attribute name="bridge" use="required" type="deviceName"/>
-            </xs:complexType>
-          </xs:element>
-          <xs:group ref="interface-options"/>
-        </xs:choice>
-        <xs:choice minOccurs="0" maxOccurs="unbounded">
-          <xs:element name="source">
-            <xs:complexType>
-              <xs:attribute name="dev" use="required" type="deviceName"/>
-            </xs:complexType>
-          </xs:element>
-          <xs:group ref="interface-options"/>
-        </xs:choice>
-        <xs:choice minOccurs="0" maxOccurs="unbounded">
-          <xs:element name="source">
-            <xs:complexType>
-              <xs:attribute name="network" use="required" type="deviceName"/>
-              <xs:attribute name="portgroup" type="deviceName"/>
-            </xs:complexType>
-          </xs:element>
-          <xs:group ref="interface-options"/>
-        </xs:choice>
-        <xs:choice minOccurs="0" maxOccurs="unbounded">
-          <xs:element name="source">
-            <xs:complexType>
-              <xs:attribute name="dev" use="required" type="deviceName"/>
-              <xs:attribute name="mode" type="bridgeMode"/>
-            </xs:complexType>
-          </xs:element>
-          <xs:group ref="interface-options"/>
-        </xs:choice>
-        <xs:group ref="interface-options"/>
-        <xs:choice minOccurs="0" maxOccurs="unbounded">
-          <xs:element name="source">
-            <xs:complexType>
-              <xs:attribute name="name" use="required" type="deviceName"/>
-            </xs:complexType>
-          </xs:element>
-          <xs:group ref="interface-options"/>
-        </xs:choice>
-      </xs:choice>
+      <xs:group ref="interface-options"/>
       <xs:attribute name="type" use="required">
         <xs:simpleType>
           <xs:restriction base="xs:token">
-            <xs:enumeration value="bridge"/>
-            <xs:enumeration value="ethernet"/>
-            <xs:enumeration value="network"/>
-            <xs:enumeration value="direct"/>
             <xs:enumeration value="user"/>
-            <xs:enumeration value="internal"/>
           </xs:restriction>
         </xs:simpleType>
       </xs:attribute>
     </xs:complexType>
   </xs:element>
-  <!--
-    The interface options possible are:
-      - the MAC address
-      - the IP address bound to the interface
-      - the name of the script used to set up the binding
-      - the target device used
-      - boot order
-  -->
   <xs:group name="interface-options">
     <xs:sequence>
       <xs:choice minOccurs="0" maxOccurs="unbounded">
-        <xs:element name="target">
-          <xs:complexType>
-            <xs:attribute name="dev" use="required" type="deviceName"/>
-          </xs:complexType>
-        </xs:element>
         <xs:element ref="mac"/>
-        <xs:element ref="ip"/>
-        <xs:element ref="script"/>
         <xs:element name="model">
           <xs:complexType>
             <xs:attribute name="type" use="required"/>
           </xs:complexType>
         </xs:element>
-        <xs:element name="driver">
-          <xs:complexType>
-            <xs:attribute name="name">
-              <xs:simpleType>
-                <xs:restriction base="xs:token">
-                  <xs:enumeration value="qemu"/>
-                  <xs:enumeration value="vhost"/>
-                </xs:restriction>
-              </xs:simpleType>
-            </xs:attribute>
-            <xs:attribute name="txmode">
-              <xs:simpleType>
-                <xs:restriction base="xs:token">
-                  <xs:enumeration value="iothread"/>
-                  <xs:enumeration value="timer"/>
-                </xs:restriction>
-              </xs:simpleType>
-            </xs:attribute>
-            <xs:attribute name="ioeventfd">
-              <xs:simpleType>
-                <xs:restriction base="xs:token">
-                  <xs:enumeration value="on"/>
-                  <xs:enumeration value="off"/>
-                </xs:restriction>
-              </xs:simpleType>
-            </xs:attribute>
-            <xs:attribute name="event_idx">
-              <xs:simpleType>
-                <xs:restriction base="xs:token">
-                  <xs:enumeration value="on"/>
-                  <xs:enumeration value="off"/>
-                </xs:restriction>
-              </xs:simpleType>
-            </xs:attribute>
-          </xs:complexType>
-        </xs:element>
         <xs:group ref="address"/>
-        <xs:element ref="filterref"/>
-        <xs:element ref="tune"/>
-        <xs:group ref="deviceBoot"/>
       </xs:choice>
     </xs:sequence>
   </xs:group>
@@ -1247,25 +1138,6 @@
       <xs:attribute name="address" use="required" type="macAddr"/>
     </xs:complexType>
   </xs:element>
-  <xs:element name="ip">
-    <xs:complexType>
-      <xs:attribute name="address" use="required" type="ipv4Addr"/>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="script">
-    <xs:complexType>
-      <xs:attribute name="path" use="required" type="filePath"/>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="filterref" type="filterref-node-attributes"/>
-  <xs:element name="tune">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:element minOccurs="0" ref="sndbuf"/>
-      </xs:sequence>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="sndbuf" type="unsignedInt"/>
   <!-- An emulator description is just a path to the binary used for the task -->
   <xs:element name="emulator" type="absFilePath"/>
   <!--
@@ -2127,18 +1999,6 @@
       <xs:attribute name="startport" use="required" type="usbPort"/>
     </xs:complexType>
   </xs:element>
-  <xs:complexType name="filterref-node-attributes">
-    <xs:sequence>
-      <xs:element minOccurs="0" ref="parameter"/>
-    </xs:sequence>
-    <xs:attribute name="filter" use="required" type="xs:NCName"/>
-  </xs:complexType>
-  <xs:element name="parameter">
-    <xs:complexType>
-      <xs:attribute name="name" use="required" type="filter-param-name"/>
-      <xs:attribute name="value" use="required" type="filter-param-value"/>
-    </xs:complexType>
-  </xs:element>
   <xs:group name="deviceBoot">
     <xs:sequence>
       <xs:element name="boot">
@@ -2347,16 +2207,6 @@
   <xs:simpleType name="timeZone">
     <xs:restriction base="xs:string">
       <xs:pattern value="[a-zA-Z0-9_\.\+\-/]+"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="filter-param-name">
-    <xs:restriction base="xs:string">
-      <xs:pattern value="[a-zA-Z0-9_]+"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="filter-param-value">
-    <xs:restriction base="xs:string">
-      <xs:pattern value="[a-zA-Z0-9_\.:]+"/>
     </xs:restriction>
   </xs:simpleType>
 </xs:schema>
