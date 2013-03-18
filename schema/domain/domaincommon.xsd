@@ -1,9 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
   <xs:include schemaLocation="basictypes.xsd"/>
-  <xs:include schemaLocation="storageencryption.xsd"/>
-  <xs:include schemaLocation="networkcommon.xsd"/>
-  <xs:import namespace="http://libvirt.org/schemas/domain/qemu/1.0" schemaLocation="qemu.xsd"/>
   <!-- domain-related definitions used in multiple grammars -->
   <!-- description element, may be placed anywhere under the root -->
   <xs:element name="description" type="xs:string"/>
@@ -50,7 +47,6 @@
             <xs:group ref="termination"/>
             <xs:element ref="devices"/>
             <xs:element ref="seclabel"/>
-            <xs:element ref="qemu:commandline"/>
           </xs:choice>
           <xs:attributeGroup ref="hvs"/>
         </xs:extension>
@@ -633,7 +629,6 @@
         <xs:element ref="shareable"/>
         <xs:element ref="transient"/>
         <xs:element name="serial" type="diskSerial"/>
-        <xs:element ref="encryption"/>
         <xs:element ref="iotune"/>
         <xs:group ref="address"/>
       </xs:choice>
@@ -1109,7 +1104,6 @@
               <xs:attribute name="portgroup" type="deviceName"/>
             </xs:complexType>
           </xs:element>
-          <xs:group ref="virtualPortProfile"/>
           <xs:group ref="interface-options"/>
         </xs:choice>
         <xs:choice minOccurs="0" maxOccurs="unbounded">
@@ -1119,7 +1113,6 @@
               <xs:attribute name="mode" type="bridgeMode"/>
             </xs:complexType>
           </xs:element>
-          <xs:group ref="virtualPortProfile"/>
           <xs:group ref="interface-options"/>
         </xs:choice>
         <xs:group ref="interface-options"/>
@@ -1210,7 +1203,6 @@
         <xs:element ref="filterref"/>
         <xs:element ref="tune"/>
         <xs:group ref="deviceBoot"/>
-        <xs:element ref="bandwidth"/>
       </xs:choice>
     </xs:sequence>
   </xs:group>

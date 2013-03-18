@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- network-related definitions used in multiple grammars -->
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" xmlns:qemu="http://libvirt.org/schemas/domain/qemu/1.0">
-  <xs:import namespace="http://libvirt.org/schemas/domain/qemu/1.0" schemaLocation="qemu.xsd"/>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
   <!-- Our unsignedInt doesn"t allow a leading "+" in its lexical form -->
   <xs:simpleType name="unsignedInt">
     <xs:restriction base="xs:unsignedInt">
