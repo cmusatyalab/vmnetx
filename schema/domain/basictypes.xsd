@@ -108,17 +108,17 @@
   </xs:simpleType>
   <xs:simpleType name="filePath">
     <xs:restriction base="xs:string">
-      <xs:pattern value="[a-zA-Z0-9_\.\+\-\\&amp;"'&lt;&gt;/%]+"/>
+      <xs:pattern value="[a-zA-Z0-9_\.\+\-\\&amp;&quot;&apos;&lt;&gt;/%]+"/>
     </xs:restriction>
   </xs:simpleType>
   <xs:simpleType name="absFilePath">
     <xs:restriction base="xs:string">
-      <xs:pattern value="/[a-zA-Z0-9_\.\+\-\\&amp;"'&lt;&gt;/%]+"/>
+      <xs:pattern value="/[a-zA-Z0-9_\.\+\-\\&amp;&quot;&apos;&lt;&gt;/%]+"/>
     </xs:restriction>
   </xs:simpleType>
   <xs:simpleType name="absDirPath">
     <xs:restriction base="xs:string">
-      <xs:pattern value="/[a-zA-Z0-9_\.\+\-\\&amp;"'&lt;&gt;/%]*"/>
+      <xs:pattern value="/[a-zA-Z0-9_\.\+\-\\&amp;&quot;&apos;&lt;&gt;/%]*"/>
     </xs:restriction>
   </xs:simpleType>
 </xs:schema>
