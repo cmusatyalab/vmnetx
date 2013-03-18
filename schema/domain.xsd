@@ -130,114 +130,31 @@
             <xs:element ref="description"/>
             <xs:element ref="cpu"/>
             <xs:element ref="sysinfo"/>
-            <xs:choice>
-              <xs:choice>
-                <xs:choice>
-                  <xs:group ref="bootloader"/>
-                  <xs:element name="os">
-                    <xs:complexType>
-                      <xs:sequence>
-                        <xs:group ref="ostypexen"/>
-                        <xs:group ref="osbootkernel"/>
-                      </xs:sequence>
-                    </xs:complexType>
-                  </xs:element>
-                </xs:choice>
-                <xs:choice>
-                  <xs:group ref="bootloader"/>
-                  <xs:element name="os">
-                    <xs:complexType>
-                      <xs:sequence>
-                        <xs:group ref="ostypexen"/>
-                        <xs:group minOccurs="0" ref="osbootkernel"/>
-                      </xs:sequence>
-                    </xs:complexType>
-                  </xs:element>
-                </xs:choice>
-              </xs:choice>
-              <xs:group ref="oshvm"/>
-              <xs:group ref="osexe"/>
-            </xs:choice>
+            <xs:group ref="oshvm"/>
             <xs:group ref="clock"/>
             <xs:group ref="resources"/>
             <xs:group ref="features"/>
             <xs:group ref="termination"/>
             <xs:element ref="devices"/>
           </xs:choice>
-          <xs:attributeGroup ref="hvs"/>
+          <xs:attribute name="type" use="required">
+            <xs:simpleType>
+              <xs:restriction base="xs:token">
+                <xs:enumeration value="kvm"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
         </xs:extension>
       </xs:complexContent>
     </xs:complexType>
   </xs:element>
-  <xs:attributeGroup name="hvs">
-    <xs:attribute name="type" use="required">
-      <xs:simpleType>
-        <xs:restriction base="xs:token">
-          <xs:enumeration value="qemu"/>
-          <xs:enumeration value="kqemu"/>
-          <xs:enumeration value="kvm"/>
-          <xs:enumeration value="xen"/>
-          <xs:enumeration value="lxc"/>
-          <xs:enumeration value="uml"/>
-          <xs:enumeration value="openvz"/>
-          <xs:enumeration value="test"/>
-          <xs:enumeration value="vmware"/>
-          <xs:enumeration value="hyperv"/>
-          <xs:enumeration value="vbox"/>
-          <xs:enumeration value="phyp"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-  </xs:attributeGroup>
-  <xs:group name="os">
-    <xs:choice>
-      <xs:group ref="osxen"/>
-      <xs:group ref="oshvm"/>
-      <xs:group ref="osexe"/>
-    </xs:choice>
-  </xs:group>
-  <xs:group name="osxen">
-    <xs:choice>
-      <xs:sequence>
-        <xs:group minOccurs="0" ref="bootloader"/>
-        <xs:element name="os">
-          <xs:complexType>
-            <xs:sequence>
-              <xs:group ref="ostypexen"/>
-              <xs:group ref="osbootkernel"/>
-            </xs:sequence>
-          </xs:complexType>
-        </xs:element>
-      </xs:sequence>
-      <xs:sequence>
-        <xs:group ref="bootloader"/>
-        <xs:element minOccurs="0" name="os">
-          <xs:complexType>
-            <xs:sequence>
-              <xs:group ref="ostypexen"/>
-              <xs:group minOccurs="0" ref="osbootkernel"/>
-            </xs:sequence>
-          </xs:complexType>
-        </xs:element>
-      </xs:sequence>
-    </xs:choice>
-  </xs:group>
   <xs:group name="oshvm">
     <xs:sequence>
       <xs:element name="os">
         <xs:complexType>
           <xs:sequence>
             <xs:group ref="ostypehvm"/>
-            <xs:choice minOccurs="0" maxOccurs="unbounded">
-              <xs:element ref="loader"/>
-              <xs:choice>
-                <xs:group ref="osbootkernel"/>
-                <xs:group ref="osbootdev"/>
-              </xs:choice>
-              <xs:element ref="bootmenu"/>
-              <xs:element ref="smbios"/>
-              <xs:element ref="bios"/>
-            </xs:choice>
+            <xs:group ref="osbootdev"/>
           </xs:sequence>
         </xs:complexType>
       </xs:element>
@@ -256,41 +173,6 @@
       </xs:attribute>
     </xs:complexType>
   </xs:element>
-  <xs:group name="ostypexen">
-    <xs:sequence>
-      <xs:element name="type">
-        <xs:complexType>
-          <xs:simpleContent>
-            <xs:restriction base="xs:anyType">
-              <xs:simpleType>
-                <xs:restriction base="xs:token">
-                  <xs:enumeration value="xen"/>
-                  <xs:enumeration value="linux"/>
-                </xs:restriction>
-              </xs:simpleType>
-              <xs:attribute name="arch">
-                <xs:simpleType>
-                  <xs:restriction base="xs:token">
-                    <xs:enumeration value="i686"/>
-                    <xs:enumeration value="x86_64"/>
-                    <xs:enumeration value="ia64"/>
-                  </xs:restriction>
-                </xs:simpleType>
-              </xs:attribute>
-              <xs:attribute name="machine">
-                <xs:simpleType>
-                  <xs:restriction base="xs:token">
-                    <xs:enumeration value="xenpv"/>
-                    <xs:enumeration value="xenner"/>
-                  </xs:restriction>
-                </xs:simpleType>
-              </xs:attribute>
-            </xs:restriction>
-          </xs:simpleContent>
-        </xs:complexType>
-      </xs:element>
-    </xs:sequence>
-  </xs:group>
   <xs:group name="ostypehvm">
     <xs:sequence>
       <xs:element name="type">
@@ -306,39 +188,14 @@
                 <xs:simpleType>
                   <xs:restriction base="xs:token">
                     <xs:enumeration value="i686"/>
-                    <xs:enumeration value="x86_64"/>
-                    <xs:enumeration value="mips"/>
-                    <xs:enumeration value="sparc"/>
-                    <xs:enumeration value="ppc"/>
                   </xs:restriction>
                 </xs:simpleType>
               </xs:attribute>
               <xs:attribute name="machine">
                 <xs:simpleType>
-                  <xs:union>
-                    <xs:simpleType>
-                      <xs:restriction base="xs:string">
-                        <xs:pattern value="[a-zA-Z0-9_\.\-]+"/>
-                      </xs:restriction>
-                    </xs:simpleType>
-                    <xs:simpleType>
-                      <xs:restriction base="xs:token">
-                        <xs:enumeration value="mips"/>
-                      </xs:restriction>
-                    </xs:simpleType>
-                    <xs:simpleType>
-                      <xs:restriction base="xs:token">
-                        <xs:enumeration value="sun4m"/>
-                      </xs:restriction>
-                    </xs:simpleType>
-                    <xs:simpleType>
-                      <xs:restriction base="xs:token">
-                        <xs:enumeration value="g3beige"/>
-                        <xs:enumeration value="mac99"/>
-                        <xs:enumeration value="prep"/>
-                      </xs:restriction>
-                    </xs:simpleType>
-                  </xs:union>
+                  <xs:restriction base="xs:string">
+                    <xs:enumeration value="pc"/>
+                  </xs:restriction>
                 </xs:simpleType>
               </xs:attribute>
             </xs:restriction>
@@ -347,92 +204,6 @@
       </xs:element>
     </xs:sequence>
   </xs:group>
-  <xs:attributeGroup name="hvmx86">
-    <xs:attribute name="arch">
-      <xs:simpleType>
-        <xs:restriction base="xs:token">
-          <xs:enumeration value="i686"/>
-          <xs:enumeration value="x86_64"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-    <xs:attribute name="machine">
-      <xs:simpleType>
-        <xs:restriction base="xs:string">
-          <xs:pattern value="[a-zA-Z0-9_\.\-]+"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-  </xs:attributeGroup>
-  <xs:attributeGroup name="hvmmips">
-    <xs:attribute name="arch">
-      <xs:simpleType>
-        <xs:restriction base="xs:token">
-          <xs:enumeration value="mips"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-    <xs:attribute name="machine">
-      <xs:simpleType>
-        <xs:restriction base="xs:token">
-          <xs:enumeration value="mips"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-  </xs:attributeGroup>
-  <xs:attributeGroup name="hvmsparc">
-    <xs:attribute name="arch">
-      <xs:simpleType>
-        <xs:restriction base="xs:token">
-          <xs:enumeration value="sparc"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-    <xs:attribute name="machine">
-      <xs:simpleType>
-        <xs:restriction base="xs:token">
-          <xs:enumeration value="sun4m"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-  </xs:attributeGroup>
-  <xs:attributeGroup name="hvmppc">
-    <xs:attribute name="arch">
-      <xs:simpleType>
-        <xs:restriction base="xs:token">
-          <xs:enumeration value="ppc"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-    <xs:attribute name="machine">
-      <xs:simpleType>
-        <xs:restriction base="xs:token">
-          <xs:enumeration value="g3beige"/>
-          <xs:enumeration value="mac99"/>
-          <xs:enumeration value="prep"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-  </xs:attributeGroup>
-  <xs:group name="osexe">
-    <xs:sequence>
-      <xs:element name="os">
-        <xs:complexType>
-          <xs:sequence>
-            <xs:element name="type">
-              <xs:simpleType>
-                <xs:restriction base="xs:token">
-                  <xs:enumeration value="exe"/>
-                </xs:restriction>
-              </xs:simpleType>
-            </xs:element>
-            <xs:element minOccurs="0" ref="init"/>
-          </xs:sequence>
-        </xs:complexType>
-      </xs:element>
-    </xs:sequence>
-  </xs:group>
-  <xs:element name="init" type="absFilePath"/>
   <!--
     The Identifiers can be:
     - an optional id attribute with a number on the domain element
@@ -560,45 +331,6 @@
       <xs:attribute name="limit" type="unsignedInt"/>
     </xs:complexType>
   </xs:element>
-  <!--
-    A bootloader may be used to extract the OS information instead of
-    defining the OS parameter in the instance. It points just to the
-    binary or script used to extract the data from the first disk device.
-  -->
-  <xs:group name="bootloader">
-    <xs:sequence>
-      <xs:choice minOccurs="0" maxOccurs="unbounded">
-        <xs:element ref="bootloader"/>
-        <xs:element ref="bootloader_args"/>
-      </xs:choice>
-    </xs:sequence>
-  </xs:group>
-  <xs:element name="bootloader">
-    <xs:simpleType>
-      <xs:union memberTypes="absFilePath">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:length value="0"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:union>
-    </xs:simpleType>
-  </xs:element>
-  <xs:element name="bootloader_args" type="xs:string"/>
-  <xs:group name="osbootkernel">
-    <xs:sequence>
-      <xs:choice minOccurs="0" maxOccurs="unbounded">
-        <xs:element ref="kernel"/>
-        <xs:element ref="initrd"/>
-        <xs:element ref="root"/>
-        <xs:element ref="cmdline"/>
-      </xs:choice>
-    </xs:sequence>
-  </xs:group>
-  <xs:element name="kernel" type="absFilePath"/>
-  <xs:element name="initrd" type="absFilePath"/>
-  <xs:element name="root" type="absFilePath"/>
-  <xs:element name="cmdline" type="xs:string"/>
   <xs:group name="osbootdev">
     <xs:sequence>
       <xs:element name="boot">
@@ -609,7 +341,6 @@
                 <xs:enumeration value="hd"/>
                 <xs:enumeration value="fd"/>
                 <xs:enumeration value="cdrom"/>
-                <xs:enumeration value="network"/>
               </xs:restriction>
             </xs:simpleType>
           </xs:attribute>
