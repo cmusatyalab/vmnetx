@@ -351,14 +351,10 @@
     <xs:sequence>
       <xs:choice minOccurs="0" maxOccurs="unbounded">
         <xs:group ref="driver"/>
-        <xs:element ref="auth"/>
         <xs:group ref="target"/>
         <xs:group ref="deviceBoot"/>
         <xs:element ref="readonly"/>
-        <xs:element ref="shareable"/>
-        <xs:element ref="transient"/>
         <xs:element name="serial" type="diskSerial"/>
-        <xs:element ref="iotune"/>
         <xs:group ref="address"/>
       </xs:choice>
     </xs:sequence>
@@ -366,23 +362,6 @@
   <xs:element name="readonly">
     <xs:complexType/>
   </xs:element>
-  <xs:element name="shareable">
-    <xs:complexType/>
-  </xs:element>
-  <xs:element name="transient">
-    <xs:complexType/>
-  </xs:element>
-  <xs:attributeGroup name="snapshot">
-    <xs:attribute name="snapshot" use="required">
-      <xs:simpleType>
-        <xs:restriction base="xs:token">
-          <xs:enumeration value="no"/>
-          <xs:enumeration value="internal"/>
-          <xs:enumeration value="external"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-  </xs:attributeGroup>
   <xs:element name="lease">
     <xs:complexType>
       <xs:all>
@@ -410,84 +389,20 @@
       </xs:simpleType>
     </xs:attribute>
   </xs:attributeGroup>
-  <!--
-    A disk description can be either of type file or block
-    The name of the attribute on the source element depends on the type
-    
-  -->
   <xs:element name="disk">
     <xs:complexType>
-      <xs:choice>
-        <xs:choice minOccurs="0" maxOccurs="unbounded">
-          <xs:element name="source">
-            <xs:complexType>
-              <xs:attribute name="file" type="absFilePath"/>
-              <xs:attribute name="startupPolicy">
-                <xs:simpleType>
-                  <xs:restriction base="xs:token">
-                    <xs:enumeration value="mandatory"/>
-                    <xs:enumeration value="requisite"/>
-                    <xs:enumeration value="optional"/>
-                  </xs:restriction>
-                </xs:simpleType>
-              </xs:attribute>
-            </xs:complexType>
-          </xs:element>
-          <xs:group ref="diskspec"/>
-        </xs:choice>
-        <xs:choice minOccurs="0" maxOccurs="unbounded">
-          <xs:element name="source">
-            <xs:complexType>
-              <xs:attribute name="dev" use="required" type="absFilePath"/>
-            </xs:complexType>
-          </xs:element>
-          <xs:group ref="diskspec"/>
-        </xs:choice>
-        <xs:choice minOccurs="0" maxOccurs="unbounded">
-          <xs:element name="source">
-            <xs:complexType>
-              <xs:attribute name="dir" use="required" type="absFilePath"/>
-            </xs:complexType>
-          </xs:element>
-          <xs:group ref="diskspec"/>
-        </xs:choice>
-        <xs:choice minOccurs="0" maxOccurs="unbounded">
-          <xs:element name="source">
-            <xs:complexType>
-              <xs:sequence>
-                <xs:element minOccurs="0" maxOccurs="unbounded" ref="host"/>
-              </xs:sequence>
-              <xs:attribute name="protocol" use="required">
-                <xs:simpleType>
-                  <xs:restriction base="xs:token">
-                    <xs:enumeration value="nbd"/>
-                    <xs:enumeration value="rbd"/>
-                    <xs:enumeration value="sheepdog"/>
-                  </xs:restriction>
-                </xs:simpleType>
-              </xs:attribute>
-              <xs:attribute name="name"/>
-            </xs:complexType>
-          </xs:element>
-          <xs:group ref="diskspec"/>
-        </xs:choice>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element name="source">
+          <xs:complexType>
+            <xs:attribute name="file" type="absFilePath"/>
+          </xs:complexType>
+        </xs:element>
         <xs:group ref="diskspec"/>
       </xs:choice>
       <xs:attribute name="device">
         <xs:simpleType>
           <xs:restriction base="xs:token">
-            <xs:enumeration value="floppy"/>
             <xs:enumeration value="disk"/>
-            <xs:enumeration value="cdrom"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
-      <xs:attribute name="snapshot">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:enumeration value="no"/>
-            <xs:enumeration value="internal"/>
-            <xs:enumeration value="external"/>
           </xs:restriction>
         </xs:simpleType>
       </xs:attribute>
@@ -495,18 +410,9 @@
         <xs:simpleType>
           <xs:restriction base="xs:token">
             <xs:enumeration value="file"/>
-            <xs:enumeration value="block"/>
-            <xs:enumeration value="dir"/>
-            <xs:enumeration value="network"/>
           </xs:restriction>
         </xs:simpleType>
       </xs:attribute>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="host">
-    <xs:complexType>
-      <xs:attribute name="name" use="required" type="dnsName"/>
-      <xs:attribute name="port" use="required" type="unsignedInt"/>
     </xs:complexType>
   </xs:element>
   <xs:simpleType name="diskTarget">
@@ -525,10 +431,7 @@
                 <xs:enumeration value="ide"/>
                 <xs:enumeration value="fdc"/>
                 <xs:enumeration value="scsi"/>
-                <xs:enumeration value="virtio"/>
-                <xs:enumeration value="xen"/>
                 <xs:enumeration value="usb"/>
-                <xs:enumeration value="uml"/>
                 <xs:enumeration value="sata"/>
               </xs:restriction>
             </xs:simpleType>
@@ -537,145 +440,22 @@
       </xs:element>
     </xs:sequence>
   </xs:group>
-  <!--
-    Disk may use a special driver for access. Currently this is
-    only defined for Xen for tap/aio and file, but will certainly be
-    extended in the future, and libvirt doesn't look for specific values.
-  -->
   <xs:group name="driver">
     <xs:sequence>
       <xs:element name="driver">
         <xs:complexType>
-          <xs:attribute name="name" type="genericName"/>
+          <xs:attribute name="name">
+            <xs:simpleType>
+              <xs:restriction base="xs:token">
+                <xs:enumeration value="qemu"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
           <xs:attribute name="type" type="genericName"/>
-          <xs:attribute name="cache">
-            <xs:simpleType>
-              <xs:restriction base="xs:token">
-                <xs:enumeration value="none"/>
-                <xs:enumeration value="writeback"/>
-                <xs:enumeration value="writethrough"/>
-                <xs:enumeration value="directsync"/>
-                <xs:enumeration value="unsafe"/>
-              </xs:restriction>
-            </xs:simpleType>
-          </xs:attribute>
-          <xs:attribute name="error_policy">
-            <xs:simpleType>
-              <xs:restriction base="xs:token">
-                <xs:enumeration value="stop"/>
-                <xs:enumeration value="report"/>
-                <xs:enumeration value="ignore"/>
-                <xs:enumeration value="enospace"/>
-              </xs:restriction>
-            </xs:simpleType>
-          </xs:attribute>
-          <xs:attribute name="rerror_policy">
-            <xs:simpleType>
-              <xs:restriction base="xs:token">
-                <xs:enumeration value="stop"/>
-                <xs:enumeration value="report"/>
-                <xs:enumeration value="ignore"/>
-              </xs:restriction>
-            </xs:simpleType>
-          </xs:attribute>
-          <xs:attribute name="io">
-            <xs:simpleType>
-              <xs:restriction base="xs:token">
-                <xs:enumeration value="threads"/>
-                <xs:enumeration value="native"/>
-              </xs:restriction>
-            </xs:simpleType>
-          </xs:attribute>
-          <xs:attribute name="ioeventfd">
-            <xs:simpleType>
-              <xs:restriction base="xs:token">
-                <xs:enumeration value="on"/>
-                <xs:enumeration value="off"/>
-              </xs:restriction>
-            </xs:simpleType>
-          </xs:attribute>
-          <xs:attribute name="event_idx">
-            <xs:simpleType>
-              <xs:restriction base="xs:token">
-                <xs:enumeration value="on"/>
-                <xs:enumeration value="off"/>
-              </xs:restriction>
-            </xs:simpleType>
-          </xs:attribute>
         </xs:complexType>
       </xs:element>
     </xs:sequence>
   </xs:group>
-  <xs:attributeGroup name="driverFormat">
-    <xs:attribute name="name" use="required" type="genericName"/>
-    <xs:attribute name="type" type="genericName"/>
-  </xs:attributeGroup>
-  <xs:attributeGroup name="driverCache">
-    <xs:attribute name="cache" use="required">
-      <xs:simpleType>
-        <xs:restriction base="xs:token">
-          <xs:enumeration value="none"/>
-          <xs:enumeration value="writeback"/>
-          <xs:enumeration value="writethrough"/>
-          <xs:enumeration value="directsync"/>
-          <xs:enumeration value="unsafe"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-  </xs:attributeGroup>
-  <xs:attributeGroup name="driverErrorPolicy">
-    <xs:attribute name="error_policy" use="required">
-      <xs:simpleType>
-        <xs:restriction base="xs:token">
-          <xs:enumeration value="stop"/>
-          <xs:enumeration value="report"/>
-          <xs:enumeration value="ignore"/>
-          <xs:enumeration value="enospace"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-  </xs:attributeGroup>
-  <xs:attributeGroup name="driverRerrorPolicy">
-    <xs:attribute name="rerror_policy" use="required">
-      <xs:simpleType>
-        <xs:restriction base="xs:token">
-          <xs:enumeration value="stop"/>
-          <xs:enumeration value="report"/>
-          <xs:enumeration value="ignore"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-  </xs:attributeGroup>
-  <xs:attributeGroup name="driverIO">
-    <xs:attribute name="io" use="required">
-      <xs:simpleType>
-        <xs:restriction base="xs:token">
-          <xs:enumeration value="threads"/>
-          <xs:enumeration value="native"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-  </xs:attributeGroup>
-  <xs:attributeGroup name="ioeventfd">
-    <xs:attribute name="ioeventfd" use="required">
-      <xs:simpleType>
-        <xs:restriction base="xs:token">
-          <xs:enumeration value="on"/>
-          <xs:enumeration value="off"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-  </xs:attributeGroup>
-  <xs:attributeGroup name="event_idx">
-    <xs:attribute name="event_idx" use="required">
-      <xs:simpleType>
-        <xs:restriction base="xs:token">
-          <xs:enumeration value="on"/>
-          <xs:enumeration value="off"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-  </xs:attributeGroup>
   <xs:element name="controller">
     <xs:complexType>
       <xs:sequence>
@@ -689,9 +469,7 @@
             <xs:enumeration value="ide"/>
             <xs:enumeration value="scsi"/>
             <xs:enumeration value="sata"/>
-            <xs:enumeration value="ccid"/>
             <xs:enumeration value="usb"/>
-            <xs:enumeration value="virtio-serial"/>
           </xs:restriction>
         </xs:simpleType>
       </xs:attribute>
@@ -1375,62 +1153,6 @@
       </xs:element>
     </xs:sequence>
   </xs:group>
-  <xs:element name="auth">
-    <xs:complexType>
-      <xs:complexContent>
-        <xs:extension base="diskAuthSecret">
-          <xs:attribute name="username" use="required" type="genericName"/>
-        </xs:extension>
-      </xs:complexContent>
-    </xs:complexType>
-  </xs:element>
-  <xs:complexType name="diskAuthSecret">
-    <xs:sequence>
-      <xs:element name="secret">
-        <xs:complexType>
-          <xs:attribute name="type" use="required">
-            <xs:simpleType>
-              <xs:restriction base="xs:token">
-                <xs:enumeration value="ceph"/>
-              </xs:restriction>
-            </xs:simpleType>
-          </xs:attribute>
-          <xs:attribute name="uuid" type="UUID"/>
-          <xs:attribute name="usage" type="genericName"/>
-        </xs:complexType>
-      </xs:element>
-    </xs:sequence>
-  </xs:complexType>
-  <xs:element name="iotune">
-    <xs:complexType>
-      <xs:choice minOccurs="0" maxOccurs="unbounded">
-        <xs:choice>
-          <xs:element ref="total_bytes_sec"/>
-          <xs:choice>
-            <xs:element ref="read_bytes_sec"/>
-            <xs:element ref="write_bytes_sec"/>
-          </xs:choice>
-        </xs:choice>
-        <xs:choice>
-          <xs:element ref="total_iops_sec"/>
-          <xs:choice>
-            <xs:element ref="read_iops_sec"/>
-            <xs:element ref="write_iops_sec"/>
-          </xs:choice>
-        </xs:choice>
-      </xs:choice>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="total_bytes_sec" type="xs:unsignedLong"/>
-  <xs:element name="read_bytes_sec" type="xs:unsignedLong"/>
-  <xs:element name="write_bytes_sec" type="xs:unsignedLong"/>
-  <xs:element name="total_iops_sec" type="xs:unsignedLong"/>
-  <xs:element name="read_iops_sec" type="xs:unsignedLong"/>
-  <xs:element name="write_iops_sec" type="xs:unsignedLong"/>
-  <!--
-    Optional hypervisor extensions in their own namespace:
-      QEmu
-  -->
   <!--
     Type library
     
