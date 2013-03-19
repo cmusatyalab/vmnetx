@@ -1181,39 +1181,6 @@
       </xs:element>
     </xs:sequence>
   </xs:group>
-  <xs:group name="guestfwdTarget">
-    <xs:sequence>
-      <xs:element name="target">
-        <xs:complexType>
-          <xs:attribute name="type" use="required">
-            <xs:simpleType>
-              <xs:restriction base="xs:token">
-                <xs:enumeration value="guestfwd"/>
-              </xs:restriction>
-            </xs:simpleType>
-          </xs:attribute>
-          <xs:attribute name="address" use="required"/>
-          <xs:attribute name="port" use="required"/>
-        </xs:complexType>
-      </xs:element>
-    </xs:sequence>
-  </xs:group>
-  <xs:group name="virtioTarget">
-    <xs:sequence>
-      <xs:element name="target">
-        <xs:complexType>
-          <xs:attribute name="type" use="required">
-            <xs:simpleType>
-              <xs:restriction base="xs:token">
-                <xs:enumeration value="virtio"/>
-              </xs:restriction>
-            </xs:simpleType>
-          </xs:attribute>
-          <xs:attribute name="name"/>
-        </xs:complexType>
-      </xs:element>
-    </xs:sequence>
-  </xs:group>
   <xs:element name="input">
     <xs:complexType>
       <xs:group minOccurs="0" ref="address"/>
@@ -1248,75 +1215,6 @@
       </xs:attribute>
     </xs:complexType>
   </xs:element>
-  <xs:element name="rom">
-    <xs:complexType>
-      <xs:attribute name="bar" use="required">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:enumeration value="on"/>
-            <xs:enumeration value="off"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
-    </xs:complexType>
-  </xs:element>
-  <xs:group name="usbproduct">
-    <xs:sequence>
-      <xs:element name="vendor">
-        <xs:complexType>
-          <xs:attribute name="id" use="required" type="usbId"/>
-        </xs:complexType>
-      </xs:element>
-      <xs:element ref="product"/>
-    </xs:sequence>
-  </xs:group>
-  <xs:element name="product">
-    <xs:complexType>
-      <xs:attribute name="id" use="required" type="usbId"/>
-    </xs:complexType>
-  </xs:element>
-  <xs:group name="usbaddress">
-    <xs:sequence>
-      <xs:element name="address">
-        <xs:complexType>
-          <xs:attribute name="bus" use="required" type="usbAddr"/>
-          <xs:attribute name="device" use="required" type="usbPort"/>
-        </xs:complexType>
-      </xs:element>
-    </xs:sequence>
-  </xs:group>
-  <xs:attributeGroup name="usbportaddress">
-    <xs:attribute name="bus" use="required" type="usbAddr"/>
-    <xs:attribute name="port" use="required" type="usbPort"/>
-  </xs:attributeGroup>
-  <xs:attributeGroup name="pciaddress">
-    <xs:attribute name="domain" type="pciDomain"/>
-    <xs:attribute name="bus" use="required" type="pciBus"/>
-    <xs:attribute name="slot" use="required" type="pciSlot"/>
-    <xs:attribute name="function" use="required" type="pciFunc"/>
-    <xs:attribute name="multifunction">
-      <xs:simpleType>
-        <xs:restriction base="xs:token">
-          <xs:enumeration value="on"/>
-          <xs:enumeration value="off"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-  </xs:attributeGroup>
-  <xs:attributeGroup name="driveaddress">
-    <xs:attribute name="controller" type="driveController"/>
-    <xs:attribute name="bus" type="driveBus"/>
-    <xs:attribute name="unit" use="required" type="driveUnit"/>
-  </xs:attributeGroup>
-  <xs:attributeGroup name="virtioserialaddress">
-    <xs:attribute name="controller" use="required" type="driveController"/>
-    <xs:attribute name="bus" type="driveBus"/>
-    <xs:attribute name="port" type="driveUnit"/>
-  </xs:attributeGroup>
-  <xs:attributeGroup name="ccidaddress">
-    <xs:attribute name="controller" use="required" type="driveController"/>
-    <xs:attribute name="slot" type="driveUnit"/>
-  </xs:attributeGroup>
   <!--
     Devices attached to a domain.
     Sub-elements such as <alias> are not documented here, as they
