@@ -1076,65 +1076,27 @@
   <xs:group name="qemucdev">
     <xs:sequence>
       <xs:choice minOccurs="0" maxOccurs="unbounded">
-        <xs:choice>
-          <xs:element ref="source"/>
-          <xs:element ref="protocol"/>
-        </xs:choice>
-        <xs:group ref="qemucdevTgtDef"/>
+        <xs:sequence>
+          <xs:element name="target">
+            <xs:complexType>
+              <xs:attribute name="port"/>
+            </xs:complexType>
+          </xs:element>
+        </xs:sequence>
         <xs:group ref="address"/>
       </xs:choice>
     </xs:sequence>
   </xs:group>
-  <xs:element name="source">
-    <xs:complexType>
-      <xs:attribute name="mode"/>
-      <xs:attribute name="path"/>
-      <xs:attribute name="host"/>
-      <xs:attribute name="service"/>
-      <xs:attribute name="wiremode"/>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="protocol">
-    <xs:complexType>
-      <xs:attribute name="type">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:enumeration value="raw"/>
-            <xs:enumeration value="telnet"/>
-            <xs:enumeration value="telnets"/>
-            <xs:enumeration value="tls"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
-    </xs:complexType>
-  </xs:element>
   <xs:attributeGroup name="qemucdev">
-    <xs:attributeGroup ref="qemucdevSrcType"/>
+    <xs:attribute name="type" use="required">
+      <xs:simpleType>
+        <xs:restriction base="xs:token">
+          <xs:enumeration value="null"/>
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
     <xs:attribute name="tty" type="absFilePath"/>
   </xs:attributeGroup>
-  <xs:group name="qemucdevTgtDef">
-    <xs:sequence>
-      <xs:element name="target">
-        <xs:complexType>
-          <xs:attribute name="port"/>
-        </xs:complexType>
-      </xs:element>
-    </xs:sequence>
-  </xs:group>
-  <xs:simpleType name="qemucdevSrcTypeChoice">
-    <xs:restriction base="xs:token">
-      <xs:enumeration value="null"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:attributeGroup name="qemucdevSrcType">
-    <xs:attribute name="type" use="required" type="qemucdevSrcTypeChoice"/>
-  </xs:attributeGroup>
-  <xs:group name="qemucdevSrcDef">
-    <xs:sequence>
-      <xs:element minOccurs="0" maxOccurs="unbounded" ref="source"/>
-      <xs:element minOccurs="0" ref="protocol"/>
-    </xs:sequence>
-  </xs:group>
   <xs:element name="sound">
     <xs:complexType>
       <xs:group minOccurs="0" ref="address"/>
