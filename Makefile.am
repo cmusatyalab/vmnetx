@@ -32,7 +32,8 @@ nobase_nodist_python_PYTHON = vmnetx/system.py
 CLEANFILES = vmnetx/system.py
 EXTRA_DIST = vmnetx/system.py.in pylintrc vmnetx.te README.rst
 
-nobase_dist_pkgpython_DATA = schema/manifest.xsd \
+nobase_dist_pkgpython_DATA = schema/domain.xsd \
+	schema/manifest.xsd \
 	schema/libvirt/basictypes.rng \
 	schema/libvirt/domaincommon.rng \
 	schema/libvirt/domain.rng \

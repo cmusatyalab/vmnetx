@@ -23,11 +23,14 @@ import uuid
 
 from vmnetx.util import DetailException
 
+SAFE_SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'schema',
+        'domain.xsd')
 STRICT_SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'schema',
         'libvirt', 'domain.rng')
 
-# We want this to be a public attribute
+# We want these to be public attributes
 # pylint: disable=C0103
+safe_schema = etree.XMLSchema(etree.parse(SAFE_SCHEMA_PATH))
 strict_schema = etree.RelaxNG(file=STRICT_SCHEMA_PATH)
 # pylint: enable=C0103
 
@@ -69,13 +72,23 @@ class DomainXML(object):
         except etree.XMLSyntaxError, e:
             raise DomainXMLError('Domain XML does not parse', str(e))
 
-        # Validate schema
+        # Ensure XML contains no prohibited configuration
+        try:
+            safe_schema.assertValid(tree)
+        except etree.DocumentInvalid, e:
+            raise DomainXMLError('Domain XML contains prohibited elements',
+                    str(e))
+
         if strict:
             # Validate against schema from minimum supported libvirt
+            # (in case our schema is accidentally more permissive than the
+            # libvirt schema)
             try:
                 strict_schema.assertValid(tree)
             except etree.DocumentInvalid, e:
-                raise DomainXMLError('Domain XML does not validate', str(e))
+                raise DomainXMLError(
+                        'Domain XML unsupported by oldest supported libvirt',
+                        str(e))
         else:
             # Validate against schema from installed libvirt
             with NamedTemporaryFile(prefix='vmnetx-xml-') as fh:
@@ -87,33 +100,9 @@ class DomainXML(object):
                         stderr=subprocess.PIPE)
                 out, err = proc.communicate()
                 if proc.returncode:
-                    raise DomainXMLError('Domain XML does not validate',
+                    raise DomainXMLError(
+                            'Domain XML unsupported by installed libvirt',
                             (out.strip() + '\n' + err.strip()).strip())
-
-        # Run sanity checks
-        if strict:
-            # For now, require hvm/i686/pc:
-            # - The client may not have emulators for arbitrary arches.
-            # - KVM won't run x86_64 guests on i686 host kernels.
-            # - "pc" is the only machine type supported by both RHEL 6 and
-            #   mainline qemu.  It's an alias, so it doesn't buy us any
-            #   virtual hw consistency, but at least the VM will start.
-            type = tree.xpath('/domain/os/type')
-            if len(type) != 1:
-                raise DomainXMLError('Could not locate machine hardware type')
-            type = type[0]
-            machine = '%s/%s/%s' % (type.text, type.get('arch', 'unknown'),
-                    type.get('machine', 'unknown'))
-            if machine != 'hvm/i686/pc':
-                raise DomainXMLError(
-                        'Found machine type %s; must be hvm/i686/pc' % machine)
-
-        '''
-        XXX:
-        - ensure there is only one disk
-        - ensure the local filesystem is not touched
-        - check for bindings directly to hardware
-        '''
     # pylint: enable=E1101
 
     def get_for_storage(self, disk_name, disk_type='qcow2', keep_uuid=False):

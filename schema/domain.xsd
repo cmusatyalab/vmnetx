@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- libvirt 0.9.8 domain XML schema, translated to XML Schema and
+     simplified for vmnetx. -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
   <!-- Our unsignedInt doesn"t allow a leading "+" in its lexical form -->
   <xs:simpleType name="unsignedInt">
