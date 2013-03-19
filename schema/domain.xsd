@@ -11,36 +11,6 @@
       <xs:pattern value="[0-9]+"/>
     </xs:restriction>
   </xs:simpleType>
-  <xs:simpleType name="uint8range">
-    <xs:union>
-      <xs:simpleType>
-        <xs:restriction base="xs:string">
-          <xs:pattern value="0x[0-9a-fA-F]{1,2}"/>
-        </xs:restriction>
-      </xs:simpleType>
-      <xs:simpleType>
-        <xs:restriction base="xs:int">
-          <xs:minInclusive value="0"/>
-          <xs:maxInclusive value="255"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:union>
-  </xs:simpleType>
-  <xs:simpleType name="uint24range">
-    <xs:union>
-      <xs:simpleType>
-        <xs:restriction base="xs:string">
-          <xs:pattern value="0x[0-9a-fA-F]{1,6}"/>
-        </xs:restriction>
-      </xs:simpleType>
-      <xs:simpleType>
-        <xs:restriction base="xs:int">
-          <xs:minInclusive value="0"/>
-          <xs:maxInclusive value="16777215"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:union>
-  </xs:simpleType>
   <xs:simpleType name="UUID">
     <xs:union>
       <xs:simpleType>
@@ -61,52 +31,9 @@
       <xs:pattern value="([a-fA-F0-9]{2}:){5}[a-fA-F0-9]{2}"/>
     </xs:restriction>
   </xs:simpleType>
-  <!-- An ipv4 "dotted quad" address -->
-  <xs:simpleType name="ipv4Addr">
-    <xs:restriction base="xs:string">
-      <xs:pattern value="(((25[0-5])|(2[0-4][0-9])|(1[0-9]{2})|([1-9][0-9])|([0-9]))\.){3}((25[0-5])|(2[0-4][0-9])|(1[0-9]{2})|([1-9][0-9])|([0-9]))"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <!-- Based on http://blog.mes-stats.fr/2008/10/09/regex-ipv4-et-ipv6 -->
-  <xs:simpleType name="ipv6Addr">
-    <xs:restriction base="xs:string">
-      <xs:pattern value="(([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4})|(([0-9A-Fa-f]{1,4}:){6}:[0-9A-Fa-f]{1,4})|(([0-9A-Fa-f]{1,4}:){5}:([0-9A-Fa-f]{1,4}:)?[0-9A-Fa-f]{1,4})|(([0-9A-Fa-f]{1,4}:){4}:([0-9A-Fa-f]{1,4}:){0,2}[0-9A-Fa-f]{1,4})|(([0-9A-Fa-f]{1,4}:){3}:([0-9A-Fa-f]{1,4}:){0,3}[0-9A-Fa-f]{1,4})|(([0-9A-Fa-f]{1,4}:){2}:([0-9A-Fa-f]{1,4}:){0,4}[0-9A-Fa-f]{1,4})|(([0-9A-Fa-f]{1,4}:){6}(((25[0-5])|(2[0-4][0-9])|(1[0-9]{2})|([1-9][0-9])|([0-9]))\.){3}((25[0-5])|(2[0-4][0-9])|(1[0-9]{2})|([1-9][0-9])|([0-9])))|(([0-9A-Fa-f]{1,4}:){0,5}:(((25[0-5])|(2[0-4][0-9])|(1[0-9]{2})|([1-9][0-9])|([0-9]))\.){3}((25[0-5])|(2[0-4][0-9])|(1[0-9]{2})|([1-9][0-9])|([0-9])))|(::([0-9A-Fa-f]{1,4}:){0,5}(((25[0-5])|(2[0-4][0-9])|(1[0-9]{2})|([1-9][0-9])|([0-9]))\.){3}((25[0-5])|(2[0-4][0-9])|(1[0-9]{2})|([1-9][0-9])|([0-9])))|([0-9A-Fa-f]{1,4}::([0-9A-Fa-f]{1,4}:){0,5}[0-9A-Fa-f]{1,4})|(::([0-9A-Fa-f]{1,4}:){0,6}[0-9A-Fa-f]{1,4})|(([0-9A-Fa-f]{1,4}:){1,7}:)"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="ipAddr">
-    <xs:union memberTypes="ipv4Addr ipv6Addr"/>
-  </xs:simpleType>
-  <xs:simpleType name="ipv4Prefix">
-    <xs:restriction base="xs:unsignedInt">
-      <xs:maxInclusive value="32"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="ipv6Prefix">
-    <xs:restriction base="xs:unsignedInt">
-      <xs:maxInclusive value="128"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="ipPrefix">
-    <xs:union memberTypes="ipv4Prefix ipv6Prefix"/>
-  </xs:simpleType>
   <xs:simpleType name="genericName">
     <xs:restriction base="xs:string">
       <xs:pattern value="[a-zA-Z0-9_\+\-]+"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="dnsName">
-    <xs:restriction base="xs:string">
-      <xs:pattern value="[a-zA-Z0-9\.\-]+"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="deviceName">
-    <xs:restriction base="xs:string">
-      <xs:pattern value="[a-zA-Z0-9_\.\-\\:/]+"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="filePath">
-    <xs:restriction base="xs:string">
-      <xs:pattern value="[a-zA-Z0-9_\.\+\-\\&amp;&quot;&apos;&lt;&gt;/%]+"/>
     </xs:restriction>
   </xs:simpleType>
   <xs:simpleType name="absFilePath">
@@ -114,25 +41,17 @@
       <xs:pattern value="/[a-zA-Z0-9_\.\+\-\\&amp;&quot;&apos;&lt;&gt;/%]+"/>
     </xs:restriction>
   </xs:simpleType>
-  <xs:simpleType name="absDirPath">
-    <xs:restriction base="xs:string">
-      <xs:pattern value="/[a-zA-Z0-9_\.\+\-\\&amp;&quot;&apos;&lt;&gt;/%]*"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <!-- description element, may be placed anywhere under the root -->
-  <xs:element name="description" type="xs:string"/>
-  <!-- We handle only document defining a domain -->
   <xs:element name="domain">
     <xs:complexType>
       <xs:complexContent>
         <xs:extension base="ids">
           <xs:choice minOccurs="0" maxOccurs="unbounded">
-            <xs:element ref="description"/>
+            <xs:element name="description" type="xs:string"/>
             <xs:element ref="cpu"/>
             <xs:group ref="oshvm"/>
-            <xs:group ref="clock"/>
+            <xs:element ref="clock"/>
             <xs:group ref="resources"/>
-            <xs:group ref="features"/>
+            <xs:element ref="features"/>
             <xs:group ref="termination"/>
             <xs:element ref="devices"/>
           </xs:choice>
@@ -229,11 +148,6 @@
       </xs:restriction>
     </xs:simpleType>
   </xs:element>
-  <xs:group name="clock">
-    <xs:sequence>
-      <xs:element minOccurs="0" ref="clock"/>
-    </xs:sequence>
-  </xs:group>
   <xs:element name="clock">
     <xs:complexType>
       <xs:sequence>
@@ -349,33 +263,6 @@
   <xs:element name="readonly">
     <xs:complexType/>
   </xs:element>
-  <xs:element name="lease">
-    <xs:complexType>
-      <xs:all>
-        <xs:element ref="lockspace"/>
-        <xs:element ref="key"/>
-        <xs:element name="target">
-          <xs:complexType>
-            <xs:attribute name="path" use="required"/>
-            <xs:attribute name="offset" type="unsignedInt"/>
-          </xs:complexType>
-        </xs:element>
-      </xs:all>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="lockspace" type="xs:string"/>
-  <xs:element name="key" type="xs:string"/>
-  <xs:attributeGroup name="startupPolicy">
-    <xs:attribute name="startupPolicy" use="required">
-      <xs:simpleType>
-        <xs:restriction base="xs:token">
-          <xs:enumeration value="mandatory"/>
-          <xs:enumeration value="requisite"/>
-          <xs:enumeration value="optional"/>
-        </xs:restriction>
-      </xs:simpleType>
-    </xs:attribute>
-  </xs:attributeGroup>
   <xs:element name="disk">
     <xs:complexType>
       <xs:choice minOccurs="0" maxOccurs="unbounded">
@@ -517,12 +404,6 @@
   </xs:element>
   <!-- An emulator description is just a path to the binary used for the task -->
   <xs:element name="emulator" type="absFilePath"/>
-  <!--
-    A graphic description, currently in Xen only 2 types are supported:
-      - sdl with optional display, xauth and fullscreen
-      - vnc with a required port and optional listen IP address, password
-        and keymap
-  -->
   <xs:element name="graphics">
     <xs:complexType>
       <xs:attribute name="type" use="required">
@@ -613,39 +494,22 @@
     Options when a domain terminates:
     destroy: The domain is cleaned up
     restart: A new domain is started in place of the old one
-    preserve: The domain will remain in memory until it is destroyed manually
-    rename-restart: a variant of the previous one but where the old domain is
-                    renamed before being saved to allow a restart
   -->
   <xs:simpleType name="offOptions">
     <xs:restriction base="xs:token">
       <xs:enumeration value="destroy"/>
       <xs:enumeration value="restart"/>
-      <xs:enumeration value="preserve"/>
-      <xs:enumeration value="rename-restart"/>
     </xs:restriction>
   </xs:simpleType>
   <!--
     Options when a domain crashes:
     destroy: The domain is cleaned up
     restart: A new domain is started in place of the old one
-    preserve: The domain will remain in memory until it is destroyed manually
-    rename-restart: a variant of the previous one but where the old domain is
-                    renamed before being saved to allow a restart
-    coredump-destroy: The crashed domain's core will be dumped, and then the
-                      domain will be terminated completely and all resources
-                      released
-    coredump-restart: The crashed domain's core will be dumped, and then the
-                      domain will be restarted with the same configuration
   -->
   <xs:simpleType name="crashOptions">
     <xs:restriction base="xs:token">
       <xs:enumeration value="destroy"/>
       <xs:enumeration value="restart"/>
-      <xs:enumeration value="preserve"/>
-      <xs:enumeration value="rename-restart"/>
-      <xs:enumeration value="coredump-destroy"/>
-      <xs:enumeration value="coredump-restart"/>
     </xs:restriction>
   </xs:simpleType>
   <!--
@@ -674,7 +538,6 @@
         </xs:restriction>
       </xs:simpleType>
     </xs:attribute>
-    <xs:attribute name="tty" type="absFilePath"/>
   </xs:attributeGroup>
   <xs:element name="sound">
     <xs:complexType>
@@ -699,7 +562,6 @@
         <xs:simpleType>
           <xs:restriction base="xs:token">
             <xs:enumeration value="virtio"/>
-            <xs:enumeration value="xen"/>
             <xs:enumeration value="none"/>
           </xs:restriction>
         </xs:simpleType>
@@ -738,7 +600,6 @@
           <xs:restriction base="xs:token">
             <xs:enumeration value="ps2"/>
             <xs:enumeration value="usb"/>
-            <xs:enumeration value="xen"/>
           </xs:restriction>
         </xs:simpleType>
       </xs:attribute>
@@ -766,29 +627,21 @@
     <xs:complexType>
       <xs:choice minOccurs="0" maxOccurs="unbounded">
         <xs:element ref="emulator"/>
-        <xs:choice>
-          <xs:element ref="disk"/>
-          <xs:element ref="controller"/>
-          <xs:element ref="lease"/>
-          <xs:element ref="interface"/>
-          <xs:element ref="input"/>
-          <xs:element ref="sound"/>
-          <xs:element ref="graphics"/>
-          <xs:element ref="video"/>
-          <xs:element ref="parallel"/>
-          <xs:group ref="serial"/>
-          <xs:element ref="hub"/>
-        </xs:choice>
+        <xs:element ref="disk"/>
+        <xs:element ref="controller"/>
+        <xs:element ref="interface"/>
+        <xs:element ref="input"/>
+        <xs:element ref="sound"/>
+        <xs:element ref="graphics"/>
+        <xs:element ref="video"/>
+        <xs:element ref="parallel"/>
+        <xs:group ref="serial"/>
+        <xs:element ref="hub"/>
         <xs:element ref="memballoon"/>
       </xs:choice>
     </xs:complexType>
   </xs:element>
   <!-- A set of optional features: PAE, APIC, ACPI, and HAP support -->
-  <xs:group name="features">
-    <xs:sequence>
-      <xs:element minOccurs="0" ref="features"/>
-    </xs:sequence>
-  </xs:group>
   <xs:element name="features">
     <xs:complexType>
       <xs:all>
@@ -914,8 +767,6 @@
               <xs:restriction base="xs:token">
                 <xs:enumeration value="pci"/>
                 <xs:enumeration value="drive"/>
-                <xs:enumeration value="virtio-serial"/>
-                <xs:enumeration value="ccid"/>
                 <xs:enumeration value="usb"/>
               </xs:restriction>
             </xs:simpleType>
@@ -966,11 +817,6 @@
       <xs:pattern value="([0-9]+(-[0-9]+)?|\^[0-9]+)(,([0-9]+(-[0-9]+)?|\^[0-9]+))*"/>
     </xs:restriction>
   </xs:simpleType>
-  <xs:simpleType name="PortNumber">
-    <xs:restriction base="xs:short">
-      <xs:minInclusive value="-1"/>
-    </xs:restriction>
-  </xs:simpleType>
   <xs:simpleType name="memoryKB">
     <xs:restriction base="xs:unsignedInt">
       <xs:pattern value="[0-9]+"/>
@@ -985,11 +831,6 @@
   <xs:simpleType name="diskSerial">
     <xs:restriction base="xs:string">
       <xs:pattern value="[A-Za-z0-9_\.\+\-]+"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="addrIPorName">
-    <xs:restriction base="xs:string">
-      <xs:pattern value="(([0-2]?[0-9]?[0-9]\.){3}[0-2]?[0-9]?[0-9])|(([0-9a-fA-F]+|:)+[0-9a-fA-F]+)|([a-zA-Z0-9_\.\+\-]*)"/>
     </xs:restriction>
   </xs:simpleType>
   <xs:simpleType name="usbAddr">
