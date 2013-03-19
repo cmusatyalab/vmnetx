@@ -129,7 +129,6 @@
           <xs:choice minOccurs="0" maxOccurs="unbounded">
             <xs:element ref="description"/>
             <xs:element ref="cpu"/>
-            <xs:element ref="sysinfo"/>
             <xs:group ref="oshvm"/>
             <xs:group ref="clock"/>
             <xs:group ref="resources"/>
@@ -1314,111 +1313,6 @@
     <xs:complexType>
       <xs:attribute name="cpus" use="required" type="cpuset"/>
       <xs:attribute name="memory" use="required" type="memoryKB"/>
-    </xs:complexType>
-  </xs:element>
-  <!--
-    System information specification:
-     Placeholder for system specific informations likes the ones
-     contained in the SMBIOS area.
-     Only a limited subset of entries can be modified there, so we
-     fully enumerate each case here.
-     The DMTF spec doesn't specify any string subset, just 0 terminated
-     byte strings, but better be safe and restrict at least the names
-     to avoid problems with space normalization in attribute values,
-     the value is kept as the element body for maximum flexibility.
-     A priori we allow only type 0 and type 1 string updates
-  -->
-  <xs:element name="sysinfo">
-    <xs:complexType>
-      <xs:all>
-        <xs:element minOccurs="0" name="bios">
-          <xs:complexType>
-            <xs:sequence>
-              <xs:element maxOccurs="unbounded" name="entry">
-                <xs:complexType>
-                  <xs:simpleContent>
-                    <xs:extension base="sysinfo-value">
-                      <xs:attribute name="name" use="required" type="sysinfo-bios-name"/>
-                    </xs:extension>
-                  </xs:simpleContent>
-                </xs:complexType>
-              </xs:element>
-            </xs:sequence>
-          </xs:complexType>
-        </xs:element>
-        <xs:element minOccurs="0" ref="system"/>
-      </xs:all>
-      <xs:attribute name="type" use="required">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:enumeration value="smbios"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="system">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:element maxOccurs="unbounded" name="entry">
-          <xs:complexType>
-            <xs:simpleContent>
-              <xs:extension base="sysinfo-value">
-                <xs:attribute name="name" use="required" type="sysinfo-system-name"/>
-              </xs:extension>
-            </xs:simpleContent>
-          </xs:complexType>
-        </xs:element>
-      </xs:sequence>
-    </xs:complexType>
-  </xs:element>
-  <xs:simpleType name="sysinfo-bios-name">
-    <xs:restriction base="xs:token">
-      <xs:enumeration value="vendor"/>
-      <xs:enumeration value="version"/>
-      <xs:enumeration value="date"/>
-      <xs:enumeration value="release"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="sysinfo-system-name">
-    <xs:restriction base="xs:token">
-      <xs:enumeration value="manufacturer"/>
-      <xs:enumeration value="product"/>
-      <xs:enumeration value="version"/>
-      <xs:enumeration value="serial"/>
-      <xs:enumeration value="uuid"/>
-      <xs:enumeration value="sku"/>
-      <xs:enumeration value="family"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="sysinfo-value">
-    <xs:restriction base="xs:string">
-      <xs:pattern value="[a-zA-Z0-9/\-_\. \(\)]+"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:element name="smbios">
-    <xs:complexType>
-      <xs:attribute name="mode" use="required">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:enumeration value="emulate"/>
-            <xs:enumeration value="host"/>
-            <xs:enumeration value="sysinfo"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="bios">
-    <xs:complexType>
-      <xs:attribute name="useserial" use="required">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:enumeration value="yes"/>
-            <xs:enumeration value="no"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
     </xs:complexType>
   </xs:element>
   <xs:group name="address">
