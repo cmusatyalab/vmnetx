@@ -159,19 +159,6 @@
       </xs:element>
     </xs:sequence>
   </xs:group>
-  <xs:element name="loader" type="absFilePath"/>
-  <xs:element name="bootmenu">
-    <xs:complexType>
-      <xs:attribute name="enable" use="required">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:enumeration value="yes"/>
-            <xs:enumeration value="no"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
-    </xs:complexType>
-  </xs:element>
   <xs:group name="ostypehvm">
     <xs:sequence>
       <xs:element name="type">
@@ -1164,30 +1151,6 @@
       <xs:pattern value="([0-9]+(-[0-9]+)?|\^[0-9]+)(,([0-9]+(-[0-9]+)?|\^[0-9]+))*"/>
     </xs:restriction>
   </xs:simpleType>
-  <xs:simpleType name="vcpuid">
-    <xs:restriction base="xs:unsignedShort">
-      <xs:pattern value="[0-9]+"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="cpushares">
-    <xs:restriction base="xs:unsignedInt">
-      <xs:pattern value="[0-9]+"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="cpuperiod">
-    <xs:restriction base="xs:unsignedLong">
-      <xs:pattern value="[0-9]+"/>
-      <xs:minInclusive value="1000"/>
-      <xs:maxInclusive value="1000000"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="cpuquota">
-    <xs:restriction base="xs:long">
-      <xs:pattern value="-?[0-9]+"/>
-      <xs:maxInclusive value="18446744073709551"/>
-      <xs:minInclusive value="-1"/>
-    </xs:restriction>
-  </xs:simpleType>
   <xs:simpleType name="PortNumber">
     <xs:restriction base="xs:short">
       <xs:minInclusive value="-1"/>
@@ -1209,19 +1172,9 @@
       <xs:pattern value="[A-Za-z0-9_\.\+\-]+"/>
     </xs:restriction>
   </xs:simpleType>
-  <xs:simpleType name="bridgeMode">
-    <xs:restriction base="xs:string">
-      <xs:pattern value="(vepa|bridge|private|passthrough)"/>
-    </xs:restriction>
-  </xs:simpleType>
   <xs:simpleType name="addrIPorName">
     <xs:restriction base="xs:string">
       <xs:pattern value="(([0-2]?[0-9]?[0-9]\.){3}[0-2]?[0-9]?[0-9])|(([0-9a-fA-F]+|:)+[0-9a-fA-F]+)|([a-zA-Z0-9_\.\+\-]*)"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="usbId">
-    <xs:restriction base="xs:string">
-      <xs:pattern value="(0x)?[0-9a-fA-F]{1,4}"/>
     </xs:restriction>
   </xs:simpleType>
   <xs:simpleType name="usbAddr">
