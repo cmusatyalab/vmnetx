@@ -105,7 +105,7 @@ class DomainXML(object):
                             (out.strip() + '\n' + err.strip()).strip())
     # pylint: enable=E1101
 
-    def get_for_storage(self, disk_name, disk_type='qcow2', keep_uuid=False):
+    def get_for_storage(self, disk_type='qcow2', keep_uuid=False):
         # Parse XML
         tree = etree.fromstring(self.xml)
 
@@ -118,7 +118,7 @@ class DomainXML(object):
 
         # Remove path information from disk image
         disk_tag = tree.xpath('/domain/devices/disk/source')[0]
-        disk_tag.set('file', '/' + disk_name)
+        disk_tag.set('file', '/disk.img')
 
         # Update disk driver
         disk_tag = tree.xpath('/domain/devices/disk[@device="disk"]/driver')[0]

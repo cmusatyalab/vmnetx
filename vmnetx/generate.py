@@ -1,7 +1,7 @@
 #
 # vmnetx.generate - Generation of a vmnetx machine image
 #
-# Copyright (C) 2012 Carnegie Mellon University
+# Copyright (C) 2012-2013 Carnegie Mellon University
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of version 2 of the GNU General Public License as published
@@ -16,7 +16,6 @@
 #
 
 from __future__ import division
-import hashlib
 import os
 import struct
 import subprocess
@@ -24,13 +23,8 @@ import sys
 from tempfile import NamedTemporaryFile
 
 from vmnetx.domain import DomainXML, DomainXMLError
-from vmnetx.manifest import Manifest, ReferenceInfo
+from vmnetx.package import Package
 from vmnetx.util import DetailException
-
-DOMAIN_TEMPLATE = 'domain-%s.xml'
-DISK_TEMPLATE = 'disk-%s.qcow'
-DISK_RAW_TEMPLATE = 'disk-%s.raw'
-MEMORY_TEMPLATE = 'memory-%s.img'
 
 class MachineGenerationError(DetailException):
     pass
@@ -101,27 +95,6 @@ class _QemuMemoryHeader(object):
 # pylint: enable=C0103
 
 
-class _Progress(object):
-    def __init__(self, msg, total, enable=True):
-        self._enable = enable
-        self._msg = msg
-        self._pct = -1
-        self._count = 0
-        self._total = total
-
-    def update(self, count):
-        self._count += count
-        cur_pct = 100 * self._count // self._total
-        if self._enable and cur_pct > self._pct:
-            print '  %s: %3d%%\r' % (self._msg, cur_pct),
-            sys.stdout.flush()
-            self._pct = cur_pct
-
-    def finish(self):
-        if self._enable:
-            print
-
-
 def copy_memory(in_path, out_path, xml=None, compress=True):
     # Ensure the input is uncompressed, even if we will not be compressing
     fin = open(in_path)
@@ -179,27 +152,7 @@ def copy_disk(in_path, type, out_path, raw=False):
         raise MachineGenerationError('qemu-img failed')
 
 
-# pylint is confused by hashlib.sha256()
-# pylint: disable=E1101
-def finalize_blob(in_path, name_template):
-    # Rename a blob to include its SHA-256 hash.  Template must contain "%s".
-    # Return the new path and blob size.
-    hash = hashlib.sha256()
-    size = os.stat(in_path).st_size
-    prog = _Progress('Computing hash', size, size > 1 << 20)
-    with open(in_path) as fh:
-        for buf in iter(lambda: fh.read(128 << 10), ''):
-            hash.update(buf)
-            prog.update(len(buf))
-    prog.finish()
-    out_path = os.path.join(os.path.dirname(in_path),
-            name_template % hash.hexdigest())
-    os.rename(in_path, out_path)
-    return out_path, size
-# pylint: enable=E1101
-
-
-def generate_machine(name, in_xml, base_url, out_file, compress=True):
+def generate_machine(name, in_xml, out_file, compress=True):
     # Parse domain XML
     try:
         with open(in_xml) as fh:
@@ -211,51 +164,37 @@ def generate_machine(name, in_xml, base_url, out_file, compress=True):
     in_memory = os.path.join(os.path.dirname(in_xml), 'save',
             '%s.save' % os.path.splitext(os.path.basename(in_xml))[0])
 
-    # Copy disk
-    out_dir = os.path.dirname(out_file)
-    temp = NamedTemporaryFile(dir=out_dir, prefix='disk-', delete=False)
-    temp.close()
-    copy_disk(domain.disk_path, domain.disk_type, temp.name,
-            raw=not compress)
-    out_disk, out_disk_size = finalize_blob(temp.name,
-            DISK_TEMPLATE if compress else DISK_RAW_TEMPLATE)
-
     # Generate domain XML
-    domain_xml = domain.get_for_storage(os.path.basename(out_disk),
-            disk_type='qcow2' if compress else 'raw').xml
+    domain_xml = domain.get_for_storage(disk_type='qcow2' if compress
+            else 'raw').xml
 
-    # Copy memory
-    if os.path.exists(in_memory):
-        temp = NamedTemporaryFile(dir=out_dir, prefix='memory-', delete=False)
-        temp.close()
-        copy_memory(in_memory, temp.name, domain_xml, compress=compress)
-        out_memory, out_memory_size = finalize_blob(temp.name,
-                MEMORY_TEMPLATE)
-    else:
-        print 'No memory image found'
-        out_memory = None
-        out_memory_size = 0
+    temp_disk = None
+    temp_memory = None
+    try:
+        # Copy disk
+        out_dir = os.path.dirname(out_file)
+        temp_disk = NamedTemporaryFile(dir=out_dir, prefix='disk-')
+        copy_disk(domain.disk_path, domain.disk_type, temp_disk.name,
+                raw=not compress)
 
-    # Write out domain XML
-    temp = NamedTemporaryFile(dir=out_dir, prefix='domain-', delete=False)
-    temp.write(domain_xml)
-    temp.close()
-    out_domain, _out_domain_size = finalize_blob(temp.name, DOMAIN_TEMPLATE)
+        # Copy memory
+        if os.path.exists(in_memory):
+            temp_memory = NamedTemporaryFile(dir=out_dir, prefix='memory-')
+            copy_memory(in_memory, temp_memory.name, domain_xml,
+                    compress=compress)
+        else:
+            print 'No memory image found'
 
-    # Generate manifest
-    def blob_info(path, size=0):
-        return ReferenceInfo(
-            location=os.path.join(base_url, os.path.basename(path)),
-            size=size,
-        )
-    domain = blob_info(out_domain)
-    disk = blob_info(out_disk, out_disk_size)
-    if out_memory is not None:
-        memory = blob_info(out_memory, out_memory_size)
-    else:
-        memory = None
-    manifest = Manifest(name=name, domain=domain, disk=disk, memory=memory)
-
-    # Write out manifest
-    with open(out_file, 'w') as f:
-        f.write(manifest.xml)
+        # Write package
+        print 'Writing package...'
+        try:
+            Package.create(out_file, name, domain_xml, temp_disk.name,
+                    temp_memory.name if temp_memory else None)
+        except:
+            os.unlink(out_file)
+            raise
+    finally:
+        if temp_disk:
+            temp_disk.close()
+        if temp_memory:
+            temp_memory.close()

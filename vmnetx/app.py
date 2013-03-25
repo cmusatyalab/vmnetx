@@ -23,7 +23,8 @@ import signal
 from tempfile import NamedTemporaryFile
 import threading
 
-from vmnetx.execute import Machine, MachineMetadata, NeedAuthentication
+from vmnetx.execute import Machine, MachineMetadata
+from vmnetx.package import NeedAuthentication
 from vmnetx.util import get_cache_dir
 from vmnetx.view import (VMWindow, LoadProgressWindow, PasswordWindow,
         SaveMediaWindow, ErrorWindow, FatalErrorWindow, ErrorBuffer)
@@ -57,10 +58,10 @@ class _UsernameCache(object):
 
 
 class VMNetXApp(object):
-    def __init__(self, manifest_file):
+    def __init__(self, package_ref):
         gobject.threads_init()
         self._username_cache = _UsernameCache()
-        self._manifest_file = manifest_file
+        self._package_ref = package_ref
         self._machine = None
         self._have_memory = False
         self._wind = None
@@ -81,7 +82,7 @@ class VMNetXApp(object):
             pw_wind = scheme = username = password = None
             while True:
                 try:
-                    metadata = MachineMetadata(self._manifest_file, scheme,
+                    metadata = MachineMetadata(self._package_ref, scheme,
                             username, password)
                 except NeedAuthentication, e:
                     if pw_wind is None:

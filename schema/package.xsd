@@ -3,7 +3,7 @@
 <!--
 vmnetx - Virtual machine network execution
 
-Copyright (C) 2012 Carnegie Mellon University
+Copyright (C) 2012-2013 Carnegie Mellon University
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of version 2 of the GNU General Public License as published
@@ -17,9 +17,9 @@ or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 for more details.
 -->
 
-<xsd:schema xmlns="http://olivearchive.org/xmlns/vmnetx/manifest"
+<xsd:schema xmlns="http://olivearchive.org/xmlns/vmnetx/package"
     xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-    targetNamespace="http://olivearchive.org/xmlns/vmnetx/manifest"
+    targetNamespace="http://olivearchive.org/xmlns/vmnetx/package"
     elementFormDefault="qualified">
 
   <xsd:element name="image" type="ImageSpec">
@@ -35,12 +35,12 @@ A VMNetX virtual machine image.
 The libvirt domain XML for this virtual machine.
         </xsd:documentation></xsd:annotation>
       </xsd:element>
-      <xsd:element name="disk" type="BlobResource">
+      <xsd:element name="disk" type="Resource">
         <xsd:annotation><xsd:documentation>
 The disk image for this virtual machine.
         </xsd:documentation></xsd:annotation>
       </xsd:element>
-      <xsd:element name="memory" type="BlobResource" minOccurs="0">
+      <xsd:element name="memory" type="Resource" minOccurs="0">
         <xsd:annotation><xsd:documentation>
 The libvirt QEMU memory image for this virtual machine.
         </xsd:documentation></xsd:annotation>
@@ -55,28 +55,12 @@ The virtual machine name to be shown to the user.
 
   <xsd:complexType name="Resource">
     <xsd:annotation><xsd:documentation>
-A remote resource, specified by an URL.
+A file within the package.
     </xsd:documentation></xsd:annotation>
-    <xsd:attribute name="location" type="xsd:anyURI" use="required">
+    <xsd:attribute name="path" type="xsd:string" use="required">
       <xsd:annotation><xsd:documentation>
-The absolute URL of the resource.
+The path of the resource within the package.
       </xsd:documentation></xsd:annotation>
     </xsd:attribute>
-  </xsd:complexType>
-
-  <xsd:complexType name="BlobResource">
-    <xsd:annotation><xsd:documentation>
-A large remote resource such as a disk or memory image.
-    </xsd:documentation></xsd:annotation>
-    <xsd:complexContent>
-      <xsd:extension base="Resource">
-        <xsd:attribute name="size" type="xsd:nonNegativeInteger"
-            use="required">
-          <xsd:annotation><xsd:documentation>
-The total size of the resource, in bytes.
-          </xsd:documentation></xsd:annotation>
-        </xsd:attribute>
-      </xsd:extension>
-    </xsd:complexContent>
   </xsd:complexType>
 </xsd:schema>

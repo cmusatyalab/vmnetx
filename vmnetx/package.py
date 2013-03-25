@@ -1,7 +1,7 @@
 #
 # vmnetx.package - Handling of .nxpk files
 #
-# Copyright (C) 2013 Carnegie Mellon University
+# Copyright (C) 2012-2013 Carnegie Mellon University
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of version 2 of the GNU General Public License as published
@@ -15,18 +15,59 @@
 # for more details.
 #
 
+from lxml import etree
+from lxml.builder import ElementMaker
+import os
+import re
 import requests
 import struct
+from urlparse import urlsplit, urlunsplit
 import zipfile
 
-class BadPackageError(Exception):
+from vmnetx.util import DetailException
+
+NS = 'http://olivearchive.org/xmlns/vmnetx/package'
+NSP = '{' + NS + '}'
+SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'schema', 'package.xsd')
+
+MANIFEST_FILENAME = 'vmnetx-package.xml'
+DOMAIN_FILENAME = 'domain.xml'
+DISK_FILENAME = 'disk.img'
+MEMORY_FILENAME = 'memory.img'
+
+
+# We want this to be a public attribute
+# pylint: disable=C0103
+schema = etree.XMLSchema(etree.parse(SCHEMA_PATH))
+# pylint: enable=C0103
+
+
+class BadPackageError(DetailException):
     pass
 
 
-class HttpFile(object):
+class NeedAuthentication(Exception):
+    def __init__(self, host, realm, scheme):
+        Exception.__init__(self, 'Authentication required')
+        self.host = host
+        self.realm = realm
+        self.scheme = scheme
+
+
+class _HttpFile(object):
     '''A read-only file-like object backed by HTTP Range requests.'''
 
-    def __init__(self, url, buffer_size=64 << 10):
+    def __init__(self, url, scheme=None, username=None, password=None,
+            buffer_size=64 << 10):
+        if scheme == 'Basic':
+            self._auth = (username, password)
+        elif scheme == 'Digest':
+            self._auth = requests.auth.HTTPDigestAuth(username, password)
+        elif scheme is None:
+            self._auth = None
+        else:
+            raise ValueError('Unknown authentication scheme')
+
         self._url = url
         self._offset = 0
         self._length = None  # Unknown
@@ -51,7 +92,22 @@ class HttpFile(object):
     def name(self):
         return '<%s>' % self._url
 
+    # pylint doesn't understand named tuples
+    # pylint: disable=E1103
     def _process_response(self, resp):
+        if resp.status_code == 401:
+            # Assumes a single challenge.
+            scheme, parameters = resp.headers['WWW-Authenticate'].split(
+                    None, 1)
+            if scheme != 'Basic' and scheme != 'Digest':
+                raise IOError('Server requested unknown authentication ' +
+                        'scheme: %s' % scheme)
+            host = urlsplit(self._url).netloc
+            for param in parameters.split(', '):
+                match = re.match('^realm=\"([^"]*)\"$', param)
+                if match:
+                    raise NeedAuthentication(host, match.group(1), scheme)
+            raise IOError('Unknown authentication realm')
         resp.raise_for_status()
 
         if self._length is None:
@@ -73,6 +129,7 @@ class HttpFile(object):
             else:
                 if self._validators[header] != value:
                     raise IOError('Resource changed on server')
+    # pylint: enable=E1103
 
     def _get(self, offset, size=None):
         if size is None:
@@ -83,7 +140,7 @@ class HttpFile(object):
         range = 'bytes=' + range
 
         try:
-            resp = self._session.get(self._url, headers={
+            resp = self._session.get(self._url, auth=self._auth, headers={
                 'Range': range,
             })
             self._process_response(resp)
@@ -185,7 +242,7 @@ class HttpFile(object):
         if self._length is None:
             self._last_network = 'HEAD'
             try:
-                resp = self._session.head(self._url)
+                resp = self._session.head(self._url, auth=self._auth)
                 self._process_response(resp)
                 if self._length is None:
                     raise IOError('No Content-Length in response')
@@ -203,32 +260,117 @@ class HttpFile(object):
         return self._closed
 
 
-def get_member_pos(zipf, name):
-    '''Return (offset, length) tuple for the named member.'''
-    info = zipf.getinfo(name)
-    # ZipInfo.extra is the extra field from the central directory file
-    # header, which may be different from the extra field in the local
-    # file header.  So we need to read the local file header to determine
-    # its size.
-    header_fmt = '<4s5H3I2H'
-    header_len = struct.calcsize(header_fmt)
-    zipf.fp.seek(info.header_offset)
-    magic, _, flags, compression, _, _, _, size, _, name_len, extra_len = \
-            struct.unpack(header_fmt, zipf.fp.read(header_len))
-    if magic != zipfile.stringFileHeader:
-        raise BadPackageError('Requested member has invalid local header')
-    if compression != zipfile.ZIP_STORED:
-        raise BadPackageError('Requested member is compressed')
-    if flags & 0x1:
-        raise BadPackageError('Requested member is encrypted')
-    return (info.header_offset + header_len + name_len + extra_len, size)
+class _PackageObject(object):
+    def __init__(self, url, zip, path, load_data=False):
+        self.url = url
+
+        # Read offset and length from local file header
+        try:
+            info = zip.getinfo(path)
+        except KeyError:
+            raise BadPackageError('Path "%s" missing from package' % path)
+        # ZipInfo.extra is the extra field from the central directory file
+        # header, which may be different from the extra field in the local
+        # file header.  So we need to read the local file header to determine
+        # its size.
+        header_fmt = '<4s5H3I2H'
+        header_len = struct.calcsize(header_fmt)
+        zip.fp.seek(info.header_offset)
+        magic, _, flags, compression, _, _, _, size, _, name_len, extra_len = \
+                struct.unpack(header_fmt, zip.fp.read(header_len))
+        if magic != zipfile.stringFileHeader:
+            raise BadPackageError('Member "%s" has invalid header' % path)
+        if compression != zipfile.ZIP_STORED:
+            raise BadPackageError('Member "%s" is compressed' % path)
+        if flags & 0x1:
+            raise BadPackageError('Member "%s" is encrypted' % path)
+        self.offset = info.header_offset + header_len + name_len + extra_len
+        self.size = size
+
+        if load_data:
+            zip.fp.seek(self.offset)
+            self.data = zip.fp.read(self.size)
+        else:
+            self.data = None
+
+
+class Package(object):
+    # pylint doesn't understand named tuples
+    # pylint: disable=E1103
+    def __init__(self, url, scheme=None, username=None, password=None):
+        self.url = url
+
+        # Open URL
+        parsed = urlsplit(self.url)
+        if parsed.scheme == 'http' or parsed.scheme == 'https':
+            fh = _HttpFile(self.url, scheme=scheme, username=username,
+                    password=password)
+        elif parsed.scheme == 'file' or parsed.scheme == '':
+            if parsed.scheme == '':
+                self.url = urlunsplit(('file', '',
+                        os.path.abspath(parsed.path), '', ''))
+            fh = open(parsed.path)
+        else:
+            raise ValueError('%s: URLs not supported' % parsed.scheme)
+
+        # Read Zip
+        try:
+            self._zip = zipfile.ZipFile(fh, 'r')
+
+            # Parse manifest
+            if MANIFEST_FILENAME not in self._zip.namelist():
+                raise BadPackageError('Package does not contain manifest')
+            xml = self._zip.read(MANIFEST_FILENAME)
+            tree = etree.fromstring(xml, etree.XMLParser(schema=schema))
+
+            # Create attributes
+            self.name = tree.get('name')
+            self.domain = _PackageObject(self.url, self._zip,
+                    tree.find(NSP + 'domain').get('path'), True)
+            self.disk = _PackageObject(self.url, self._zip,
+                    tree.find(NSP + 'disk').get('path'))
+            memory = tree.find(NSP + 'memory')
+            if memory is not None:
+                self.memory = _PackageObject(self.url, self._zip,
+                        memory.get('path'))
+            else:
+                self.memory = None
+        except etree.XMLSyntaxError, e:
+            raise BadPackageError('Manifest XML does not validate', str(e))
+        except zipfile.BadZipfile, e:
+            raise BadPackageError(str(e))
+    # pylint: enable=E1103
+
+    @classmethod
+    def create(cls, out, name, domain_xml, disk_path, memory_path=None):
+        # Generate manifest XML
+        e = ElementMaker(namespace=NS, nsmap={None: NS})
+        tree = e.image(
+            e.domain(path=DOMAIN_FILENAME),
+            e.disk(path=DISK_FILENAME),
+            name=name,
+        )
+        if memory_path:
+            tree.append(e.memory(path=MEMORY_FILENAME))
+        schema.assertValid(tree)
+        xml = etree.tostring(tree, encoding='UTF-8', pretty_print=True,
+                xml_declaration=True)
+
+        # Write package
+        zip = zipfile.ZipFile(out, 'w', zipfile.ZIP_STORED, True)
+        zip.comment = 'VMNetX package'
+        zip.writestr(MANIFEST_FILENAME, xml)
+        zip.writestr(DOMAIN_FILENAME, domain_xml)
+        if memory_path is not None:
+            zip.write(memory_path, MEMORY_FILENAME)
+        zip.write(disk_path, DISK_FILENAME)
+        zip.close()
 
 
 # We access protected members in assertions.
 # pylint is confused by Popen.terminate().
 # pylint: disable=W0212,E1101
 def _main():
-    import os
     from tempfile import mkdtemp
     import subprocess
     import time
@@ -260,14 +402,14 @@ def _main():
     # pylint: enable=C0103
 
     try:
-        with HttpFile('http://localhost:8080/test.txt', buffer_size=4) as fh:
+        with _HttpFile('http://localhost:8080/test.txt', buffer_size=4) as fh:
             # Case A
             try_read(fh, None, 'A', data, len(data), data, 0, '0-')
 
             # EOF
             try_read(fh, None, 'B', '', len(data), data, 0)
 
-        with HttpFile('http://localhost:8080/test.txt', buffer_size=4) as fh:
+        with _HttpFile('http://localhost:8080/test.txt', buffer_size=4) as fh:
             # Case A
             fh.seek(42)
             try_read(fh, None, 'A', data[-10:], len(data), data[-14:], 38,
@@ -300,7 +442,7 @@ def _main():
             try_read(fh, 0, 'F', '', 0, data[0:4], 0, '0-3')
             try_read(fh, 0, 'B', '', 0, data[0:4], 0)
 
-        with HttpFile('http://localhost:8080/test.txt', buffer_size=4) as fh:
+        with _HttpFile('http://localhost:8080/test.txt', buffer_size=4) as fh:
             # HEAD
             fh.seek(-10, 2)
             assert fh._last_network == 'HEAD'
@@ -309,7 +451,7 @@ def _main():
             fh.seek(2)
             try_read(fh, 100, 'E', data[2:], len(data), data, 0, '0-101')
 
-        with HttpFile('http://localhost:8080/test.txt', buffer_size=4) as fh:
+        with _HttpFile('http://localhost:8080/test.txt', buffer_size=4) as fh:
             # Change detection
             fh.read(1)
             with open(tfile, 'a') as tf:

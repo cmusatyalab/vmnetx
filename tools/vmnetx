@@ -22,7 +22,7 @@ import sys
 import vmnetx
 from vmnetx.app import VMNetXApp
 
-USAGE = 'Usage: %prog [options] manifest_file'
+USAGE = 'Usage: %prog [options] package-url-or-path'
 VERSION = '%prog ' + vmnetx.__version__
 DESCRIPTION = 'Execute a VMNetX virtual machine.'
 
@@ -30,7 +30,7 @@ parser = OptionParser(usage=USAGE, version=VERSION, description=DESCRIPTION)
 opts, args = parser.parse_args()
 if len(args) != 1:
     parser.error('Incorrect mandatory argument')
-manifest_file = args[0]
+package_ref = args[0]
 
-app = VMNetXApp(manifest_file)
+app = VMNetXApp(package_ref)
 app.run()

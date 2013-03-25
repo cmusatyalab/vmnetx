@@ -1,7 +1,7 @@
 #
 # vmnetx.execute - Execution of a virtual machine
 #
-# Copyright (C) 2011-2012 Carnegie Mellon University
+# Copyright (C) 2011-2013 Carnegie Mellon University
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of version 2 of the GNU General Public License as published
@@ -21,12 +21,11 @@ from hashlib import sha256
 # pylint: enable=E0611
 import libvirt
 import os
-import re
-import requests
 import tempfile
 from urlparse import urlsplit, urlunsplit
 import uuid
 
+from vmnetx.package import Package
 from vmnetx.util import ensure_dir
 
 try:
@@ -36,19 +35,10 @@ except ImportError:
         pass
 
 from vmnetx.domain import DomainXML
-from vmnetx.manifest import Manifest
 from vmnetx.util import get_cache_dir, get_temp_dir
 from vmnetx.vmnetfs import VMNetFS
 
 SOCKET_DIR_CONTEXT = 'unconfined_u:object_r:virt_home_t:s0'
-
-class NeedAuthentication(Exception):
-    def __init__(self, host, realm, scheme):
-        Exception.__init__(self, 'Authentication required')
-        self.host = host
-        self.realm = realm
-        self.scheme = scheme
-
 
 class MachineExecutionError(Exception):
     pass
@@ -57,8 +47,9 @@ class MachineExecutionError(Exception):
 class _ReferencedObject(object):
     # pylint doesn't understand named tuples
     # pylint: disable=E1103
-    def __init__(self, info, chunk_size=131072):
-        self.url = info.location
+    def __init__(self, label, info, chunk_size=131072):
+        self.url = info.url
+        self.offset = info.offset
         self.size = info.size
         self.chunk_size = chunk_size
 
@@ -70,7 +61,7 @@ class _ReferencedObject(object):
         self._urlpath = os.path.join(basepath,
                 sha256(self._cache_url).hexdigest())
         # Hash collisions will allow cache poisoning!
-        self.cache = os.path.join(self._urlpath, str(chunk_size))
+        self.cache = os.path.join(self._urlpath, label, str(chunk_size))
     # pylint: enable=E1103
 
     @property
@@ -82,64 +73,30 @@ class _ReferencedObject(object):
         if not os.path.exists(urlfile):
             with open(urlfile, 'w') as fh:
                 fh.write('%s\n' % self._cache_url)
-        return [self.url, self.cache, '0', str(self.size),
+        return [self.url, self.cache, str(self.offset), str(self.size),
                 str(self.chunk_size)]
 
 
 class MachineMetadata(object):
-    # pylint doesn't understand named tuples, and is confused by the return
-    # type of requests.get()
-    # pylint: disable=E1101,E1103
-    def __init__(self, manifest_path, scheme=None, username=None,
-            password=None):
-        # Parse manifest
-        with open(manifest_path) as fh:
-            manifest = Manifest(xml=fh.read())
-        self.name = manifest.name
-        self.have_memory = manifest.memory is not None
+    def __init__(self, package_ref, scheme=None, username=None, password=None):
+        # Load package
+        self.package = Package(package_ref, scheme=scheme, username=username,
+                password=password)
 
-        # Fetch and validate domain XML
-        domain = _ReferencedObject(manifest.domain)
-        try:
-            if scheme == 'Basic':
-                auth = (username, password)
-            elif scheme == 'Digest':
-                auth = requests.auth.HTTPDigestAuth(username, password)
-            elif scheme is None:
-                auth = None
-            else:
-                raise ValueError('Unknown authentication scheme')
-            resp = requests.get(domain.url, auth=auth)
-            if resp.status_code == 401:
-                # Assumes a single challenge.
-                scheme, parameters = resp.headers['WWW-Authenticate'].split(
-                        None, 1)
-                if scheme != 'Basic' and scheme != 'Digest':
-                    raise MachineExecutionError('Server requested unknown ' +
-                            'authentication scheme: %s' % scheme)
-                host = urlsplit(domain.url).netloc
-                for param in parameters.split(', '):
-                    match = re.match('^realm=\"([^"]*)\"$', param)
-                    if match:
-                        raise NeedAuthentication(host, match.group(1), scheme)
-                raise MachineExecutionError('Unknown authentication realm')
-            resp.raise_for_status()
-            self.domain_xml = DomainXML(resp.content)
-        except requests.exceptions.RequestException, e:
-            raise MachineExecutionError(str(e))
+        # Validate domain XML
+        self.domain_xml = DomainXML(self.package.domain.data)
 
         # Create vmnetfs arguments
         self.vmnetfs_args = [username or '', password or ''] + \
-                _ReferencedObject(manifest.disk).vmnetfs_args
-        if self.have_memory:
-            self.vmnetfs_args.extend(_ReferencedObject(manifest.memory).
-                    vmnetfs_args)
-    # pylint: enable=E1101,E1103
+                _ReferencedObject('disk', self.package.disk).vmnetfs_args
+        if self.package.memory:
+            self.vmnetfs_args.extend(_ReferencedObject('memory',
+                    self.package.memory).vmnetfs_args)
 
 
 class Machine(object):
     def __init__(self, metadata):
-        self.name = metadata.name
+        self.name = metadata.package.name
         self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
         self._vnc_socket_dir = tempfile.mkdtemp(dir=get_temp_dir(),
                 prefix='vmnetx-socket-')
@@ -156,7 +113,7 @@ class Machine(object):
         self._fs.start()
         self.disk_path = os.path.join(self._fs.mountpoint, 'disk')
         disk_image_path = os.path.join(self.disk_path, 'image')
-        if metadata.have_memory:
+        if metadata.package.memory:
             self.memory_path = os.path.join(self._fs.mountpoint, 'memory')
             self._memory_image_path = os.path.join(self.memory_path, 'image')
         else:
