@@ -30,8 +30,6 @@ class MachineGenerationError(DetailException):
     pass
 
 
-# File handle arguments don't need more than two letters
-# pylint: disable=C0103
 class _QemuMemoryHeader(object):
     HEADER_MAGIC = 'LibvirtQemudSave'
     HEADER_VERSION = 2
@@ -46,10 +44,10 @@ class _QemuMemoryHeader(object):
 
     # pylint is confused by "\0", #111799
     # pylint: disable=W1401
-    def __init__(self, f):
+    def __init__(self, fh):
         # Read header struct
-        f.seek(0)
-        buf = f.read(self.HEADER_LENGTH)
+        fh.seek(0)
+        buf = fh.read(self.HEADER_LENGTH)
         header = list(struct.unpack(self.HEADER_FORMAT, buf))
         magic = header.pop(0)
         version = header.pop(0)
@@ -67,15 +65,15 @@ class _QemuMemoryHeader(object):
             raise MachineGenerationError('Unused header values not 0')
 
         # Read XML, drop trailing NUL padding
-        self.xml = f.read(self._xml_len - 1).rstrip('\0')
-        if f.read(1) != '\0':
+        self.xml = fh.read(self._xml_len - 1).rstrip('\0')
+        if fh.read(1) != '\0':
             raise MachineGenerationError('Missing NUL byte after XML')
     # pylint: enable=W1401
 
-    def seek_body(self, f):
-        f.seek(self.HEADER_LENGTH + self._xml_len)
+    def seek_body(self, fh):
+        fh.seek(self.HEADER_LENGTH + self._xml_len)
 
-    def write(self, f):
+    def write(self, fh):
         # Calculate header
         if len(self.xml) > self._xml_len - 1:
             # If this becomes a problem, we could write out a larger xml_len,
@@ -89,10 +87,9 @@ class _QemuMemoryHeader(object):
         header.extend([0] * self.HEADER_UNUSED_VALUES)
 
         # Write data
-        f.seek(0)
-        f.write(struct.pack(self.HEADER_FORMAT, *header))
-        f.write(struct.pack('%ds' % self._xml_len, self.xml))
-# pylint: enable=C0103
+        fh.seek(0)
+        fh.write(struct.pack(self.HEADER_FORMAT, *header))
+        fh.write(struct.pack('%ds' % self._xml_len, self.xml))
 
 
 def copy_memory(in_path, out_path, xml=None, compress=True):

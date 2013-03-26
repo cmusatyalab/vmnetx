@@ -33,3 +33,5 @@ include-ids=yes
 variable-rgx=[a-z_][a-z0-9_]*$
 # Allow module-level variables prefixed by underscore
 const-rgx=(([A-Z_][A-Z0-9_]*)|(__.*__)|(_[a-z][a-z0-9_]+))$
+# As a special case, allow "fh" as an argument name
+argument-rgx=([a-z_][a-z0-9_]{2,30})|fh$

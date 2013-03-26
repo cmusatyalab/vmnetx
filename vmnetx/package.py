@@ -356,8 +356,6 @@ def _main():
         proc = subprocess.Popen(['mongoose'], cwd=tdir, stdout=null)
     time.sleep(0.5)  # wait for mongoose to start
 
-    # fh is a legitimate argument name
-    # pylint: disable=C0103
     def try_read(fh, size, case, result, new_offset, new_buffer,
             new_buffer_offset, network=None):
         data = fh.read(size)
@@ -370,7 +368,6 @@ def _main():
         assert fh._last_network == network
         fh._last_case = None
         fh._last_network = None
-    # pylint: enable=C0103
 
     try:
         with _HttpFile('http://localhost:8080/test.txt', buffer_size=4) as fh:
