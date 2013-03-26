@@ -58,16 +58,22 @@ machine or suspend it.
 
 2. Use ``vmnetx-generate`` to create a VMNetX virtual machine package
 from the libvirt domain XML file.  For example, if you named your
-virtual machine "test" and want to make it accessible under
-``http://www.example.com/test/``, you can use::
+virtual machine "test", you can use::
 
-    mkdir package
-    vmnetx-generate -n "Test Machine" ~/.libvirt/qemu/test.xml \
-        http://www.example.com/test/ package/test.netx
+    vmnetx-generate -n "Test Machine" ~/.config/libvirt/qemu/test.xml \
+        package.nxpk
 
-3. Upload the resulting package (in our example, the contents of the
-``package`` directory) under the URL you have chosen, and publish a link
-to the ``.netx`` file.  The web server should be configured to associate
-the ``.netx`` extension with the ``application/x-vmnetx+xml`` content type.
+3. Upload the resulting package file to a web server and make note of
+the resulting URL.
+
+4. To enable users to execute the virtual machine by clicking a hyperlink,
+*without* downloading the entire package, you must create a reference file.
+If the URL to your package is ``http://www.example.com/test.nxpk``::
+
+    vmnetx-generate -r http://www.example.com/test.nxpk test.netx
+
+5.  Upload the ``test.netx`` reference file to your web server and publish
+a link to it.  Your server should be configured to associate the ``.netx``
+extension with the ``application/x-vmnetx-reference+xml`` content type.
 
 .. _virt-manager: http://virt-manager.org/
