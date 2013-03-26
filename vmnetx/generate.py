@@ -21,6 +21,7 @@ import struct
 import subprocess
 import sys
 from tempfile import NamedTemporaryFile
+from urlparse import urlunsplit
 
 from vmnetx.domain import DomainXML, DomainXMLError
 from vmnetx.package import Package
@@ -187,6 +188,57 @@ def generate_machine(name, in_xml, out_file, compress=True):
         try:
             Package.create(out_file, name, domain_xml, temp_disk.name,
                     temp_memory.name if temp_memory else None)
+        except:
+            os.unlink(out_file)
+            raise
+    finally:
+        if temp_disk:
+            temp_disk.close()
+        if temp_memory:
+            temp_memory.close()
+
+
+def compress_machine(in_file, out_file, name=None):
+    '''Read an uncompressed machine package and write a compressed one.'''
+
+    url = urlunsplit(('file', '', os.path.abspath(in_file), '', ''))
+    package = Package(url)
+
+    # Parse domain XML
+    try:
+        domain = DomainXML(package.domain.data, strict=True)
+    except DomainXMLError, e:
+        raise MachineGenerationError(str(e), e.detail)
+
+    # Generate new domain XML with updated disk type
+    domain_xml = domain.get_for_storage(keep_uuid=True).xml
+
+    temp_disk = None
+    temp_memory = None
+    try:
+        # Copy disk
+        out_dir = os.path.dirname(out_file)
+        temp_disk = NamedTemporaryFile(dir=out_dir, prefix='disk-')
+        with NamedTemporaryFile(dir=out_dir, prefix='in-') as temp_in:
+            package.disk.write_to_file(temp_in)
+            temp_in.flush()
+            copy_disk(temp_in.name, domain.disk_type, temp_disk.name)
+
+        # Copy memory
+        if package.memory:
+            temp_memory = NamedTemporaryFile(dir=out_dir, prefix='memory-')
+            with NamedTemporaryFile(dir=out_dir, prefix='in-') as temp_in:
+                package.memory.write_to_file(temp_in)
+                temp_in.flush()
+                copy_memory(temp_in.name, temp_memory.name, domain_xml)
+        else:
+            print 'No memory image found'
+
+        # Write package
+        print 'Writing package...'
+        try:
+            Package.create(out_file, name or package.name, domain_xml,
+                    temp_disk.name, temp_memory.name if temp_memory else None)
         except:
             os.unlink(out_file)
             raise

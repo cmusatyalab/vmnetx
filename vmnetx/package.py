@@ -237,6 +237,7 @@ class _HttpFile(object):
 class _PackageObject(object):
     def __init__(self, url, zip, path, load_data=False):
         self.url = url
+        self._fh = zip.fp
 
         # Read offset and length from local file header
         try:
@@ -249,9 +250,9 @@ class _PackageObject(object):
         # its size.
         header_fmt = '<4s5H3I2H'
         header_len = struct.calcsize(header_fmt)
-        zip.fp.seek(info.header_offset)
+        self._fh.seek(info.header_offset)
         magic, _, flags, compression, _, _, _, size, _, name_len, extra_len = \
-                struct.unpack(header_fmt, zip.fp.read(header_len))
+                struct.unpack(header_fmt, self._fh.read(header_len))
         if magic != zipfile.stringFileHeader:
             raise BadPackageError('Member "%s" has invalid header' % path)
         if compression != zipfile.ZIP_STORED:
@@ -262,10 +263,24 @@ class _PackageObject(object):
         self.size = size
 
         if load_data:
-            zip.fp.seek(self.offset)
-            self.data = zip.fp.read(self.size)
+            # Eagerly read file data into memory, since _HttpFile likely has
+            # it in cache.
+            self._fh.seek(self.offset)
+            self.data = self._fh.read(self.size)
         else:
             self.data = None
+
+    def write_to_file(self, fh, buf_size=1 << 20):
+        if self.data is not None:
+            fh.write(self.data)
+        else:
+            self._fh.seek(self.offset)
+            count = self.size
+            while count > 0:
+                cur = min(count, buf_size)
+                buf = self._fh.read(cur)
+                fh.write(buf)
+                count -= len(buf)
 
 
 class Package(object):
