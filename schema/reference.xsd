@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+vmnetx - Virtual machine network execution
+
+Copyright (C) 2012-2013 Carnegie Mellon University
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of version 2 of the GNU General Public License as published
+by the Free Software Foundation.  A copy of the GNU General Public License
+should have been distributed along with this program in the file
+COPYING.
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+-->
+
+<xsd:schema xmlns="http://olivearchive.org/xmlns/vmnetx/reference"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    targetNamespace="http://olivearchive.org/xmlns/vmnetx/reference"
+    elementFormDefault="qualified">
+
+  <xsd:element name="reference" type="ReferenceSpec">
+    <xsd:annotation><xsd:documentation>
+A reference to a remote VMNetX virtual machine image.
+    </xsd:documentation></xsd:annotation>
+  </xsd:element>
+
+  <xsd:complexType name="ReferenceSpec">
+    <xsd:attribute name="url" type="httpURL" use="required">
+      <xsd:annotation><xsd:documentation>
+The URL of the virtual machine image.
+      </xsd:documentation></xsd:annotation>
+    </xsd:attribute>
+  </xsd:complexType>
+
+  <xsd:simpleType name="httpURL">
+    <xsd:annotation><xsd:documentation>
+An absolute HTTP or HTTPS URL.
+    </xsd:documentation></xsd:annotation>
+    <xsd:restriction base="xsd:anyURI">
+      <xsd:pattern value="https?://.+"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+</xsd:schema>

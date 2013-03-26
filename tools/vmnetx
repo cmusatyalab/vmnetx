@@ -22,7 +22,7 @@ import sys
 import vmnetx
 from vmnetx.app import VMNetXApp
 
-USAGE = 'Usage: %prog [options] package-url-or-path'
+USAGE = 'Usage: %prog [options] {reference-path|package-url|package-path}'
 VERSION = '%prog ' + vmnetx.__version__
 DESCRIPTION = 'Execute a VMNetX virtual machine.'
 

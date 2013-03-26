@@ -23,6 +23,7 @@ nobase_python_PYTHON = vmnetx/__init__.py \
 	vmnetx/execute.py \
 	vmnetx/generate.py \
 	vmnetx/package.py \
+	vmnetx/reference.py \
 	vmnetx/util.py \
 	vmnetx/view.py \
 	vmnetx/vmnetfs.py \
@@ -34,6 +35,7 @@ EXTRA_DIST = vmnetx/system.py.in pylintrc vmnetx.te README.rst
 
 nobase_dist_pkgpython_DATA = schema/domain.xsd \
 	schema/package.xsd \
+	schema/reference.xsd \
 	schema/libvirt/basictypes.rng \
 	schema/libvirt/domaincommon.rng \
 	schema/libvirt/domain.rng \

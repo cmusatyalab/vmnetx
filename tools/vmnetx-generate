@@ -21,25 +21,37 @@ import sys
 
 import vmnetx
 from vmnetx.generate import generate_machine
+from vmnetx.reference import PackageReference
 
-USAGE = 'Usage: %prog [options] domain_xml out_file'
+USAGE = 'Usage: %prog [options] domain-xml out-file\n' + \
+        '       %prog -r package-url out-file'
 VERSION = '%prog ' + vmnetx.__version__
 DESCRIPTION = 'Construct a VMNetX virtual machine image.'
 
 parser = OptionParser(usage=USAGE, version=VERSION, description=DESCRIPTION)
 parser.add_option('-n', '--name', dest='name', default='Virtual Machine',
         help='Name of virtual machine', metavar='NAME')
+parser.add_option('-r', '--reference', dest='reference',
+        help='Create reference to remote VM image', metavar='URL')
 parser.add_option('-u', '--uncompressed', dest='compress',
         action='store_false', default=True,
         help='Skip compression of disk/memory images')
 
 opts, args = parser.parse_args()
-if len(args) != 2:
-    parser.error('Incorrect mandatory arguments')
-domain_xml, out_file = args
-
 try:
-    generate_machine(opts.name, domain_xml, out_file, compress=opts.compress)
+    if opts.reference:
+        if len(args) != 1:
+            parser.error('Incorrect mandatory arguments')
+        out_file = args[0]
+        ref = PackageReference(opts.reference)
+        with open(out_file, 'w') as fh:
+            fh.write(ref.xml)
+    else:
+        if len(args) != 2:
+            parser.error('Incorrect mandatory arguments')
+        domain_xml, out_file = args
+        generate_machine(opts.name, domain_xml, out_file,
+                compress=opts.compress)
 except KeyboardInterrupt:
     sys.exit(1)
 except Exception, e:

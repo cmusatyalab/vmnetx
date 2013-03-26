@@ -26,6 +26,7 @@ from urlparse import urlsplit, urlunsplit
 import uuid
 
 from vmnetx.package import Package
+from vmnetx.reference import PackageReference, BadReferenceError
 from vmnetx.util import ensure_dir
 
 try:
@@ -85,9 +86,13 @@ class MachineMetadata(object):
         url = package_ref
         parsed = urlsplit(url)
         if parsed.scheme == '':
-            # Local file path
-            url = urlunsplit(('file', '', os.path.abspath(parsed.path),
-                    '', ''))
+            # Local file path.  Try to parse the file as a package reference.
+            try:
+                url = PackageReference.parse(parsed.path).url
+            except BadReferenceError:
+                # Failed.  Assume it's a package.
+                url = urlunsplit(('file', '', os.path.abspath(parsed.path),
+                        '', ''))
 
         # Load package
         self.package = Package(url, scheme=scheme, username=username,
