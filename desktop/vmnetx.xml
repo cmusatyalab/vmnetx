@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
-  <mime-type type="application/x-vmnetx+xml">
+  <mime-type type="application/x-vmnetx-package">
+    <comment>VMNetX virtual machine package</comment>
+    <glob pattern="*.nxpk"/>
+  </mime-type>
+  <mime-type type="application/x-vmnetx-reference+xml">
     <comment>VMNetX virtual machine</comment>
     <glob pattern="*.netx"/>
   </mime-type>
