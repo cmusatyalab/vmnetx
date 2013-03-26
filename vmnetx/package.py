@@ -54,6 +54,12 @@ class NeedAuthentication(Exception):
         self.scheme = scheme
 
 
+class _HttpError(Exception):
+    '''_HttpFile would like to raise IOError on errors, but ZipFile swallows
+    the error message.  So it raises this instead.'''
+    pass
+
+
 class _HttpFile(object):
     '''A read-only file-like object backed by HTTP Range requests.'''
 
@@ -92,32 +98,33 @@ class _HttpFile(object):
                 scheme, parameters = resp.headers['WWW-Authenticate'].split(
                         None, 1)
                 if scheme != 'Basic' and scheme != 'Digest':
-                    raise IOError('Server requested unknown authentication ' +
-                            'scheme: %s' % scheme)
+                    raise _HttpError('Server requested unknown ' +
+                            'authentication scheme: %s' % scheme)
                 host = urlsplit(self._url).netloc
                 for param in parameters.split(', '):
                     match = re.match('^realm=\"([^"]*)\"$', param)
                     if match:
                         raise NeedAuthentication(host, match.group(1), scheme)
-                raise IOError('Unknown authentication realm')
+                raise _HttpError('Unknown authentication realm')
 
             # Check for other errors
             resp.raise_for_status()
             # 2xx codes other than 200 are unexpected
             if resp.status_code != 200:
-                raise IOError('Unexpected status code %d' % resp.status_code)
+                raise _HttpError('Unexpected status code %d' %
+                        resp.status_code)
 
             # Store object length
             try:
                 self.length = int(resp.headers['Content-Length'])
             except (IndexError, ValueError):
-                raise IOError('Server did not provide Content-Length')
+                raise _HttpError('Server did not provide Content-Length')
 
             # Store validators
             self.etag = resp.headers.get('ETag')
             self.last_modified = resp.headers.get('Last-Modified')
         except requests.exceptions.RequestException, e:
-            raise IOError(str(e))
+            raise _HttpError(str(e))
     # pylint: enable=E1103
 
     def __enter__(self):
@@ -141,17 +148,17 @@ class _HttpFile(object):
             })
             resp.raise_for_status()
             if resp.status_code != 206:
-                raise IOError('Server ignored range request')
+                raise _HttpError('Server ignored range request')
             if (resp.headers.get('ETag') != self.etag or
                     resp.headers.get('Last-Modified') != self.last_modified):
-                raise IOError('Resource changed on server')
+                raise _HttpError('Resource changed on server')
             return resp.content
         except requests.exceptions.RequestException, e:
-            raise IOError(str(e))
+            raise _HttpError(str(e))
 
     def read(self, size=None):
         if self.closed:
-            raise IOError('File is closed')
+            raise _HttpError('File is closed')
         if size is None:
             size = self.length - self._offset
         buf_start = self._buffer_offset
@@ -210,7 +217,7 @@ class _HttpFile(object):
 
     def seek(self, offset, whence=0):
         if self.closed:
-            raise IOError('File is closed')
+            raise _HttpError('File is closed')
         if whence == 0:
             self._offset = offset
         elif whence == 1:
@@ -221,7 +228,7 @@ class _HttpFile(object):
 
     def tell(self):
         if self.closed:
-            raise IOError('File is closed')
+            raise _HttpError('File is closed')
         return self._offset
 
     def close(self):
@@ -323,7 +330,7 @@ class Package(object):
                 self.memory = None
         except etree.XMLSyntaxError, e:
             raise BadPackageError('Manifest XML does not validate', str(e))
-        except zipfile.BadZipfile, e:
+        except (zipfile.BadZipfile, _HttpError), e:
             raise BadPackageError(str(e))
     # pylint: enable=E1103
 
@@ -431,7 +438,7 @@ def _main():
                 tf.write('xyzzy')
             try:
                 fh.read(5)
-            except IOError:
+            except _HttpError:
                 pass
             else:
                 assert False
