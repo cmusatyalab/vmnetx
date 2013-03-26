@@ -78,9 +78,19 @@ class _ReferencedObject(object):
 
 
 class MachineMetadata(object):
+    # pylint doesn't understand named tuples
+    # pylint: disable=E1103
     def __init__(self, package_ref, scheme=None, username=None, password=None):
+        # Convert package_ref to package URL
+        url = package_ref
+        parsed = urlsplit(url)
+        if parsed.scheme == '':
+            # Local file path
+            url = urlunsplit(('file', '', os.path.abspath(parsed.path),
+                    '', ''))
+
         # Load package
-        self.package = Package(package_ref, scheme=scheme, username=username,
+        self.package = Package(url, scheme=scheme, username=username,
                 password=password)
 
         # Validate domain XML
@@ -92,6 +102,7 @@ class MachineMetadata(object):
         if self.package.memory:
             self.vmnetfs_args.extend(_ReferencedObject('memory',
                     self.package.memory).vmnetfs_args)
+    # pylint: enable=E1103
 
 
 class Machine(object):

@@ -21,7 +21,7 @@ import os
 import re
 import requests
 import struct
-from urlparse import urlsplit, urlunsplit
+from urlparse import urlsplit
 import zipfile
 
 from vmnetx.util import DetailException
@@ -301,14 +301,11 @@ class Package(object):
         self.url = url
 
         # Open URL
-        parsed = urlsplit(self.url)
+        parsed = urlsplit(url)
         if parsed.scheme == 'http' or parsed.scheme == 'https':
-            fh = _HttpFile(self.url, scheme=scheme, username=username,
+            fh = _HttpFile(url, scheme=scheme, username=username,
                     password=password)
-        elif parsed.scheme == 'file' or parsed.scheme == '':
-            if parsed.scheme == '':
-                self.url = urlunsplit(('file', '',
-                        os.path.abspath(parsed.path), '', ''))
+        elif parsed.scheme == 'file':
             fh = open(parsed.path)
         else:
             raise ValueError('%s: URLs not supported' % parsed.scheme)
@@ -325,13 +322,13 @@ class Package(object):
 
             # Create attributes
             self.name = tree.get('name')
-            self.domain = _PackageObject(self.url, self._zip,
+            self.domain = _PackageObject(url, self._zip,
                     tree.find(NSP + 'domain').get('path'), True)
-            self.disk = _PackageObject(self.url, self._zip,
+            self.disk = _PackageObject(url, self._zip,
                     tree.find(NSP + 'disk').get('path'))
             memory = tree.find(NSP + 'memory')
             if memory is not None:
-                self.memory = _PackageObject(self.url, self._zip,
+                self.memory = _PackageObject(url, self._zip,
                         memory.get('path'))
             else:
                 self.memory = None
