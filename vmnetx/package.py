@@ -57,6 +57,8 @@ class NeedAuthentication(Exception):
 class _HttpFile(object):
     '''A read-only file-like object backed by HTTP Range requests.'''
 
+    # pylint doesn't understand named tuples
+    # pylint: disable=E1103
     def __init__(self, url, scheme=None, username=None, password=None,
             buffer_size=64 << 10):
         if scheme == 'Basic':
@@ -70,17 +72,53 @@ class _HttpFile(object):
 
         self._url = url
         self._offset = 0
-        self._length = None  # Unknown
         self._closed = False
         self._buffer = ''
         self._buffer_offset = 0
         self._buffer_size = buffer_size
-        self._validators = {}
         self._session = requests.Session()
 
         # Debugging
         self._last_case = None
         self._last_network = None
+
+        # Perform HEAD request
+        try:
+            resp = self._session.head(self._url, auth=self._auth)
+
+            # Check for missing credentials
+            if resp.status_code == 401:
+                # Assumes a single challenge.
+                scheme, parameters = resp.headers['WWW-Authenticate'].split(
+                        None, 1)
+                if scheme != 'Basic' and scheme != 'Digest':
+                    raise IOError('Server requested unknown authentication ' +
+                            'scheme: %s' % scheme)
+                host = urlsplit(self._url).netloc
+                for param in parameters.split(', '):
+                    match = re.match('^realm=\"([^"]*)\"$', param)
+                    if match:
+                        raise NeedAuthentication(host, match.group(1), scheme)
+                raise IOError('Unknown authentication realm')
+
+            # Check for other errors
+            resp.raise_for_status()
+            # 2xx codes other than 200 are unexpected
+            if resp.status_code != 200:
+                raise IOError('Unexpected status code %d' % resp.status_code)
+
+            # Store object length
+            try:
+                self.length = int(resp.headers['Content-Length'])
+            except (IndexError, ValueError):
+                raise IOError('Server did not provide Content-Length')
+
+            # Store validators
+            self.etag = resp.headers.get('ETag')
+            self.last_modified = resp.headers.get('Last-Modified')
+        except requests.exceptions.RequestException, e:
+            raise IOError(str(e))
+    # pylint: enable=E1103
 
     def __enter__(self):
         return self
@@ -92,50 +130,8 @@ class _HttpFile(object):
     def name(self):
         return '<%s>' % self._url
 
-    # pylint doesn't understand named tuples
-    # pylint: disable=E1103
-    def _process_response(self, resp):
-        if resp.status_code == 401:
-            # Assumes a single challenge.
-            scheme, parameters = resp.headers['WWW-Authenticate'].split(
-                    None, 1)
-            if scheme != 'Basic' and scheme != 'Digest':
-                raise IOError('Server requested unknown authentication ' +
-                        'scheme: %s' % scheme)
-            host = urlsplit(self._url).netloc
-            for param in parameters.split(', '):
-                match = re.match('^realm=\"([^"]*)\"$', param)
-                if match:
-                    raise NeedAuthentication(host, match.group(1), scheme)
-            raise IOError('Unknown authentication realm')
-        resp.raise_for_status()
-
-        if self._length is None:
-            try:
-                if resp.status_code == 206:
-                    content_range = resp.headers.get('Content-Range')
-                    if content_range is not None:
-                        self._length = int(content_range.split('/')[1])
-                elif resp.status_code == 200:
-                    self._length = int(resp.headers['Content-Length'])
-            except (IndexError, ValueError):
-                pass
-
-        for header in 'ETag', 'Last-Modified':
-            value = resp.headers.get(header)
-            if header not in self._validators:
-                if value is not None:
-                    self._validators[header] = value
-            else:
-                if self._validators[header] != value:
-                    raise IOError('Resource changed on server')
-    # pylint: enable=E1103
-
-    def _get(self, offset, size=None):
-        if size is None:
-            range = '%d-' % offset
-        else:
-            range = '%d-%d' % (offset, offset + size - 1)
+    def _get(self, offset, size):
+        range = '%d-%d' % (offset, offset + size - 1)
         self._last_network = range
         range = 'bytes=' + range
 
@@ -143,9 +139,12 @@ class _HttpFile(object):
             resp = self._session.get(self._url, auth=self._auth, headers={
                 'Range': range,
             })
-            self._process_response(resp)
+            resp.raise_for_status()
             if resp.status_code != 206:
                 raise IOError('Server ignored range request')
+            if (resp.headers.get('ETag') != self.etag or
+                    resp.headers.get('Last-Modified') != self.last_modified):
+                raise IOError('Resource changed on server')
             return resp.content
         except requests.exceptions.RequestException, e:
             raise IOError(str(e))
@@ -153,71 +152,59 @@ class _HttpFile(object):
     def read(self, size=None):
         if self.closed:
             raise IOError('File is closed')
-        if size is None and self._length is not None:
-            size = self._length - self._offset
         if size is None:
-            # Case A: this is our first read call (we don't have the
-            # length yet) and the caller wants the rest of the file.
+            size = self.length - self._offset
+        buf_start = self._buffer_offset
+        buf_end = self._buffer_offset + len(self._buffer)
+        if self._offset >= buf_start and self._offset + size <= buf_end:
+            # Case B: Satisfy entirely from buffer
+            self._last_case = 'B'
+            start = self._offset - self._buffer_offset
+            ret = self._buffer[start:start + size]
+        elif self._offset >= buf_start and self._offset < buf_end:
+            # Case C: Satisfy head from buffer
+            # Buffer becomes _buffer_size bytes after requested region
+            self._last_case = 'C'
+            ret = self._buffer[self._offset - buf_start:]
+            remaining = size - len(ret)
+            data = self._get(self._offset + len(ret), remaining +
+                    self._buffer_size)
+            ret += data[:remaining]
+            self._buffer = data[remaining:]
+            self._buffer_offset = self._offset + size
+        elif (self._offset < buf_start and
+                self._offset + size >= buf_start):
+            # Case D: Satisfy tail from buffer
             # Buffer becomes _buffer_size bytes before requested region
             # plus requested region
-            self._last_case = 'A'
+            self._last_case = 'D'
+            tail = self._buffer[:self._offset + size - buf_start]
             start = max(self._offset - self._buffer_size, 0)
-            self._buffer = self._get(start)
+            data = self._get(start, buf_start - start)
+            self._buffer = data + tail
             self._buffer_offset = start
             ret = self._buffer[self._offset - start:]
         else:
-            buf_start = self._buffer_offset
-            buf_end = self._buffer_offset + len(self._buffer)
-            if self._offset >= buf_start and self._offset + size <= buf_end:
-                # Case B: Satisfy entirely from buffer
-                self._last_case = 'B'
-                start = self._offset - self._buffer_offset
-                ret = self._buffer[start:start + size]
-            elif self._offset >= buf_start and self._offset < buf_end:
-                # Case C: Satisfy head from buffer
-                # Buffer becomes _buffer_size bytes after requested region
-                self._last_case = 'C'
-                ret = self._buffer[self._offset - buf_start:]
-                remaining = size - len(ret)
-                data = self._get(self._offset + len(ret), remaining +
-                        self._buffer_size)
-                ret += data[:remaining]
-                self._buffer = data[remaining:]
-                self._buffer_offset = self._offset + size
-            elif (self._offset < buf_start and
-                    self._offset + size >= buf_start):
-                # Case D: Satisfy tail from buffer
-                # Buffer becomes _buffer_size bytes before requested region
-                # plus requested region
-                self._last_case = 'D'
-                tail = self._buffer[:self._offset + size - buf_start]
+            # Buffer is useless
+            if self._offset + size >= self.length:
+                # Case E: Reading at the end of the file.
+                # Assume zipfile is probing for the central directory.
+                # Buffer becomes _buffer_size bytes before requested
+                # region plus requested region
+                self._last_case = 'E'
                 start = max(self._offset - self._buffer_size, 0)
-                data = self._get(start, buf_start - start)
-                self._buffer = data + tail
+                self._buffer = self._get(start,
+                        self._offset + size - start)
                 self._buffer_offset = start
                 ret = self._buffer[self._offset - start:]
             else:
-                # Buffer is useless
-                # self._length must be valid
-                if self._offset + size >= self._length:
-                    # Case E: Reading at the end of the file.
-                    # Assume zipfile is probing for the central directory.
-                    # Buffer becomes _buffer_size bytes before requested
-                    # region plus requested region
-                    self._last_case = 'E'
-                    start = max(self._offset - self._buffer_size, 0)
-                    self._buffer = self._get(start,
-                            self._offset + size - start)
-                    self._buffer_offset = start
-                    ret = self._buffer[self._offset - start:]
-                else:
-                    # Case F: Read unrelated to previous reads.
-                    # Buffer becomes _buffer_size bytes after requested region
-                    self._last_case = 'F'
-                    data = self._get(self._offset, size + self._buffer_size)
-                    ret = data[:size]
-                    self._buffer = data[size:]
-                    self._buffer_offset = self._offset + size
+                # Case F: Read unrelated to previous reads.
+                # Buffer becomes _buffer_size bytes after requested region
+                self._last_case = 'F'
+                data = self._get(self._offset, size + self._buffer_size)
+                ret = data[:size]
+                self._buffer = data[size:]
+                self._buffer_offset = self._offset + size
         self._offset += len(ret)
         return ret
 
@@ -236,19 +223,6 @@ class _HttpFile(object):
         if self.closed:
             raise IOError('File is closed')
         return self._offset
-
-    @property
-    def length(self):
-        if self._length is None:
-            self._last_network = 'HEAD'
-            try:
-                resp = self._session.head(self._url, auth=self._auth)
-                self._process_response(resp)
-                if self._length is None:
-                    raise IOError('No Content-Length in response')
-            except requests.exceptions.RequestException, e:
-                raise IOError(str(e))
-        return self._length
 
     def close(self):
         self._closed = True
@@ -400,17 +374,8 @@ def _main():
 
     try:
         with _HttpFile('http://localhost:8080/test.txt', buffer_size=4) as fh:
-            # Case A
-            try_read(fh, None, 'A', data, len(data), data, 0, '0-')
-
-            # EOF
-            try_read(fh, None, 'B', '', len(data), data, 0)
-
-        with _HttpFile('http://localhost:8080/test.txt', buffer_size=4) as fh:
-            # Case A
-            fh.seek(42)
-            try_read(fh, None, 'A', data[-10:], len(data), data[-14:], 38,
-                    '38-')
+            # HEAD
+            assert fh.length == len(data)
 
             # Case F
             fh.seek(12)
@@ -440,13 +405,12 @@ def _main():
             try_read(fh, 0, 'B', '', 0, data[0:4], 0)
 
         with _HttpFile('http://localhost:8080/test.txt', buffer_size=4) as fh:
-            # HEAD
-            fh.seek(-10, 2)
-            assert fh._last_network == 'HEAD'
-
             # Case E near beginning of file
             fh.seek(2)
             try_read(fh, 100, 'E', data[2:], len(data), data, 0, '0-101')
+
+            # EOF
+            try_read(fh, None, 'B', '', len(data), data, 0)
 
         with _HttpFile('http://localhost:8080/test.txt', buffer_size=4) as fh:
             # Change detection
