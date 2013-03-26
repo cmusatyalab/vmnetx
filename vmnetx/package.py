@@ -286,23 +286,23 @@ class Package(object):
 
         # Read Zip
         try:
-            self._zip = zipfile.ZipFile(fh, 'r')
+            zip = zipfile.ZipFile(fh, 'r')
 
             # Parse manifest
-            if MANIFEST_FILENAME not in self._zip.namelist():
+            if MANIFEST_FILENAME not in zip.namelist():
                 raise BadPackageError('Package does not contain manifest')
-            xml = self._zip.read(MANIFEST_FILENAME)
+            xml = zip.read(MANIFEST_FILENAME)
             tree = etree.fromstring(xml, etree.XMLParser(schema=schema))
 
             # Create attributes
             self.name = tree.get('name')
-            self.domain = _PackageObject(url, self._zip,
+            self.domain = _PackageObject(url, zip,
                     tree.find(NSP + 'domain').get('path'), True)
-            self.disk = _PackageObject(url, self._zip,
+            self.disk = _PackageObject(url, zip,
                     tree.find(NSP + 'disk').get('path'))
             memory = tree.find(NSP + 'memory')
             if memory is not None:
-                self.memory = _PackageObject(url, self._zip,
+                self.memory = _PackageObject(url, zip,
                         memory.get('path'))
             else:
                 self.memory = None
