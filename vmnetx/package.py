@@ -15,7 +15,9 @@
 # for more details.
 #
 
+from datetime import datetime
 import dateutil.parser
+from dateutil.tz import tzutc
 from lxml import etree
 from lxml.builder import ElementMaker
 import os
@@ -77,7 +79,7 @@ class _HttpFile(object):
         else:
             raise ValueError('Unknown authentication scheme')
 
-        self._url = url
+        self.url = url
         self._offset = 0
         self._closed = False
         self._buffer = ''
@@ -91,7 +93,7 @@ class _HttpFile(object):
 
         # Perform HEAD request
         try:
-            resp = self._session.head(self._url, auth=self._auth)
+            resp = self._session.head(self.url, auth=self._auth)
 
             # Check for missing credentials
             if resp.status_code == 401:
@@ -101,7 +103,7 @@ class _HttpFile(object):
                 if scheme != 'Basic' and scheme != 'Digest':
                     raise _HttpError('Server requested unknown ' +
                             'authentication scheme: %s' % scheme)
-                host = urlsplit(self._url).netloc
+                host = urlsplit(self.url).netloc
                 for param in parameters.split(', '):
                     match = re.match('^realm=\"([^"]*)\"$', param)
                     if match:
@@ -136,7 +138,7 @@ class _HttpFile(object):
 
     @property
     def name(self):
-        return '<%s>' % self._url
+        return '<%s>' % self.url
 
     def _get_etag(self, resp):
         etag = resp.headers.get('ETag')
@@ -156,7 +158,7 @@ class _HttpFile(object):
         range = 'bytes=' + range
 
         try:
-            resp = self._session.get(self._url, auth=self._auth, headers={
+            resp = self._session.get(self.url, auth=self._auth, headers={
                 'Range': range,
             })
             resp.raise_for_status()
@@ -254,10 +256,40 @@ class _HttpFile(object):
         return self._closed
 
 
-class _PackageObject(object):
-    def __init__(self, url, zip, path, load_data=False):
+class _FileFile(file):
+    '''An _HttpFile-compatible file-like object for local files.'''
+
+    # pylint doesn't understand named tuples
+    # pylint: disable=E1103
+    def __init__(self, url):
+        # Process URL
+        parsed = urlsplit(url)
+        if parsed.scheme != 'file':
+            raise ValueError('Invalid URL scheme')
         self.url = url
+
+        file.__init__(self, parsed.path)
+
+        # Set length
+        self.seek(0, 2)
+        self.length = self.tell()
+        self.seek(0)
+
+        # Set validators.  We could synthesize an ETag from st_dev and
+        # st_ino, but this would confuse vmnetfs since libcurl doesn't do
+        # the same.
+        self.etag = None
+        self.last_modified = datetime.fromtimestamp(
+                int(os.fstat(self.fileno()).st_mtime), tzutc())
+    # pylint: enable=E1103
+
+
+class _PackageObject(object):
+    def __init__(self, zip, path, load_data=False):
         self._fh = zip.fp
+        self.url = self._fh.url
+        self.etag = self._fh.etag
+        self.last_modified = self._fh.last_modified
 
         # Calculate file offset and length
         try:
@@ -315,7 +347,7 @@ class Package(object):
             fh = _HttpFile(url, scheme=scheme, username=username,
                     password=password)
         elif parsed.scheme == 'file':
-            fh = open(parsed.path)
+            fh = _FileFile(url)
         else:
             raise ValueError('%s: URLs not supported' % parsed.scheme)
 
@@ -331,14 +363,13 @@ class Package(object):
 
             # Create attributes
             self.name = tree.get('name')
-            self.domain = _PackageObject(url, zip,
+            self.domain = _PackageObject(zip,
                     tree.find(NSP + 'domain').get('path'), True)
-            self.disk = _PackageObject(url, zip,
+            self.disk = _PackageObject(zip,
                     tree.find(NSP + 'disk').get('path'))
             memory = tree.find(NSP + 'memory')
             if memory is not None:
-                self.memory = _PackageObject(url, zip,
-                        memory.get('path'))
+                self.memory = _PackageObject(zip, memory.get('path'))
             else:
                 self.memory = None
         except etree.XMLSyntaxError, e:

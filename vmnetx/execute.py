@@ -15,6 +15,7 @@
 # for more details.
 #
 
+import json
 # pylint doesn't understand hashlib.sha256
 # pylint: disable=E0611
 from hashlib import sha256
@@ -54,26 +55,29 @@ class _ReferencedObject(object):
         self.size = info.size
         self.chunk_size = chunk_size
 
-        basepath = os.path.join(get_cache_dir(), 'chunks')
-        # Exclude query string from cache path
         parsed_url = urlsplit(self.url)
-        self._cache_url = urlunsplit((parsed_url.scheme, parsed_url.netloc,
-                parsed_url.path, '', ''))
-        self._urlpath = os.path.join(basepath,
-                sha256(self._cache_url).hexdigest())
+        self._cache_info = json.dumps({
+            # Exclude query string from cache path
+            'url': urlunsplit((parsed_url.scheme, parsed_url.netloc,
+                    parsed_url.path, '', '')),
+            'etag': info.etag,
+            'last-modified': info.last_modified.isoformat(),
+        }, indent=2, sort_keys=True)
+        self._urlpath = os.path.join(get_cache_dir(), 'chunks',
+                sha256(self._cache_info).hexdigest())
         # Hash collisions will allow cache poisoning!
         self.cache = os.path.join(self._urlpath, label, str(chunk_size))
     # pylint: enable=E1103
 
     @property
     def vmnetfs_args(self):
-        # Write URL into file for ease of debugging.  Defer creation of
-        # cache directory until needed.
+        # Write URL and validators into file for ease of debugging.
+        # Defer creation of cache directory until needed.
         ensure_dir(self._urlpath)
-        urlfile = os.path.join(self._urlpath, 'url')
-        if not os.path.exists(urlfile):
-            with open(urlfile, 'w') as fh:
-                fh.write('%s\n' % self._cache_url)
+        info_file = os.path.join(self._urlpath, 'info')
+        if not os.path.exists(info_file):
+            with open(info_file, 'w') as fh:
+                fh.write(self._cache_info)
         return [self.url, self.cache, str(self.offset), str(self.size),
                 str(self.chunk_size)]
 
