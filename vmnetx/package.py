@@ -15,6 +15,7 @@
 # for more details.
 #
 
+import dateutil.parser
 from lxml import etree
 from lxml.builder import ElementMaker
 import os
@@ -121,8 +122,8 @@ class _HttpFile(object):
                 raise _HttpError('Server did not provide Content-Length')
 
             # Store validators
-            self.etag = resp.headers.get('ETag')
-            self.last_modified = resp.headers.get('Last-Modified')
+            self.etag = self._get_etag(resp)
+            self.last_modified = self._get_last_modified(resp)
         except requests.exceptions.RequestException, e:
             raise _HttpError(str(e))
     # pylint: enable=E1103
@@ -137,6 +138,18 @@ class _HttpFile(object):
     def name(self):
         return '<%s>' % self._url
 
+    def _get_etag(self, resp):
+        etag = resp.headers.get('ETag')
+        if etag is None or etag.startswith('W/'):
+            return None
+        return etag
+
+    def _get_last_modified(self, resp):
+        try:
+            return dateutil.parser.parse(resp.headers['Last-Modified'])
+        except (KeyError, ValueError):
+            return None
+
     def _get(self, offset, size):
         range = '%d-%d' % (offset, offset + size - 1)
         self._last_network = range
@@ -149,8 +162,8 @@ class _HttpFile(object):
             resp.raise_for_status()
             if resp.status_code != 206:
                 raise _HttpError('Server ignored range request')
-            if (resp.headers.get('ETag') != self.etag or
-                    resp.headers.get('Last-Modified') != self.last_modified):
+            if (self._get_etag(resp) != self.etag or
+                    self._get_last_modified(resp) != self.last_modified):
                 raise _HttpError('Resource changed on server')
             return resp.content
         except requests.exceptions.RequestException, e:
