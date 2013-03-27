@@ -45,27 +45,25 @@
   </xs:simpleType>
   <xs:element name="domain">
     <xs:complexType>
-      <xs:complexContent>
-        <xs:extension base="ids">
-          <xs:choice minOccurs="0" maxOccurs="unbounded">
-            <xs:element name="description" type="xs:string"/>
-            <xs:element ref="cpu"/>
-            <xs:group ref="oshvm"/>
-            <xs:element ref="clock"/>
-            <xs:group ref="resources"/>
-            <xs:element ref="features"/>
-            <xs:group ref="termination"/>
-            <xs:element ref="devices"/>
-          </xs:choice>
-          <xs:attribute name="type" use="required">
-            <xs:simpleType>
-              <xs:restriction base="xs:token">
-                <xs:enumeration value="kvm"/>
-              </xs:restriction>
-            </xs:simpleType>
-          </xs:attribute>
-        </xs:extension>
-      </xs:complexContent>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element name="name" type="domainName"/>
+          <xs:element name="uuid" type="UUID"/>
+          <xs:element name="description" type="xs:string"/>
+          <xs:element ref="cpu"/>
+          <xs:group ref="oshvm"/>
+          <xs:element ref="clock"/>
+          <xs:group ref="resources"/>
+          <xs:element ref="features"/>
+          <xs:group ref="termination"/>
+          <xs:element ref="devices"/>
+        </xs:choice>
+        <xs:attribute name="type" use="required">
+          <xs:simpleType>
+            <xs:restriction base="xs:token">
+              <xs:enumeration value="kvm"/>
+            </xs:restriction>
+          </xs:simpleType>
+        </xs:attribute>
     </xs:complexType>
   </xs:element>
   <xs:group name="oshvm">
@@ -111,19 +109,6 @@
       </xs:element>
     </xs:sequence>
   </xs:group>
-  <!--
-    The Identifiers can be:
-    - a mandatory name
-    - an optional uuid
-  -->
-  <xs:complexType name="ids">
-    <xs:choice minOccurs="0" maxOccurs="unbounded">
-      <xs:element ref="name"/>
-      <xs:element ref="uuid"/>
-    </xs:choice>
-  </xs:complexType>
-  <xs:element name="name" type="domainName"/>
-  <xs:element name="uuid" type="UUID"/>
   <!--
     Resources usage defines the amount of memory (maximum and possibly
     current usage) and number of virtual CPUs used by that domain.
