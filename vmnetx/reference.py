@@ -57,7 +57,7 @@ class PackageReference(object):
     @classmethod
     def parse(cls, path):
         try:
-            tree = etree.parse(path, etree.XMLParser(schema=schema))
+            tree = etree.parse(path, etree.XMLParser(schema=schema)).getroot()
             return cls(url=tree.get('url'))
         except IOError, e:
             raise BadReferenceError(str(e))
