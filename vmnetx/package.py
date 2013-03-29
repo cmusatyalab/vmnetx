@@ -246,7 +246,7 @@ class _PackageObject(object):
         self.url = url
         self._fh = zip.fp
 
-        # Read offset and length from local file header
+        # Calculate file offset and length
         try:
             info = zip.getinfo(path)
         except KeyError:
@@ -258,7 +258,7 @@ class _PackageObject(object):
         header_fmt = '<4s5H3I2H'
         header_len = struct.calcsize(header_fmt)
         self._fh.seek(info.header_offset)
-        magic, _, flags, compression, _, _, _, size, _, name_len, extra_len = \
+        magic, _, flags, compression, _, _, _, _, _, name_len, extra_len = \
                 struct.unpack(header_fmt, self._fh.read(header_len))
         if magic != zipfile.stringFileHeader:
             raise BadPackageError('Member "%s" has invalid header' % path)
@@ -267,7 +267,7 @@ class _PackageObject(object):
         if flags & 0x1:
             raise BadPackageError('Member "%s" is encrypted' % path)
         self.offset = info.header_offset + header_len + name_len + extra_len
-        self.size = size
+        self.size = info.file_size
 
         if load_data:
             # Eagerly read file data into memory, since _HttpFile likely has
