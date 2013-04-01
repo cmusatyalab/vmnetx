@@ -222,6 +222,7 @@ def compress_machine(in_file, out_file, name=None):
         out_dir = os.path.dirname(out_file)
         temp_disk = NamedTemporaryFile(dir=out_dir, prefix='disk-')
         with NamedTemporaryFile(dir=out_dir, prefix='in-') as temp_in:
+            print 'Extracting disk image...'
             package.disk.write_to_file(temp_in)
             temp_in.flush()
             copy_disk(temp_in.name, domain.disk_type, temp_disk.name)
@@ -230,6 +231,7 @@ def compress_machine(in_file, out_file, name=None):
         if package.memory:
             temp_memory = NamedTemporaryFile(dir=out_dir, prefix='memory-')
             with NamedTemporaryFile(dir=out_dir, prefix='in-') as temp_in:
+                print 'Extracting memory image...'
                 package.memory.write_to_file(temp_in)
                 temp_in.flush()
                 copy_memory(temp_in.name, temp_memory.name, domain_xml)
