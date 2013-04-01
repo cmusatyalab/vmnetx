@@ -1,7 +1,7 @@
 /*
  * vmnetfs - virtual machine network execution virtual filesystem
  *
- * Copyright (C) 2006-2012 Carnegie Mellon University
+ * Copyright (C) 2006-2013 Carnegie Mellon University
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as published
@@ -26,7 +26,7 @@
 #include <errno.h>
 #include "vmnetfs-private.h"
 
-#define IMAGE_ARG_COUNT 5
+#define IMAGE_ARG_COUNT 7
 
 static void _image_free(struct vmnetfs_image *img)
 {
@@ -39,6 +39,7 @@ static void _image_free(struct vmnetfs_image *img)
     g_free(img->username);
     g_free(img->password);
     g_free(img->read_base);
+    g_free(img->etag);
     g_slice_free(struct vmnetfs_image, img);
 }
 
@@ -147,6 +148,15 @@ static struct vmnetfs_image *image_new(char **argv, const char *username,
         g_propagate_error(err, my_err);
         return NULL;
     }
+    const char *etag = argv[arg++];
+    if (strlen(etag) == 0) {
+        etag = NULL;
+    }
+    const time_t last_modified = parse_uint(argv[arg++], &my_err);
+    if (my_err) {
+        g_propagate_error(err, my_err);
+        return NULL;
+    }
 
     img = g_slice_new0(struct vmnetfs_image);
     img->url = g_strdup(url);
@@ -156,6 +166,8 @@ static struct vmnetfs_image *image_new(char **argv, const char *username,
     img->fetch_offset = offset;
     img->initial_size = size;
     img->chunk_size = chunk_size;
+    img->etag = g_strdup(etag);
+    img->last_modified = last_modified;
 
     img->io_stream = _vmnetfs_stream_group_new(NULL, NULL);
     img->bytes_read = _vmnetfs_stat_new();

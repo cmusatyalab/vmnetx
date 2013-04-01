@@ -39,6 +39,8 @@ struct vmnetfs_image {
     uint64_t fetch_offset;
     uint64_t initial_size;
     uint32_t chunk_size;
+    char *etag;
+    time_t last_modified;
 
     /* io */
     struct connection_pool *cpool;
@@ -183,8 +185,9 @@ bool _vmnetfs_transport_init(void);
 struct connection_pool *_vmnetfs_transport_pool_new(void);
 void _vmnetfs_transport_pool_free(struct connection_pool *cpool);
 bool _vmnetfs_transport_fetch(struct connection_pool *cpool, const char *url,
-        const char *username, const char *password, void *buf,
-        uint64_t offset, uint64_t length, GError **err);
+        const char *username, const char *password, const char *etag,
+        time_t last_modified, void *buf, uint64_t offset, uint64_t length,
+        GError **err);
 
 /* bitmap */
 struct bitmap_group *_vmnetfs_bit_group_new(uint64_t initial_bits);

@@ -15,6 +15,7 @@
 # for more details.
 #
 
+from calendar import timegm
 import json
 # pylint doesn't understand hashlib.sha256
 # pylint: disable=E0611
@@ -54,14 +55,16 @@ class _ReferencedObject(object):
         self.offset = info.offset
         self.size = info.size
         self.chunk_size = chunk_size
+        self.etag = info.etag
+        self.last_modified = info.last_modified
 
         parsed_url = urlsplit(self.url)
         self._cache_info = json.dumps({
             # Exclude query string from cache path
             'url': urlunsplit((parsed_url.scheme, parsed_url.netloc,
                     parsed_url.path, '', '')),
-            'etag': info.etag,
-            'last-modified': info.last_modified.isoformat(),
+            'etag': self.etag,
+            'last-modified': self.last_modified.isoformat(),
         }, indent=2, sort_keys=True)
         self._urlpath = os.path.join(get_cache_dir(), 'chunks',
                 sha256(self._cache_info).hexdigest())
@@ -78,8 +81,10 @@ class _ReferencedObject(object):
         if not os.path.exists(info_file):
             with open(info_file, 'w') as fh:
                 fh.write(self._cache_info)
+        last_modified = (str(timegm(self.last_modified.utctimetuple()))
+                if self.last_modified else '0')
         return [self.url, self.cache, str(self.offset), str(self.size),
-                str(self.chunk_size)]
+                str(self.chunk_size), self.etag or '', last_modified]
 
 
 class MachineMetadata(object):
