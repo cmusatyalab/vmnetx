@@ -94,10 +94,12 @@ class _QemuMemoryHeader(object):
 
 
 def copy_memory(in_path, out_path, xml=None, compress=True):
-    # Ensure the input is uncompressed, even if we will not be compressing
-    fin = open(in_path)
+    # Disable buffering on fin to ensure that the file offset inherited
+    # by xz is exactly what we pass to seek()
+    fin = open(in_path, 'r', 0)
     fout = open(out_path, 'w')
     hdr = _QemuMemoryHeader(fin)
+    # Ensure the input is uncompressed, even if we will not be compressing
     if hdr.compressed != hdr.COMPRESS_RAW:
         raise MachineGenerationError('Cannot recompress save format %d' %
                 hdr.compressed)
