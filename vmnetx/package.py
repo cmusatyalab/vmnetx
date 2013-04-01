@@ -147,9 +147,12 @@ class _HttpFile(object):
         return etag
 
     def _get_last_modified(self, resp):
+        last_modified = resp.headers.get('Last-Modified')
+        if last_modified is None:
+            return None
         try:
-            return dateutil.parser.parse(resp.headers['Last-Modified'])
-        except (KeyError, ValueError):
+            return dateutil.parser.parse(last_modified)
+        except ValueError:
             return None
 
     def _get(self, offset, size):

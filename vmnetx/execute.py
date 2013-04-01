@@ -64,7 +64,8 @@ class _ReferencedObject(object):
             'url': urlunsplit((parsed_url.scheme, parsed_url.netloc,
                     parsed_url.path, '', '')),
             'etag': self.etag,
-            'last-modified': self.last_modified.isoformat(),
+            'last-modified': self.last_modified.isoformat()
+                    if self.last_modified else None,
         }, indent=2, sort_keys=True)
         self._urlpath = os.path.join(get_cache_dir(), 'chunks',
                 sha256(self._cache_info).hexdigest())
