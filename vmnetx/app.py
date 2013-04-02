@@ -28,7 +28,8 @@ from vmnetx.package import NeedAuthentication
 from vmnetx.util import get_cache_dir
 from vmnetx.view import (VMWindow, LoadProgressWindow, PasswordWindow,
         SaveMediaWindow, ErrorWindow, FatalErrorWindow, ErrorBuffer)
-from vmnetx.status.monitor import ImageMonitor, LoadProgressMonitor
+from vmnetx.status.monitor import (ImageMonitor, LoadProgressMonitor,
+        LineStreamMonitor)
 
 class _UsernameCache(object):
     def __init__(self):
@@ -72,7 +73,7 @@ class VMNetXApp(object):
     # We intentionally catch all exceptions
     # pylint: disable=W0702
     def run(self):
-        disk_monitor = None
+        log_monitor = disk_monitor = None
         try:
             # Attempt to catch SIGTERM.  This is dubious, but not more so
             # than the default handling of SIGINT.
@@ -110,6 +111,7 @@ class VMNetXApp(object):
             self._have_memory = self._machine.memory_path is not None
 
             # Create monitors
+            log_monitor = LineStreamMonitor(self._machine.log_path)
             disk_monitor = ImageMonitor(self._machine.disk_path)
             if self._have_memory:
                 self._load_monitor = LoadProgressMonitor(
@@ -117,7 +119,8 @@ class VMNetXApp(object):
 
             # Show main window
             self._wind = VMWindow(self._machine.name,
-                    self._machine.vnc_listen_address, disk_monitor)
+                    self._machine.vnc_listen_address, log_monitor,
+                    disk_monitor)
             self._wind.connect('vnc-disconnect', self._restart)
             self._wind.connect('user-restart', self._user_restart)
             self._wind.connect('user-quit', self._shutdown)
@@ -147,6 +150,8 @@ class VMNetXApp(object):
                 self._wind.destroy()
             if disk_monitor is not None:
                 disk_monitor.close()
+            if log_monitor is not None:
+                log_monitor.close()
             if self._machine is not None:
                 self._machine.stop_vm()
                 self._machine.close()
@@ -219,6 +224,7 @@ class VMNetXApp(object):
 
     def _shutdown(self, _obj=None):
         self._wind.show_activity(False)
+        self._wind.show_log(False)
         self._wind.hide()
         gobject.idle_add(gtk.main_quit)
 

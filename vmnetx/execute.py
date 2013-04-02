@@ -137,6 +137,7 @@ class Machine(object):
         # Start vmnetfs
         self._fs = VMNetFS(metadata.vmnetfs_args)
         self._fs.start()
+        self.log_path = os.path.join(self._fs.mountpoint, 'log')
         self.disk_path = os.path.join(self._fs.mountpoint, 'disk')
         disk_image_path = os.path.join(self.disk_path, 'image')
         if metadata.package.memory:

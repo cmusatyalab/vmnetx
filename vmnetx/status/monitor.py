@@ -139,6 +139,18 @@ class _StreamMonitorBase(_Monitor):
             self._fh.close()
 
 
+class LineStreamMonitor(_StreamMonitorBase):
+    __gsignals__ = {
+        'line-emitted': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (gobject.TYPE_STRING,)),
+    }
+
+    def _handle_lines(self, lines):
+        for line in lines:
+            self.emit('line-emitted', line)
+gobject.type_register(LineStreamMonitor)
+
+
 class _RangeConsolidator(object):
     def __init__(self, callback):
         self._callback = callback

@@ -24,7 +24,7 @@ import socket
 import sys
 import traceback
 
-from vmnetx.status import ImageStatusWidget, LoadProgressWidget
+from vmnetx.status import ImageStatusWidget, LogWidget, LoadProgressWidget
 
 # pylint chokes on Gtk widgets, #112550
 # pylint: disable=R0924
@@ -139,7 +139,7 @@ class VMWindow(gtk.Window):
         'user-quit': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
-    def __init__(self, name, path, monitor):
+    def __init__(self, name, path, log_monitor, disk_monitor):
         gtk.Window.__init__(self)
         self._agrp = VMActionGroup(self)
         for sig in 'user-restart', 'user-quit':
@@ -152,7 +152,9 @@ class VMWindow(gtk.Window):
                 self._agrp.get_action('quit').activate() or True)
         self.connect('destroy', self._destroy)
 
-        self._activity = ActivityWindow(name, monitor,
+        self._log = LogWindow(name, log_monitor,
+                self._agrp.get_action('show-log'))
+        self._activity = ActivityWindow(name, disk_monitor,
                 self._agrp.get_action('show-activity'))
 
         box = gtk.VBox()
@@ -165,6 +167,7 @@ class VMWindow(gtk.Window):
         tbar.insert(gtk.SeparatorToolItem(), -1)
         tbar.insert(self._agrp.get_action('show-activity').create_tool_item(),
                 -1)
+        tbar.insert(self._agrp.get_action('show-log').create_tool_item(), -1)
         box.pack_start(tbar, expand=False)
 
         self._vnc = VNCWidget(path)
@@ -191,6 +194,12 @@ class VMWindow(gtk.Window):
             self._activity.show()
         else:
             self._activity.hide()
+
+    def show_log(self, enabled):
+        if enabled:
+            self._log.show()
+        else:
+            self._log.hide()
 
     def add_warning(self, icon, message):
         self._statusbar.add_warning(icon, message)
@@ -223,6 +232,7 @@ class VMWindow(gtk.Window):
         self.emit('user-screenshot', self._vnc.get_pixbuf())
 
     def _destroy(self, _wid):
+        self._log.destroy()
         self._activity.destroy()
 gobject.type_register(VMWindow)
 
@@ -250,6 +260,8 @@ class VMActionGroup(gtk.ActionGroup):
         self.add_toggle_actions((
             ('show-activity', 'gtk-properties', 'Activity', None,
                     'Show virtual machine activity', self._show_activity),
+            ('show-log', 'gtk-file', 'Log', None,
+                    'Show log', self._show_log),
         ), user_data=parent)
         self.set_vm_running(False)
 
@@ -282,7 +294,23 @@ class VMActionGroup(gtk.ActionGroup):
 
     def _show_activity(self, action, parent):
         parent.show_activity(action.get_active())
+
+    def _show_log(self, action, parent):
+        parent.show_log(action.get_active())
 gobject.type_register(VMActionGroup)
+
+
+class LogWindow(gtk.Window):
+    def __init__(self, name, monitor, hide_action):
+        gtk.Window.__init__(self)
+        self.set_title('Log: %s' % name)
+        self.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_UTILITY)
+        self.connect('delete-event',
+                lambda _wid, _ev: hide_action.activate() or True)
+
+        widget = LogWidget(monitor)
+        self.add(widget)
+        widget.show_all()
 
 
 class ActivityWindow(gtk.Window):
