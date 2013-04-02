@@ -143,6 +143,7 @@ void _vmnetfs_fuse_stats_populate(struct vmnetfs_fuse_dentry *dir,
     add_stat(bytes_written);
     add_stat(chunk_fetches);
     add_stat(chunk_dirties);
+    add_stat(io_errors);
 #undef add_stat
 
 #define add_fixed(n) _vmnetfs_fuse_add_file(stats, #n, &u64_fixed_ops, &img->n)

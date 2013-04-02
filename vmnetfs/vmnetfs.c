@@ -35,6 +35,7 @@ static void _image_free(struct vmnetfs_image *img)
     _vmnetfs_stat_free(img->bytes_written);
     _vmnetfs_stat_free(img->chunk_fetches);
     _vmnetfs_stat_free(img->chunk_dirties);
+    _vmnetfs_stat_free(img->io_errors);
     g_free(img->url);
     g_free(img->username);
     g_free(img->password);
@@ -174,6 +175,7 @@ static struct vmnetfs_image *image_new(char **argv, const char *username,
     img->bytes_written = _vmnetfs_stat_new();
     img->chunk_fetches = _vmnetfs_stat_new();
     img->chunk_dirties = _vmnetfs_stat_new();
+    img->io_errors = _vmnetfs_stat_new();
 
     if (!_vmnetfs_io_init(img, err)) {
         _image_free(img);
@@ -190,6 +192,7 @@ static void image_close(struct vmnetfs_image *img)
     _vmnetfs_stat_close(img->bytes_written);
     _vmnetfs_stat_close(img->chunk_fetches);
     _vmnetfs_stat_close(img->chunk_dirties);
+    _vmnetfs_stat_close(img->io_errors);
     _vmnetfs_stream_group_close(img->io_stream);
 }
 

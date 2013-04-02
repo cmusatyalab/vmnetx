@@ -70,7 +70,8 @@ gobject.type_register(_StatMonitor)
 
 
 class _IntStatMonitor(_StatMonitor):
-    STATS = ('bytes_read', 'bytes_written', 'chunk_dirties', 'chunk_fetches')
+    STATS = ('bytes_read', 'bytes_written', 'chunk_dirties', 'chunk_fetches',
+            'io_errors')
 
     __gsignals__ = {
         'stat-changed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,

@@ -87,6 +87,7 @@ static int image_truncate(void *dentry_ctx, uint64_t size)
         } else {
             g_warning("%s", err->message);
             g_clear_error(&err);
+            _vmnetfs_u64_stat_increment(img->io_errors, 1);
             return -EIO;
         }
     }
@@ -126,6 +127,7 @@ static int image_read(struct vmnetfs_fuse_fh *fh, void *buf, uint64_t start,
             } else {
                 g_warning("%s", err->message);
                 g_clear_error(&err);
+                _vmnetfs_u64_stat_increment(img->io_errors, 1);
                 return (int) (cur.buf_offset + read) ?: -EIO;
             }
         }
@@ -155,6 +157,7 @@ static int image_write(struct vmnetfs_fuse_fh *fh, const void *buf,
             } else {
                 g_warning("%s", err->message);
                 g_clear_error(&err);
+                _vmnetfs_u64_stat_increment(img->io_errors, 1);
                 return (int) (cur.buf_offset + written) ?: -EIO;
             }
         }
