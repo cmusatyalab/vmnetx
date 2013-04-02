@@ -69,6 +69,7 @@ class VMNetXApp(object):
         self._load_monitor = None
         self._load_window = None
         self._startup_cancelled = False
+        self._io_failed = False
 
     # We intentionally catch all exceptions
     # pylint: disable=W0702
@@ -126,6 +127,8 @@ class VMNetXApp(object):
             self._wind.connect('user-quit', self._shutdown)
             self._wind.connect('user-screenshot', self._screenshot)
             self._wind.show_all()
+            disk_monitor.stats['io_errors'].connect('stat-changed',
+                    self._io_error)
 
             # Show loading window
             if self._have_memory:
@@ -213,6 +216,14 @@ class VMNetXApp(object):
             ew.run()
             ew.destroy()
         self._shutdown()
+
+    def _io_error(self, _monitor, _name, _value):
+        # Runs in UI thread
+        if not self._io_failed:
+            self._io_failed = True
+            self._wind.add_warning('dialog-error',
+                    'Unable to download disk chunks. ' +
+                    'The guest may experience errors.')
 
     def _user_restart(self, _obj):
         # Just terminate the VM; the vnc-disconnect handler will restart it
