@@ -482,6 +482,18 @@ class ErrorWindow(gtk.MessageDialog):
         self.format_secondary_text(message)
 
 
+class IgnorableErrorWindow(gtk.MessageDialog):
+    def __init__(self, parent, message):
+        gtk.MessageDialog.__init__(self, parent=parent,
+                flags=gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
+                type=gtk.MESSAGE_ERROR, buttons=gtk.BUTTONS_NONE,
+                message_format='Error')
+        self.format_secondary_text(message)
+        self.add_buttons('Continue', gtk.RESPONSE_CANCEL,
+                gtk.STOCK_QUIT, gtk.RESPONSE_OK)
+        self.set_default_response(gtk.RESPONSE_OK)
+
+
 class ErrorBuffer(object):
     def __init__(self):
         exception = sys.exc_info()[1]

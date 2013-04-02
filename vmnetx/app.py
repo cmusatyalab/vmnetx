@@ -27,7 +27,8 @@ from vmnetx.execute import Machine, MachineMetadata
 from vmnetx.package import NeedAuthentication
 from vmnetx.util import get_cache_dir
 from vmnetx.view import (VMWindow, LoadProgressWindow, PasswordWindow,
-        SaveMediaWindow, ErrorWindow, FatalErrorWindow, ErrorBuffer)
+        SaveMediaWindow, ErrorWindow, FatalErrorWindow, IgnorableErrorWindow,
+        ErrorBuffer)
 from vmnetx.status.monitor import (ImageMonitor, LoadProgressMonitor,
         LineStreamMonitor)
 
@@ -224,6 +225,14 @@ class VMNetXApp(object):
             self._wind.add_warning('dialog-error',
                     'Unable to download disk chunks. ' +
                     'The guest may experience errors.')
+            ew = IgnorableErrorWindow(self._wind,
+                    'Unable to download disk chunks.\n\nYou may continue, ' +
+                    'but the guest will likely encounter unrecoverable ' +
+                    'errors.')
+            response = ew.run()
+            ew.destroy()
+            if response == gtk.RESPONSE_OK:
+                self._shutdown()
 
     def _user_restart(self, _obj):
         # Just terminate the VM; the vnc-disconnect handler will restart it
