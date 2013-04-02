@@ -94,35 +94,7 @@ class _DummyStatMonitor(_StatMonitor):
         return value
 
 
-class _RangeConsolidator(object):
-    def __init__(self, callback):
-        self._callback = callback
-        self._first = None
-        self._last = None
-
-    def __enter__(self):
-        return self
-
-    def emit(self, value):
-        if self._last == value - 1:
-            self._last = value
-        else:
-            if self._first is not None:
-                self._callback(self._first, self._last)
-            self._first = self._last = value
-
-    def __exit__(self, _exc_type, _exc_val, _exc_tb):
-        if self._first is not None:
-            self._callback(self._first, self._last)
-        return False
-
-
-class _ChunkStreamMonitor(_Monitor):
-    __gsignals__ = {
-        'chunk-emitted': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_UINT64, gobject.TYPE_UINT64)),
-    }
-
+class _StreamMonitorBase(_Monitor):
     def __init__(self, path):
         _Monitor.__init__(self)
         # We need to set O_NONBLOCK in open() because FUSE doesn't pass
@@ -151,13 +123,12 @@ class _ChunkStreamMonitor(_Monitor):
             lines = (self._buf + buf).split('\n')
             # Save partial last line, if any
             self._buf = lines.pop()
-            # Emit chunks
-            def emit_range(first, last):
-                self.emit('chunk-emitted', first, last)
-            with _RangeConsolidator(emit_range) as c:
-                for line in lines:
-                    c.emit(int(line))
+            # Process lines
+            self._handle_lines(lines)
         return True
+
+    def _handle_lines(self, lines):
+        raise NotImplementedError()
 
     def update(self):
         self._read()
@@ -166,6 +137,43 @@ class _ChunkStreamMonitor(_Monitor):
         if not self._fh.closed:
             glib.source_remove(self._source)
             self._fh.close()
+
+
+class _RangeConsolidator(object):
+    def __init__(self, callback):
+        self._callback = callback
+        self._first = None
+        self._last = None
+
+    def __enter__(self):
+        return self
+
+    def emit(self, value):
+        if self._last == value - 1:
+            self._last = value
+        else:
+            if self._first is not None:
+                self._callback(self._first, self._last)
+            self._first = self._last = value
+
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
+        if self._first is not None:
+            self._callback(self._first, self._last)
+        return False
+
+
+class _ChunkStreamMonitor(_StreamMonitorBase):
+    __gsignals__ = {
+        'chunk-emitted': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (gobject.TYPE_UINT64, gobject.TYPE_UINT64)),
+    }
+
+    def _handle_lines(self, lines):
+        def emit_range(first, last):
+            self.emit('chunk-emitted', first, last)
+        with _RangeConsolidator(emit_range) as c:
+            for line in lines:
+                c.emit(int(line))
 gobject.type_register(_ChunkStreamMonitor)
 
 
