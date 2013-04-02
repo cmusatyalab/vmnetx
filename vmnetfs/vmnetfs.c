@@ -228,6 +228,7 @@ static gboolean read_stdin(GIOChannel *source G_GNUC_UNUSED,
     if (fs->memory != NULL) {
         image_close(fs->memory);
     }
+    _vmnetfs_log_close(fs->log);
     _vmnetfs_fuse_terminate(fs->fuse);
     return FALSE;
 }
@@ -312,6 +313,9 @@ static void child(FILE *pipe)
         arg += IMAGE_ARG_COUNT;
     }
 
+    /* Set up logging */
+    fs->log = _vmnetfs_log_init();
+
     /* Set up fuse */
     fs->fuse = _vmnetfs_fuse_new(fs, &err);
     if (err) {
@@ -359,6 +363,7 @@ out:
     _vmnetfs_fuse_free(fs->fuse);
     image_free(fs->disk);
     image_free(fs->memory);
+    _vmnetfs_log_destroy(fs->log);
     g_slice_free(struct vmnetfs, fs);
     g_strfreev(argv);
     g_io_channel_unref(chan);

@@ -350,6 +350,7 @@ struct vmnetfs_fuse *_vmnetfs_fuse_new(struct vmnetfs *fs, GError **err)
     if (fs->memory != NULL) {
         add_image(fuse->root, fs->memory, "memory");
     }
+    _vmnetfs_fuse_stream_populate_log(fuse->root, fs->log, "log");
 
     /* Construct mountpoint */
     runtime_dir = getenv("XDG_RUNTIME_DIR");

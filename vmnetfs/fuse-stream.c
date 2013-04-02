@@ -97,3 +97,10 @@ void _vmnetfs_fuse_stream_populate(struct vmnetfs_fuse_dentry *dir,
             _vmnetfs_bit_get_stream_group(img->modified_map));
     _vmnetfs_fuse_add_file(streams, "io", &stream_ops, img->io_stream);
 }
+
+void _vmnetfs_fuse_stream_populate_log(struct vmnetfs_fuse_dentry *dir,
+        struct vmnetfs_log *log, const char *name)
+{
+    _vmnetfs_fuse_add_file(dir, name, &stream_ops,
+            _vmnetfs_log_get_stream_group(log));
+}

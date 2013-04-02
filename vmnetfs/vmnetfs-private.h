@@ -28,6 +28,7 @@ struct vmnetfs {
     struct vmnetfs_image *disk;
     struct vmnetfs_image *memory;
     struct vmnetfs_fuse *fuse;
+    struct vmnetfs_log *log;
     GMainLoop *glib_loop;
 };
 
@@ -142,6 +143,8 @@ void _vmnetfs_fuse_stats_populate(struct vmnetfs_fuse_dentry *dir,
         struct vmnetfs_image *img);
 void _vmnetfs_fuse_stream_populate(struct vmnetfs_fuse_dentry *dir,
         struct vmnetfs_image *img);
+void _vmnetfs_fuse_stream_populate_log(struct vmnetfs_fuse_dentry *dir,
+        struct vmnetfs_log *log, const char *name);
 bool _vmnetfs_interrupted(void);
 
 /* io */
@@ -246,6 +249,13 @@ void _vmnetfs_cond_free(struct vmnetfs_cond *cond);
 bool _vmnetfs_cond_wait(struct vmnetfs_cond *cond, GMutex *lock);
 void _vmnetfs_cond_signal(struct vmnetfs_cond *cond);
 void _vmnetfs_cond_broadcast(struct vmnetfs_cond *cond);
+
+/* log */
+struct vmnetfs_log *_vmnetfs_log_init(void);
+struct vmnetfs_stream_group *_vmnetfs_log_get_stream_group(
+        struct vmnetfs_log *log);
+void _vmnetfs_log_close(struct vmnetfs_log *log);
+void _vmnetfs_log_destroy(struct vmnetfs_log *log);
 
 /* utility */
 GQuark _vmnetfs_config_error_quark(void);

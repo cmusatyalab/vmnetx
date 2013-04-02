@@ -10,11 +10,22 @@ dist_bin_SCRIPTS = tools/vmnetx \
 	tools/vmnetx-generate
 
 pkglibexec_PROGRAMS = vmnetfs/vmnetfs
-vmnetfs_vmnetfs_SOURCES  = vmnetfs/bitmap.c vmnetfs/cond.c vmnetfs/fuse.c \
-	vmnetfs/fuse-image.c vmnetfs/fuse-stats.c vmnetfs/fuse-stream.c \
-	vmnetfs/io.c vmnetfs/ll-modified.c vmnetfs/ll-pristine.c \
-	vmnetfs/pollable.c vmnetfs/stats.c vmnetfs/stream.c \
-	vmnetfs/transport.c vmnetfs/util.c vmnetfs/vmnetfs.c \
+vmnetfs_vmnetfs_SOURCES = vmnetfs/bitmap.c \
+	vmnetfs/cond.c \
+	vmnetfs/fuse.c \
+	vmnetfs/fuse-image.c \
+	vmnetfs/fuse-stats.c \
+	vmnetfs/fuse-stream.c \
+	vmnetfs/io.c \
+	vmnetfs/ll-modified.c \
+	vmnetfs/ll-pristine.c \
+	vmnetfs/log.c \
+	vmnetfs/pollable.c \
+	vmnetfs/stats.c \
+	vmnetfs/stream.c \
+	vmnetfs/transport.c \
+	vmnetfs/util.c \
+	vmnetfs/vmnetfs.c \
 	vmnetfs/vmnetfs-private.h
 
 nobase_python_PYTHON = vmnetx/__init__.py \
