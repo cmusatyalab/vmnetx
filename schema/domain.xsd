@@ -339,10 +339,6 @@
         <xs:simpleType>
           <xs:restriction base="xs:token">
             <xs:enumeration value="auto"/>
-            <xs:enumeration value="buslogic"/>
-            <xs:enumeration value="lsilogic"/>
-            <xs:enumeration value="lsisas1068"/>
-            <xs:enumeration value="vmpvscsi"/>
             <xs:enumeration value="piix3-uhci"/>
             <xs:enumeration value="piix4-uhci"/>
             <xs:enumeration value="ehci"/>
@@ -350,8 +346,6 @@
             <xs:enumeration value="ich9-uhci1"/>
             <xs:enumeration value="ich9-uhci2"/>
             <xs:enumeration value="ich9-uhci3"/>
-            <xs:enumeration value="vt82c686b-uhci"/>
-            <xs:enumeration value="pci-ohci"/>
           </xs:restriction>
         </xs:simpleType>
       </xs:attribute>
@@ -425,9 +419,6 @@
                 <xs:restriction base="xs:token">
                   <xs:enumeration value="vga"/>
                   <xs:enumeration value="cirrus"/>
-                  <xs:enumeration value="vmvga"/>
-                  <xs:enumeration value="xen"/>
-                  <xs:enumeration value="vbox"/>
                   <xs:enumeration value="qxl"/>
                 </xs:restriction>
               </xs:simpleType>
@@ -531,7 +522,6 @@
       <xs:attribute name="model" use="required">
         <xs:simpleType>
           <xs:restriction base="xs:token">
-            <xs:enumeration value="sb16"/>
             <xs:enumeration value="es1370"/>
             <xs:enumeration value="pcspk"/>
             <xs:enumeration value="ac97"/>
