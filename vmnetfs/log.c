@@ -126,6 +126,8 @@ void _vmnetfs_log_close(struct vmnetfs_log *log)
 /* Modifies global state: the glib log handler. */
 void _vmnetfs_log_destroy(struct vmnetfs_log *log)
 {
+    char *message;
+
     if (log == NULL) {
         return;
     }
@@ -133,7 +135,10 @@ void _vmnetfs_log_destroy(struct vmnetfs_log *log)
     _vmnetfs_stream_group_free(log->sgrp);
     g_mutex_lock(log->lock);
     if (log->messages != NULL) {
-        g_queue_free_full(log->messages, g_free);
+        while ((message = g_queue_pop_head(log->messages)) != NULL) {
+            g_free(message);
+        }
+        g_queue_free(log->messages);
     }
     g_mutex_unlock(log->lock);
     g_mutex_free(log->lock);
