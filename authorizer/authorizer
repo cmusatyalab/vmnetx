@@ -52,12 +52,20 @@ class Authorizer(dbus.service.Object):
         }
 
         self._timeout = None
+        self._pending = 0
         self._poke_timeout()
 
     def _poke_timeout(self):
         if self._timeout:
             glib.source_remove(self._timeout)
-        self._timeout = glib.timeout_add_seconds(self.TIMEOUT, self._loop.quit)
+        self._timeout = glib.timeout_add_seconds(self.TIMEOUT,
+                self._timeout_expired)
+
+    def _timeout_expired(self):
+        if self._pending:
+            self._poke_timeout()
+        else:
+            self._loop.quit()
 
     @dbus.service.method(dbus_interface=BUS_IFACE, out_signature='as',
             sender_keyword='sender', async_callbacks=('success', 'error'))
@@ -124,6 +132,9 @@ class Authorizer(dbus.service.Object):
 
         # Define authorization callbacks
         def reply_cb(result):
+            # Decrement refcount
+            self._pending -= 1
+
             # Check result
             is_authorized, is_challenge, _ = result
             if not is_authorized:
@@ -147,12 +158,17 @@ class Authorizer(dbus.service.Object):
                 error(DBusException(str(e)))
             success(needed_groups)
         def error_cb(exception):
+            self._pending -= 1
             error(exception)
 
         # Start polkit authorization
+        self._pending += 1
+        # We would like an infinite timeout, but dbus-python won't allow it.
+        # Pass the longest timeout dbus-python will accept.
         self._polkit_iface.CheckAuthorization(
                 ('system-bus-name', {'name': sender}), self.POLKIT_ACTION,
-                {}, 0x1, '', reply_handler=reply_cb, error_handler=error_cb)
+                {}, 0x1, '', reply_handler=reply_cb, error_handler=error_cb,
+                timeout=2147483)
 
 
 if __name__ == '__main__':

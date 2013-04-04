@@ -180,7 +180,10 @@ class VMNetXApp(object):
         try:
             obj = dbus.SystemBus().get_object(self.AUTHORIZER_NAME,
                     self.AUTHORIZER_PATH)
-            groups = obj.EnableFUSEAccess(dbus_interface=self.AUTHORIZER_IFACE)
+            # We would like an infinite timeout, but dbus-python won't allow
+            # it.  Pass the longest timeout dbus-python will accept.
+            groups = obj.EnableFUSEAccess(dbus_interface=self.AUTHORIZER_IFACE,
+                    timeout=2147483)
         except dbus.exceptions.DBusException, e:
             # dbus-python exception handling is problematic.
             if 'Authorization failed' in str(e):
