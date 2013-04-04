@@ -1,0 +1,162 @@
+#!/usr/bin/env python
+#
+# Ensure the calling user has access to mount/unmount FUSE filesystems.
+#
+# Copyright (C) 2010-2013 Carnegie Mellon University
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of version 2 of the GNU General Public License as published
+# by the Free Software Foundation.  A copy of the GNU General Public License
+# should have been distributed along with this program in the file
+# LICENSE.GPL.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# for more details.
+#
+
+import dbus
+from dbus.mainloop.glib import DBusGMainLoop
+import dbus.service
+from dbus import DBusException
+import glib
+import gobject
+import grp
+import os
+import pwd
+import subprocess
+
+class Authorizer(dbus.service.Object):
+    BUS_NAME = 'org.olivearchive.VMNetX.Authorizer'
+    BUS_PATH = '/org/olivearchive/VMNetX/Authorizer'
+    BUS_IFACE = 'org.olivearchive.VMNetX.Authorizer'
+    POLKIT_ACTION = 'org.olivearchive.vmnetx.authorizer.configure'
+    TIMEOUT = 120
+
+    def __init__(self, loop, bus):
+        self._loop = loop
+        dbus.service.Object.__init__(self,
+                dbus.service.BusName(self.BUS_NAME, bus=bus), self.BUS_PATH)
+        self._dbus_iface = dbus.Interface(
+                bus.get_object('org.freedesktop.DBus',
+                '/org/freedesktop/DBus'), 'org.freedesktop.DBus')
+        self._polkit_iface = dbus.Interface(
+                bus.get_object('org.freedesktop.PolicyKit1',
+                '/org/freedesktop/PolicyKit1/Authority'),
+                'org.freedesktop.PolicyKit1.Authority')
+
+        # D-Bus activation completely empties our environment
+        self._env = {
+            'PATH': '/usr/bin:/bin:/usr/sbin:/sbin',
+        }
+
+        self._timeout = None
+        self._poke_timeout()
+
+    def _poke_timeout(self):
+        if self._timeout:
+            glib.source_remove(self._timeout)
+        self._timeout = glib.timeout_add_seconds(self.TIMEOUT, self._loop.quit)
+
+    @dbus.service.method(dbus_interface=BUS_IFACE, out_signature='as',
+            sender_keyword='sender', async_callbacks=('success', 'error'))
+    def EnableFUSEAccess(self, sender, success, error):
+        '''Ensure the sender can use FUSE.  Return a list of Unix groups
+        that the sender must be a member of.'''
+
+        self._poke_timeout()
+        needed_groups = []
+
+        # Check access permissions on /dev/fuse
+        try:
+            st = os.stat('/dev/fuse')
+        except OSError:
+            raise DBusException('/dev/fuse does not exist')
+        if st.st_mode & 0006 == 0006:
+            # World-accessible
+            pass
+        elif st.st_mode & 0060 != 0060:
+            # Group-accessible
+            needed_groups.append(st.st_gid)
+        else:
+            raise DBusException("Unusual permissions %od on /dev/fuse" %
+                    st.st_mode)
+
+        # Check access permissions on fusermount
+        try:
+            # Hardcode path, as libfuse does.  This is likely, but not
+            # guaranteed, to be the path that libfuse uses.  If not, give up.
+            st = os.stat('/usr/bin/fusermount')
+        except OSError:
+            raise DBusException("Couldn't locate fusermount")
+        if st.st_mode & 0001:
+            # World-executable
+            pass
+        elif st.st_mode & 0010:
+            # Group-executable
+            needed_groups.append(st.st_gid)
+        else:
+            raise DBusException("Unusual permissions %od on fusermount" %
+                    st.st_mode)
+
+        # Early exit if fusermount and /dev/fuse are world-accessible.
+        # Avoids unnecessary problems with complicated NSS configs.
+        if not needed_groups:
+            success([])
+            return
+
+        # Get username and missing groups
+        uid = self._dbus_iface.GetConnectionUnixUser(sender)
+        try:
+            username = pwd.getpwuid(uid).pw_name
+            groups = [grp.getgrgid(g) for g in needed_groups]
+            needed_groups = [g.gr_name for g in groups]
+            missing_groups = [g.gr_name for g in groups
+                    if username not in g.gr_mem]
+        except KeyError:
+            raise DBusException("User or group could not be found")
+
+        # Early exit if the user is already in the necessary groups
+        if not missing_groups:
+            success(needed_groups)
+            return
+
+        # Define authorization callbacks
+        def reply_cb(result):
+            # Check result
+            is_authorized, is_challenge, _ = result
+            if not is_authorized:
+                if is_challenge:
+                    error(DBusException('Unable to authenticate'))
+                else:
+                    error(DBusException('Authorization failed'))
+                return
+
+            # Add user to groups
+            try:
+                with open('/dev/null', 'w+') as null:
+                    for group in missing_groups:
+                        ret = subprocess.call(['usermod', '-a', '-G', group,
+                                username], stdout=null, stderr=null,
+                                env=self._env)
+                        if ret:
+                            error(DBusException(
+                                    "Couldn't add user to group %s" % group))
+            except Exception, e:
+                error(DBusException(str(e)))
+            success(needed_groups)
+        def error_cb(exception):
+            error(exception)
+
+        # Start polkit authorization
+        self._polkit_iface.CheckAuthorization(
+                ('system-bus-name', {'name': sender}), self.POLKIT_ACTION,
+                {}, 0x1, '', reply_handler=reply_cb, error_handler=error_cb)
+
+
+if __name__ == '__main__':
+    loop = gobject.MainLoop()
+    DBusGMainLoop(set_as_default=True)
+    authorizer = Authorizer(loop, dbus.SystemBus())
+    loop.run()

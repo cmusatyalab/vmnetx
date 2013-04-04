@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.olivearchive.VMNetX.Authorizer
+Exec=@pkglibexecdir@/authorizer
+User=root

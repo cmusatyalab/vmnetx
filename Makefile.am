@@ -58,10 +58,24 @@ mimedir = $(datarootdir)/mime/packages
 dist_applications_DATA = desktop/vmnetx.desktop
 dist_mime_DATA = desktop/vmnetx.xml
 
+dbusconfdir = $(sysconfdir)/dbus-1/system.d
+dbusservicedir = $(datarootdir)/dbus-1/system-services
+polkitactiondir = $(datarootdir)/polkit-1/actions
+dist_pkglibexec_SCRIPTS = authorizer/authorizer
+dist_dbusconf_DATA = authorizer/org.olivearchive.VMNetX.Authorizer.conf
+dbusservice_DATA = authorizer/org.olivearchive.VMNetX.Authorizer.service
+dist_polkitaction_DATA = authorizer/org.olivearchive.VMNetX.Authorizer.policy
+CLEANFILES += authorizer/org.olivearchive.VMNetX.Authorizer.service
+EXTRA_DIST += authorizer/org.olivearchive.VMNetX.Authorizer.service.in
+
 vmnetx/system.py: vmnetx/system.py.in Makefile
 	$(MKDIR_P) vmnetx
 	$(AM_V_GEN) sed -e "s:@pkglibexecdir@:$(pkglibexecdir):g" \
 		-e "s:@version@:$(VERSION):g" $< > $@
+
+%.service: %.service.in Makefile
+	$(MKDIR_P) authorizer
+	$(AM_V_GEN) sed -e "s:@pkglibexecdir@:$(pkglibexecdir):g" $< > $@
 
 update-databases:
 	-update-mime-database $(datarootdir)/mime

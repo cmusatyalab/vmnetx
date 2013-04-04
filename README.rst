@@ -26,6 +26,7 @@ You will need:
 * dateutil
 * gtk-vnc Python bindings
 * libvirt Python bindings
+* dbus-python
 * libcurl
 * libfuse
 * lxml
