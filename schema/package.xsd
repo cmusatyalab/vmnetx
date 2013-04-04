@@ -24,7 +24,7 @@ for more details.
 
   <xsd:element name="image" type="ImageSpec">
     <xsd:annotation><xsd:documentation>
-A VMNetX virtual machine image.
+      A VMNetX virtual machine image.
     </xsd:documentation></xsd:annotation>
   </xsd:element>
 
@@ -32,34 +32,34 @@ A VMNetX virtual machine image.
     <xsd:all>
       <xsd:element name="domain" type="Resource">
         <xsd:annotation><xsd:documentation>
-The libvirt domain XML for this virtual machine.
+          The libvirt domain XML for this virtual machine.
         </xsd:documentation></xsd:annotation>
       </xsd:element>
       <xsd:element name="disk" type="Resource">
         <xsd:annotation><xsd:documentation>
-The disk image for this virtual machine.
+          The disk image for this virtual machine.
         </xsd:documentation></xsd:annotation>
       </xsd:element>
       <xsd:element name="memory" type="Resource" minOccurs="0">
         <xsd:annotation><xsd:documentation>
-The libvirt QEMU memory image for this virtual machine.
+          The libvirt QEMU memory image for this virtual machine.
         </xsd:documentation></xsd:annotation>
       </xsd:element>
     </xsd:all>
     <xsd:attribute name="name" type="xsd:string" use="required">
       <xsd:annotation><xsd:documentation>
-The virtual machine name to be shown to the user.
+        The virtual machine name to be shown to the user.
       </xsd:documentation></xsd:annotation>
     </xsd:attribute>
   </xsd:complexType>
 
   <xsd:complexType name="Resource">
     <xsd:annotation><xsd:documentation>
-A file within the package.
+      A file within the package.
     </xsd:documentation></xsd:annotation>
     <xsd:attribute name="path" type="xsd:string" use="required">
       <xsd:annotation><xsd:documentation>
-The path of the resource within the package.
+        The path of the resource within the package.
       </xsd:documentation></xsd:annotation>
     </xsd:attribute>
   </xsd:complexType>
