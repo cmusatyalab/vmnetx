@@ -69,12 +69,12 @@ CLEANFILES += authorizer/org.olivearchive.VMNetX.Authorizer.service
 EXTRA_DIST += authorizer/org.olivearchive.VMNetX.Authorizer.service.in
 
 vmnetx/system.py: vmnetx/system.py.in Makefile
-	$(MKDIR_P) vmnetx
+	$(AM_V_at)$(MKDIR_P) vmnetx
 	$(AM_V_GEN) sed -e "s:@pkglibexecdir@:$(pkglibexecdir):g" \
 		-e "s:@version@:$(VERSION):g" $< > $@
 
 %.service: %.service.in Makefile
-	$(MKDIR_P) authorizer
+	$(AM_V_at)$(MKDIR_P) authorizer
 	$(AM_V_GEN) sed -e "s:@pkglibexecdir@:$(pkglibexecdir):g" $< > $@
 
 update-databases:
