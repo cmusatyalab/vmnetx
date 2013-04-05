@@ -44,7 +44,7 @@ class PackageReference(object):
         # Generate XML
         e = ElementMaker(namespace=NS, nsmap={None: NS})
         tree = e.reference(
-            url=self.url,
+            e.url(self.url),
         )
         try:
             schema.assertValid(tree)

@@ -29,11 +29,13 @@ for more details.
   </xsd:element>
 
   <xsd:complexType name="ReferenceSpec">
-    <xsd:attribute name="url" type="httpURL" use="required">
-      <xsd:annotation><xsd:documentation>
-        The URL of the virtual machine image.
-      </xsd:documentation></xsd:annotation>
-    </xsd:attribute>
+    <xsd:all>
+      <xsd:element name="url" type="httpURL">
+        <xsd:annotation><xsd:documentation>
+          The URL of the virtual machine image.
+        </xsd:documentation></xsd:annotation>
+      </xsd:element>
+    </xsd:all>
   </xsd:complexType>
 
   <xsd:simpleType name="httpURL">
