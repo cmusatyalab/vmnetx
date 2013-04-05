@@ -25,8 +25,7 @@
 #include "config.h"
 
 struct vmnetfs {
-    struct vmnetfs_image *disk;
-    struct vmnetfs_image *memory;
+    GHashTable *images;
     struct vmnetfs_fuse *fuse;
     struct vmnetfs_log *log;
     GMainLoop *glib_loop;

@@ -44,11 +44,10 @@ static void _image_free(struct vmnetfs_image *img)
     g_slice_free(struct vmnetfs_image, img);
 }
 
-static void image_free(struct vmnetfs_image *img)
+static void image_free(void *data)
 {
-    if (img == NULL) {
-        return;
-    }
+    struct vmnetfs_image *img = data;
+
     _vmnetfs_io_destroy(img);
     _image_free(img);
 }
@@ -185,8 +184,11 @@ static struct vmnetfs_image *image_new(char **argv, const char *username,
     return img;
 }
 
-static void image_close(struct vmnetfs_image *img)
+static void image_close(void *key G_GNUC_UNUSED, void *value,
+        void *data G_GNUC_UNUSED)
 {
+    struct vmnetfs_image *img = value;
+
     _vmnetfs_io_close(img);
     _vmnetfs_stat_close(img->bytes_read);
     _vmnetfs_stat_close(img->bytes_written);
@@ -227,10 +229,7 @@ static gboolean read_stdin(GIOChannel *source G_GNUC_UNUSED,
        correctness, this should disallow new image opens, wait for existing
        image fds to close, disallow new stream opens and blocking reads,
        then lazy unmount. */
-    image_close(fs->disk);
-    if (fs->memory != NULL) {
-        image_close(fs->memory);
-    }
+    g_hash_table_foreach(fs->images, image_close, NULL);
     _vmnetfs_log_close(fs->log);
     _vmnetfs_fuse_terminate(fs->fuse);
     return FALSE;
@@ -247,6 +246,7 @@ static gboolean shutdown_callback(void *data)
 static void child(FILE *pipe)
 {
     struct vmnetfs *fs;
+    struct vmnetfs_image *img;
     GThread *loop_thread = NULL;
     GIOChannel *chan;
     GIOFlags flags;
@@ -297,22 +297,28 @@ static void child(FILE *pipe)
         password = NULL;
     }
 
-    /* Set up disk */
+    /* Set up fs */
     fs = g_slice_new0(struct vmnetfs);
-    fs->disk = image_new(argv + arg, username, password, &err);
+    fs->images = g_hash_table_new_full(g_str_hash, g_str_equal, g_free,
+            image_free);
+
+    /* Set up disk */
+    img = image_new(argv + arg, username, password, &err);
     if (err) {
         fprintf(pipe, "%s\n", err->message);
         goto out;
     }
+    g_hash_table_insert(fs->images, g_strdup("disk"), img);
     arg += IMAGE_ARG_COUNT;
 
     /* Set up memory */
     if (images > 1) {
-        fs->memory = image_new(argv + arg, username, password, &err);
+        img = image_new(argv + arg, username, password, &err);
         if (err) {
             fprintf(pipe, "%s\n", err->message);
             goto out;
         }
+        g_hash_table_insert(fs->images, g_strdup("memory"), img);
         arg += IMAGE_ARG_COUNT;
     }
 
@@ -364,8 +370,7 @@ out:
         g_thread_join(loop_thread);
     }
     _vmnetfs_fuse_free(fs->fuse);
-    image_free(fs->disk);
-    image_free(fs->memory);
+    g_hash_table_destroy(fs->images);
     _vmnetfs_log_destroy(fs->log);
     g_slice_free(struct vmnetfs, fs);
     g_strfreev(argv);

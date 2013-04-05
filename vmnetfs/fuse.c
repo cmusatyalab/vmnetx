@@ -293,15 +293,20 @@ static int do_readdir(const char *path G_GNUC_UNUSED, void *buf,
     return fill.failed ? -EIO : 0;
 }
 
+static void stat_one(void *key G_GNUC_UNUSED, void *value, void *data)
+{
+    struct vmnetfs_image *img = value;
+    uint64_t *image_size = data;
+
+    *image_size += _vmnetfs_io_get_image_size(img, NULL);
+}
+
 static int do_statfs(const char *path G_GNUC_UNUSED, struct statvfs *st)
 {
     struct vmnetfs_fuse *fuse = fuse_get_context()->private_data;
-    uint64_t image_size;
+    uint64_t image_size = 0;
 
-    image_size = _vmnetfs_io_get_image_size(fuse->fs->disk, NULL);
-    if (fuse->fs->memory != NULL) {
-        image_size += _vmnetfs_io_get_image_size(fuse->fs->memory, NULL);
-    }
+    g_hash_table_foreach(fuse->fs->images, stat_one, &image_size);
 
     st->f_bsize = 512;
     st->f_blocks = image_size / 512;
@@ -324,9 +329,11 @@ static const struct fuse_operations fuse_ops = {
     .flag_nullpath_ok = 1,
 };
 
-static void add_image(struct vmnetfs_fuse_dentry *parent,
-        struct vmnetfs_image *img, const char *name)
+static void add_image(void *key, void *value, void *data)
 {
+    const char *name = key;
+    struct vmnetfs_image *img = value;
+    struct vmnetfs_fuse_dentry *parent = data;
     struct vmnetfs_fuse_dentry *dir;
 
     dir = _vmnetfs_fuse_add_dir(parent, name);
@@ -346,10 +353,7 @@ struct vmnetfs_fuse *_vmnetfs_fuse_new(struct vmnetfs *fs, GError **err)
     fuse = g_slice_new0(struct vmnetfs_fuse);
     fuse->fs = fs;
     fuse->root = _vmnetfs_fuse_add_dir(NULL, NULL);
-    add_image(fuse->root, fs->disk, "disk");
-    if (fs->memory != NULL) {
-        add_image(fuse->root, fs->memory, "memory");
-    }
+    g_hash_table_foreach(fs->images, add_image, fuse->root);
     _vmnetfs_fuse_stream_populate_log(fuse->root, fs->log, "log");
 
     /* Construct mountpoint */
