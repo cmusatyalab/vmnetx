@@ -24,6 +24,10 @@
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
+#include <libxml/parser.h>
+#include <libxml/xmlschemas.h>
+#include <libxml/xpath.h>
+#include <libxml/xpathInternals.h>
 #include "vmnetfs-private.h"
 
 #define IMAGE_ARG_COUNT 7
@@ -52,122 +56,204 @@ static void image_free(void *data)
     _image_free(img);
 }
 
-static uint64_t parse_uint(const char *str, GError **err)
+static xmlDocPtr read_arguments(GIOChannel *chan, GError **err)
 {
-    char *endptr;
-    uint64_t ret;
+    xmlDocPtr schema_doc = NULL;
+    xmlSchemaParserCtxtPtr schema_parser = NULL;
+    xmlSchemaPtr schema = NULL;
+    xmlSchemaValidCtxtPtr validator = NULL;
+    gchar *config_data = NULL;
+    gsize config_len;
+    gsize bytes_read;
+    gsize terminator_pos;
+    gchar *endptr;
+    xmlDocPtr doc = NULL;
+    xmlDocPtr ret = NULL;
+    GError *my_err = NULL;
 
-    ret = g_ascii_strtoull(str, &endptr, 10);
-    if (*str == 0 || *endptr != 0) {
+    /* Read schema */
+    schema_doc = xmlReadFile(VMNETFS_SCHEMA_PATH, NULL, 0);
+    if (schema_doc == NULL) {
         g_set_error(err, VMNETFS_CONFIG_ERROR,
-                VMNETFS_CONFIG_ERROR_INVALID_ARGUMENT,
-                "Invalid integer argument: %s", str);
-        return 0;
+                VMNETFS_CONFIG_ERROR_INVALID_SCHEMA,
+                "Couldn't parse XML schema document");
+        goto out;
+    }
+
+    /* Load schema */
+    schema_parser = xmlSchemaNewDocParserCtxt(schema_doc);
+    g_assert(schema_parser);
+    schema = xmlSchemaParse(schema_parser);
+    if (schema == NULL) {
+        g_set_error(err, VMNETFS_CONFIG_ERROR,
+                VMNETFS_CONFIG_ERROR_INVALID_SCHEMA,
+                "Couldn't parse XML schema");
+        goto out;
+    }
+    validator = xmlSchemaNewValidCtxt(schema);
+    g_assert(validator);
+
+    /* Read length of XML document */
+    g_io_channel_read_line(chan, &config_data, NULL, &terminator_pos,
+            &my_err);
+    if (config_data == NULL) {
+        if (my_err) {
+            g_propagate_error(err, my_err);
+        } else {
+            g_set_error(err, VMNETFS_CONFIG_ERROR,
+                    VMNETFS_CONFIG_ERROR_INVALID_CONFIG,
+                    "Couldn't read XML document length");
+        }
+        goto out;
+    }
+    config_data[terminator_pos] = 0;
+    config_len = g_ascii_strtoull(config_data, &endptr, 10);
+    if (*config_data == 0 || *endptr != 0) {
+        g_set_error(err, VMNETFS_CONFIG_ERROR,
+                VMNETFS_CONFIG_ERROR_INVALID_CONFIG,
+                "Couldn't parse XML document length");
+        goto out;
+    }
+    g_free(config_data);
+
+    /* Read XML document */
+    config_data = g_malloc(config_len);
+    if (g_io_channel_read_chars(chan, config_data, config_len, &bytes_read,
+            &my_err) != G_IO_STATUS_NORMAL) {
+        if (my_err) {
+            g_propagate_error(err, my_err);
+        } else {
+            g_set_error(err, VMNETFS_CONFIG_ERROR,
+                    VMNETFS_CONFIG_ERROR_INVALID_CONFIG,
+                    "Couldn't read XML document");
+        }
+        goto out;
+    }
+    if (bytes_read != config_len) {
+        g_set_error(err, VMNETFS_CONFIG_ERROR,
+                VMNETFS_CONFIG_ERROR_INVALID_CONFIG,
+                "Couldn't read entire XML document");
+        goto out;
+    }
+
+    /* Parse XML document */
+    doc = xmlReadMemory(config_data, config_len, NULL, NULL, 0);
+    if (doc == NULL) {
+        g_set_error(err, VMNETFS_CONFIG_ERROR,
+                VMNETFS_CONFIG_ERROR_INVALID_CONFIG,
+                "Couldn't parse XML document");
+        goto out;
+    }
+
+    /* Validate XML document */
+    if (xmlSchemaValidateDoc(validator, doc)) {
+        g_set_error(err, VMNETFS_CONFIG_ERROR,
+                VMNETFS_CONFIG_ERROR_INVALID_CONFIG,
+                "Config XML did not validate");
+        goto out;
+    }
+
+    ret = doc;
+    doc = NULL;
+
+out:
+    if (doc) {
+        xmlFreeDoc(doc);
+    }
+    g_free(config_data);
+    if (validator) {
+        xmlSchemaFreeValidCtxt(validator);
+    }
+    if (schema) {
+        xmlSchemaFree(schema);
+    }
+    if (schema_parser) {
+        xmlSchemaFreeParserCtxt(schema_parser);
+    }
+    if (schema_doc) {
+        xmlFreeDoc(schema_doc);
     }
     return ret;
 }
 
-static char *read_line(GIOChannel *chan, GError **err)
+static xmlXPathContextPtr make_xpath_context(xmlDocPtr doc)
 {
-    char *buf;
-    gsize terminator;
+    xmlXPathContextPtr ctx;
 
-    switch (g_io_channel_read_line(chan, &buf, NULL, &terminator, err)) {
-    case G_IO_STATUS_ERROR:
-        return NULL;
-    case G_IO_STATUS_NORMAL:
-        buf[terminator] = 0;
-        return buf;
-    case G_IO_STATUS_EOF:
-        g_set_error(err, G_IO_CHANNEL_ERROR, G_IO_CHANNEL_ERROR_IO,
-                "Unexpected EOF");
-        return NULL;
-    case G_IO_STATUS_AGAIN:
-        g_set_error(err, G_IO_CHANNEL_ERROR, G_IO_CHANNEL_ERROR_IO,
-                "Unexpected EAGAIN");
-        return NULL;
-    default:
+    ctx = xmlXPathNewContext(doc);
+    g_assert(ctx);
+
+    if (xmlXPathRegisterNs(ctx, BAD_CAST "v",
+            BAD_CAST "http://olivearchive.org/xmlns/vmnetx/vmnetfs")) {
         g_assert_not_reached();
     }
+
+    return ctx;
 }
 
-static char **get_arguments(GIOChannel *chan, GError **err)
+static char *xpath_get_str(xmlXPathContextPtr ctx, const char *xpath)
 {
-    uint64_t n;
-    uint64_t count;
-    char *str;
-    GPtrArray *args;
-    GError *my_err = NULL;
+    xmlXPathObjectPtr result;
+    xmlChar *content;
+    char *ret;
 
-    /* Get argument count */
-    str = read_line(chan, err);
-    if (str == NULL) {
-        return NULL;
-    }
-    count = parse_uint(str, &my_err);
-    if (my_err) {
-        g_propagate_error(err, my_err);
-        return NULL;
-    }
-
-    /* Get arguments */
-    args = g_ptr_array_new_with_free_func(g_free);
-    for (n = 0; n < count; n++) {
-        str = read_line(chan, err);
-        if (str == NULL) {
-            g_ptr_array_free(args, TRUE);
-            return NULL;
+    result = xmlXPathEval(BAD_CAST xpath, ctx);
+    if (result == NULL || result->nodesetval == NULL ||
+            result->nodesetval->nodeNr == 0) {
+        if (result) {
+            xmlXPathFreeObject(result);
         }
-        g_ptr_array_add(args, str);
+        return NULL;
     }
-    g_ptr_array_add(args, NULL);
-    return (char **) g_ptr_array_free(args, FALSE);
+    g_assert(result->nodesetval->nodeNr == 1);
+    content = xmlNodeGetContent(result->nodesetval->nodeTab[0]);
+    ret = g_strdup((const char *) content);
+    xmlFree(content);
+    xmlXPathFreeObject(result);
+    return ret;
 }
 
-static struct vmnetfs_image *image_new(char **argv, const char *username,
-        const char *password, GError **err)
+/* Returns 0 if the node is not found. */
+static uint64_t xpath_get_uint(xmlXPathContextPtr ctx, const char *xpath)
+{
+    char *str;
+    char *endptr;
+    uint64_t ret;
+
+    str = xpath_get_str(ctx, xpath);
+    if (str == NULL) {
+        return 0;
+    }
+    ret = g_ascii_strtoull(str, &endptr, 10);
+    /* Assert if invalid number, since schema validation should have caught
+       this */
+    g_assert(*str != 0 && *endptr == 0);
+    g_free(str);
+    return ret;
+}
+
+static bool image_add(GHashTable *images, xmlDocPtr args,
+        xmlNodePtr image_args, GError **err)
 {
     struct vmnetfs_image *img;
-    int arg = 0;
-    GError *my_err = NULL;
+    xmlXPathContextPtr ctx;
 
-    const char *url = argv[arg++];
-    const char *cache = argv[arg++];
-    const uint64_t offset = parse_uint(argv[arg++], &my_err);
-    if (my_err) {
-        g_propagate_error(err, my_err);
-        return NULL;
-    }
-    const uint64_t size = parse_uint(argv[arg++], &my_err);
-    if (my_err) {
-        g_propagate_error(err, my_err);
-        return NULL;
-    }
-    const uint32_t chunk_size = parse_uint(argv[arg++], &my_err);
-    if (my_err) {
-        g_propagate_error(err, my_err);
-        return NULL;
-    }
-    const char *etag = argv[arg++];
-    if (strlen(etag) == 0) {
-        etag = NULL;
-    }
-    const time_t last_modified = parse_uint(argv[arg++], &my_err);
-    if (my_err) {
-        g_propagate_error(err, my_err);
-        return NULL;
-    }
+    ctx = make_xpath_context(args);
+    ctx->node = image_args;
 
     img = g_slice_new0(struct vmnetfs_image);
-    img->url = g_strdup(url);
-    img->username = g_strdup(username);
-    img->password = g_strdup(password);
-    img->read_base = g_strdup(cache);
-    img->fetch_offset = offset;
-    img->initial_size = size;
-    img->chunk_size = chunk_size;
-    img->etag = g_strdup(etag);
-    img->last_modified = last_modified;
+    img->url = xpath_get_str(ctx, "v:origin/v:url/text()");
+    img->username = xpath_get_str(ctx,
+            "v:origin/v:credentials/v:username/text()");
+    img->password = xpath_get_str(ctx,
+            "v:origin/v:credentials/v:password/text()");
+    img->read_base = xpath_get_str(ctx, "v:cache/v:path/text()");
+    img->fetch_offset = xpath_get_uint(ctx, "v:origin/v:offset/text()");
+    img->initial_size = xpath_get_uint(ctx, "v:size/text()");
+    img->chunk_size = xpath_get_uint(ctx, "v:cache/v:chunk-size/text()");
+    img->etag = xpath_get_str(ctx, "v:origin/v:validators/v:etag/text()");
+    img->last_modified = xpath_get_uint(ctx,
+            "v:origin/v:validators/v:last-modified/text()");
 
     img->io_stream = _vmnetfs_stream_group_new(NULL, NULL);
     img->bytes_read = _vmnetfs_stat_new();
@@ -178,10 +264,13 @@ static struct vmnetfs_image *image_new(char **argv, const char *username,
 
     if (!_vmnetfs_io_init(img, err)) {
         _image_free(img);
-        return NULL;
+        xmlXPathFreeContext(ctx);
+        return false;
     }
 
-    return img;
+    g_hash_table_insert(images, xpath_get_str(ctx, "v:name/text()"), img);
+    xmlXPathFreeContext(ctx);
+    return true;
 }
 
 static void image_close(void *key G_GNUC_UNUSED, void *value,
@@ -246,16 +335,13 @@ static gboolean shutdown_callback(void *data)
 static void child(FILE *pipe)
 {
     struct vmnetfs *fs;
-    struct vmnetfs_image *img;
     GThread *loop_thread = NULL;
     GIOChannel *chan;
     GIOFlags flags;
-    int argc;
-    char **argv;
-    int arg = 0;
-    int images;
-    char *username;
-    char *password;
+    xmlDocPtr args;
+    xmlXPathContextPtr xpath;
+    xmlXPathObjectPtr obj;
+    int i;
     GError *err = NULL;
 
     /* Initialize */
@@ -268,33 +354,14 @@ static void child(FILE *pipe)
         return;
     }
 
-    /* Read arguments */
+    /* Read and validate arguments */
     chan = g_io_channel_unix_new(0);
-    argv = get_arguments(chan, &err);
-    if (argv == NULL) {
+    args = read_arguments(chan, &err);
+    if (args == NULL) {
         fprintf(pipe, "%s\n", err->message);
         g_clear_error(&err);
         fclose(pipe);
         return;
-    }
-
-    /* Check argc */
-    argc = g_strv_length(argv);
-    images = (argc - 2) / IMAGE_ARG_COUNT;
-    if (argc % IMAGE_ARG_COUNT != 2 || images < 1 || images > 2) {
-        fprintf(pipe, "Incorrect argument count\n");
-        fclose(pipe);
-        return;
-    }
-
-    /* Get initial arguments */
-    username = argv[arg++];
-    if (!username[0]) {
-        username = NULL;
-    }
-    password = argv[arg++];
-    if (!password[0]) {
-        password = NULL;
     }
 
     /* Set up fs */
@@ -302,25 +369,23 @@ static void child(FILE *pipe)
     fs->images = g_hash_table_new_full(g_str_hash, g_str_equal, g_free,
             image_free);
 
-    /* Set up disk */
-    img = image_new(argv + arg, username, password, &err);
-    if (err) {
-        fprintf(pipe, "%s\n", err->message);
-        goto out;
-    }
-    g_hash_table_insert(fs->images, g_strdup("disk"), img);
-    arg += IMAGE_ARG_COUNT;
-
-    /* Set up memory */
-    if (images > 1) {
-        img = image_new(argv + arg, username, password, &err);
-        if (err) {
+    /* Set up images */
+    xpath = make_xpath_context(args);
+    obj = xmlXPathEval(BAD_CAST "/v:config/v:image", xpath);
+    for (i = 0; obj && obj->nodesetval && i < obj->nodesetval->nodeNr; i++) {
+        if (!image_add(fs->images, args, obj->nodesetval->nodeTab[i], &err)) {
             fprintf(pipe, "%s\n", err->message);
+            xmlXPathFreeObject(obj);
+            xmlXPathFreeContext(xpath);
+            xmlFreeDoc(args);
             goto out;
         }
-        g_hash_table_insert(fs->images, g_strdup("memory"), img);
-        arg += IMAGE_ARG_COUNT;
     }
+    xmlXPathFreeObject(obj);
+    xmlXPathFreeContext(xpath);
+
+    /* Free args */
+    xmlFreeDoc(args);
 
     /* Set up logging */
     fs->log = _vmnetfs_log_init();
@@ -373,7 +438,6 @@ out:
     g_hash_table_destroy(fs->images);
     _vmnetfs_log_destroy(fs->log);
     g_slice_free(struct vmnetfs, fs);
-    g_strfreev(argv);
     g_io_channel_unref(chan);
 }
 

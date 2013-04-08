@@ -22,6 +22,7 @@ import json
 from hashlib import sha256
 # pylint: enable=E0611
 import libvirt
+from lxml.builder import ElementMaker
 import os
 import tempfile
 from urlparse import urlsplit, urlunsplit
@@ -39,7 +40,7 @@ except ImportError:
 
 from vmnetx.domain import DomainXML
 from vmnetx.util import get_cache_dir, get_temp_dir
-from vmnetx.vmnetfs import VMNetFS
+from vmnetx.vmnetfs import VMNetFS, NS as VMNETFS_NS
 
 SOCKET_DIR_CONTEXT = 'unconfined_u:object_r:virt_home_t:s0'
 
@@ -50,7 +51,11 @@ class MachineExecutionError(Exception):
 class _ReferencedObject(object):
     # pylint doesn't understand named tuples
     # pylint: disable=E1103
-    def __init__(self, label, info, chunk_size=131072):
+    def __init__(self, label, info, username=None, password=None,
+            chunk_size=131072):
+        self.label = label
+        self.username = username
+        self.password = password
         self.url = info.url
         self.offset = info.offset
         self.size = info.size
@@ -74,7 +79,7 @@ class _ReferencedObject(object):
     # pylint: enable=E1103
 
     @property
-    def vmnetfs_args(self):
+    def vmnetfs_config(self):
         # Write URL and validators into file for ease of debugging.
         # Defer creation of cache directory until needed.
         ensure_dir(self._urlpath)
@@ -82,10 +87,36 @@ class _ReferencedObject(object):
         if not os.path.exists(info_file):
             with open(info_file, 'w') as fh:
                 fh.write(self._cache_info)
-        last_modified = (str(timegm(self.last_modified.utctimetuple()))
-                if self.last_modified else '0')
-        return [self.url, self.cache, str(self.offset), str(self.size),
-                str(self.chunk_size), self.etag or '', last_modified]
+
+        # Return XML image element
+        e = ElementMaker(namespace=VMNETFS_NS, nsmap={None: VMNETFS_NS})
+        origin = e.origin(
+            e.url(self.url),
+            e.offset(str(self.offset)),
+        )
+        if self.last_modified or self.etag:
+            validators = e.validators()
+            if self.last_modified:
+                validators.append(e('last-modified',
+                        str(timegm(self.last_modified.utctimetuple()))))
+            if self.etag:
+                validators.append(e.etag(self.etag))
+            origin.append(validators)
+        if self.username and self.password:
+            credentials = e.credentials(
+                e.username(self.username),
+                e.password(self.password),
+            )
+            origin.append(credentials)
+        return e.image(
+            e.name(self.label),
+            e.size(str(self.size)),
+            origin,
+            e.cache(
+                e.path(self.cache),
+                e('chunk-size', str(self.chunk_size)),
+            ),
+        )
 
 
 class MachineMetadata(object):
@@ -111,12 +142,16 @@ class MachineMetadata(object):
         # Validate domain XML
         self.domain_xml = DomainXML(self.package.domain.data)
 
-        # Create vmnetfs arguments
-        self.vmnetfs_args = [username or '', password or ''] + \
-                _ReferencedObject('disk', self.package.disk).vmnetfs_args
+        # Create vmnetfs config
+        e = ElementMaker(namespace=VMNETFS_NS, nsmap={None: VMNETFS_NS})
+        self.vmnetfs_config = e.config()
+        self.vmnetfs_config.append(_ReferencedObject('disk',
+                self.package.disk, username=username,
+                password=password).vmnetfs_config)
         if self.package.memory:
-            self.vmnetfs_args.extend(_ReferencedObject('memory',
-                    self.package.memory).vmnetfs_args)
+            self.vmnetfs_config.append(_ReferencedObject('memory',
+                    self.package.memory, username=username,
+                    password=password).vmnetfs_config)
     # pylint: enable=E1103
 
 
@@ -135,7 +170,7 @@ class Machine(object):
             pass
 
         # Start vmnetfs
-        self._fs = VMNetFS(metadata.vmnetfs_args)
+        self._fs = VMNetFS(metadata.vmnetfs_config)
         self._fs.start()
         self.log_path = os.path.join(self._fs.mountpoint, 'log')
         self.disk_path = os.path.join(self._fs.mountpoint, 'disk')

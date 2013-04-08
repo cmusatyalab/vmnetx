@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+vmnetx - Virtual machine network execution
+
+Copyright (C) 2012-2013 Carnegie Mellon University
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of version 2 of the GNU General Public License as published
+by the Free Software Foundation.  A copy of the GNU General Public License
+should have been distributed along with this program in the file
+COPYING.
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+-->
+
+<xsd:schema xmlns="http://olivearchive.org/xmlns/vmnetx/vmnetfs"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    targetNamespace="http://olivearchive.org/xmlns/vmnetx/vmnetfs"
+    elementFormDefault="qualified">
+
+  <xsd:element name="config" type="ConfigSpec"/>
+
+  <xsd:complexType name="ConfigSpec">
+    <xsd:annotation><xsd:documentation>
+      Configuration for an instance of vmnetfs.
+    </xsd:documentation></xsd:annotation>
+    <xsd:sequence>
+      <xsd:element name="image" type="ImageSpec" maxOccurs="unbounded"/>
+    </xsd:sequence>
+  </xsd:complexType>
+
+  <xsd:complexType name="ImageSpec">
+    <xsd:annotation><xsd:documentation>
+      A disk or memory image.
+    </xsd:documentation></xsd:annotation>
+    <xsd:all>
+      <xsd:element name="name" type="ImageNameSpec"/>
+      <xsd:element name="size" type="xsd:unsignedLong">
+        <xsd:annotation><xsd:documentation>
+          The size of the image in bytes.
+        </xsd:documentation></xsd:annotation>
+      </xsd:element>
+      <xsd:element name="origin" type="OriginSpec"/>
+      <xsd:element name="cache" type="CacheSpec"/>
+    </xsd:all>
+  </xsd:complexType>
+
+  <xsd:simpleType name="ImageNameSpec">
+    <xsd:annotation><xsd:documentation>
+      The virtual directory in which the image and metadata should be
+      placed.
+    </xsd:documentation></xsd:annotation>
+    <xsd:restriction base="xsd:string">
+      <xsd:pattern value="[a-zA-Z0-9_-]+"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+
+  <xsd:complexType name="OriginSpec">
+    <xsd:annotation><xsd:documentation>
+      The local or remote resource backing demand fetches for the image.
+    </xsd:documentation></xsd:annotation>
+    <xsd:all>
+      <xsd:element name="url" type="xsd:anyURI">
+        <xsd:annotation><xsd:documentation>
+          The absolute URL for the resource.
+        </xsd:documentation></xsd:annotation>
+      </xsd:element>
+      <xsd:element name="offset" type="xsd:unsignedLong" minOccurs="0">
+        <xsd:annotation><xsd:documentation>
+          The index within the resource of the first byte of the image.
+        </xsd:documentation></xsd:annotation>
+      </xsd:element>
+      <xsd:element name="validators" type="ValidatorsSpec" minOccurs="0"/>
+      <xsd:element name="credentials" type="CredentialsSpec" minOccurs="0"/>
+    </xsd:all>
+  </xsd:complexType>
+
+  <xsd:complexType name="ValidatorsSpec">
+    <xsd:annotation><xsd:documentation>
+      Properties of the resource that can be used to validate that it has
+      not changed from the expected version.
+    </xsd:documentation></xsd:annotation>
+    <xsd:all>
+      <xsd:element name="etag" type="xsd:string" minOccurs="0">
+        <xsd:annotation><xsd:documentation>
+          The HTTP ETag for the resource.
+        </xsd:documentation></xsd:annotation>
+      </xsd:element>
+      <xsd:element name="last-modified" type="xsd:unsignedLong" minOccurs="0">
+        <xsd:annotation><xsd:documentation>
+          The HTTP Last-Modified time or Unix mtime, expressed as a time_t.
+        </xsd:documentation></xsd:annotation>
+      </xsd:element>
+    </xsd:all>
+  </xsd:complexType>
+
+  <xsd:complexType name="CredentialsSpec">
+    <xsd:annotation><xsd:documentation>
+      HTTP authentication credentials required to access the resource.
+    </xsd:documentation></xsd:annotation>
+    <xsd:all>
+      <xsd:element name="username" type="xsd:string"/>
+      <xsd:element name="password" type="xsd:string"/>
+    </xsd:all>
+  </xsd:complexType>
+
+  <xsd:complexType name="CacheSpec">
+    <xsd:annotation><xsd:documentation>
+      The local chunk cache for this image.
+    </xsd:documentation></xsd:annotation>
+    <xsd:all>
+      <xsd:element name="path" type="xsd:string">
+        <xsd:annotation><xsd:documentation>
+          The directory containing the root of the cache.
+        </xsd:documentation></xsd:annotation>
+      </xsd:element>
+      <xsd:element name="chunk-size" type="xsd:unsignedInt">
+        <xsd:annotation><xsd:documentation>
+          The size of a cached chunk, in bytes.
+        </xsd:documentation></xsd:annotation>
+      </xsd:element>
+    </xsd:all>
+  </xsd:complexType>
+</xsd:schema>

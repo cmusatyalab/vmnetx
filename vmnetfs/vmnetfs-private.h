@@ -103,7 +103,8 @@ struct vmnetfs_fuse_ops {
 #define VMNETFS_TRANSPORT_ERROR _vmnetfs_transport_error_quark()
 
 enum VMNetFSConfigError {
-    VMNETFS_CONFIG_ERROR_INVALID_ARGUMENT,
+    VMNETFS_CONFIG_ERROR_INVALID_CONFIG,
+    VMNETFS_CONFIG_ERROR_INVALID_SCHEMA,
 };
 
 enum VMNetFSFUSEError {

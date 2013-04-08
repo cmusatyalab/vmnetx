@@ -29,6 +29,7 @@ You will need:
 * dbus-python
 * libcurl
 * libfuse
+* libxml2
 * lxml
 * pkg-config
 * libselinux Python bindings if SELinux is in use

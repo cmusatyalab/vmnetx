@@ -1,10 +1,12 @@
 ACLOCAL_AMFLAGS = -I m4
 
-AM_CPPFLAGS = -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 $(GLIB_VER_DEFINES)
+AM_CPPFLAGS = -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 $(GLIB_VER_DEFINES) \
+	-DVMNETFS_SCHEMA_PATH=\"$(pkgpythondir)/schema/vmnetfs.xsd\"
 AM_CFLAGS = -std=gnu99 -W -Wall -Wstrict-prototypes -pthread \
-	$(libcurl_CFLAGS) $(glib_CFLAGS) $(gthread_CFLAGS) $(fuse_CFLAGS)
+	$(libcurl_CFLAGS) $(glib_CFLAGS) $(gthread_CFLAGS) $(fuse_CFLAGS) \
+	$(libxml2_CFLAGS)
 AM_LDFLAGS = -pthread $(libcurl_LIBS) $(glib_LIBS) $(gthread_LIBS) \
-	$(fuse_LIBS)
+	$(fuse_LIBS) $(libxml2_LIBS)
 
 dist_bin_SCRIPTS = tools/vmnetx \
 	tools/vmnetx-generate
@@ -47,6 +49,7 @@ EXTRA_DIST = vmnetx/system.py.in pylintrc vmnetx.te README.rst
 nobase_dist_pkgpython_DATA = schema/domain.xsd \
 	schema/package.xsd \
 	schema/reference.xsd \
+	schema/vmnetfs.xsd \
 	schema/libvirt/basictypes.rng \
 	schema/libvirt/domaincommon.rng \
 	schema/libvirt/domain.rng \
