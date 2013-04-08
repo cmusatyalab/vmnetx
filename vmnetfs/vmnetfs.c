@@ -409,7 +409,6 @@ static void child(FILE *pipe)
     g_io_channel_set_flags(chan, flags | G_IO_FLAG_NONBLOCK, &err);
     if (err) {
         fprintf(pipe, "%s\n", err->message);
-        g_io_channel_unref(chan);
         goto out;
     }
     g_io_add_watch(chan, G_IO_IN | G_IO_ERR | G_IO_HUP | G_IO_NVAL,
