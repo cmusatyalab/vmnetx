@@ -27,6 +27,7 @@
 struct connection_pool {
     GQueue *conns;
     GMutex *lock;
+    CURLSH *share;
 };
 
 struct connection {
@@ -117,6 +118,12 @@ static struct connection *conn_new(struct connection_pool *pool,
                 "Couldn't disable signals");
         goto bad;
     }
+    if (curl_easy_setopt(conn->curl, CURLOPT_SHARE, pool->share)) {
+        g_set_error(err, VMNETFS_TRANSPORT_ERROR,
+                VMNETFS_TRANSPORT_ERROR_FATAL,
+                "Couldn't set share handle");
+        goto bad;
+    }
     if (curl_easy_setopt(conn->curl, CURLOPT_FILETIME, 1)) {
         g_set_error(err, VMNETFS_TRANSPORT_ERROR,
                 VMNETFS_TRANSPORT_ERROR_FATAL,
@@ -204,6 +211,23 @@ static void conn_put(struct connection *conn)
     g_mutex_unlock(conn->pool->lock);
 }
 
+static void lock_callback(CURL *handle G_GNUC_UNUSED,
+        curl_lock_data data G_GNUC_UNUSED,
+        curl_lock_access access G_GNUC_UNUSED, void *private)
+{
+    struct connection_pool *cpool = private;
+
+    g_mutex_lock(cpool->lock);
+}
+
+static void unlock_callback(CURL *handle G_GNUC_UNUSED,
+        curl_lock_data data G_GNUC_UNUSED, void *private)
+{
+    struct connection_pool *cpool = private;
+
+    g_mutex_unlock(cpool->lock);
+}
+
 bool _vmnetfs_transport_init(void)
 {
     if (curl_global_init(CURL_GLOBAL_ALL)) {
@@ -212,14 +236,72 @@ bool _vmnetfs_transport_init(void)
     return true;
 }
 
-struct connection_pool *_vmnetfs_transport_pool_new(void)
+struct connection_pool *_vmnetfs_transport_pool_new(GError **err)
 {
     struct connection_pool *cpool;
 
     cpool = g_slice_new0(struct connection_pool);
     cpool->conns = g_queue_new();
     cpool->lock = g_mutex_new();
+    cpool->share = curl_share_init();
+
+    if (cpool->share == NULL) {
+        g_set_error(err, VMNETFS_TRANSPORT_ERROR,
+                VMNETFS_TRANSPORT_ERROR_FATAL,
+                "Couldn't initialize share handle");
+        goto bad;
+    }
+    if (curl_share_setopt(cpool->share, CURLSHOPT_USERDATA, cpool)) {
+        g_set_error(err, VMNETFS_TRANSPORT_ERROR,
+                VMNETFS_TRANSPORT_ERROR_FATAL,
+                "Couldn't set share handle private data");
+        goto bad;
+    }
+    if (curl_share_setopt(cpool->share, CURLSHOPT_LOCKFUNC, lock_callback)) {
+        g_set_error(err, VMNETFS_TRANSPORT_ERROR,
+                VMNETFS_TRANSPORT_ERROR_FATAL,
+                "Couldn't set lock callback");
+        goto bad;
+    }
+    if (curl_share_setopt(cpool->share, CURLSHOPT_UNLOCKFUNC,
+            unlock_callback)) {
+        g_set_error(err, VMNETFS_TRANSPORT_ERROR,
+                VMNETFS_TRANSPORT_ERROR_FATAL,
+                "Couldn't set unlock callback");
+        goto bad;
+    }
+    if (curl_share_setopt(cpool->share, CURLSHOPT_SHARE,
+            CURL_LOCK_DATA_COOKIE)) {
+        g_set_error(err, VMNETFS_TRANSPORT_ERROR,
+                VMNETFS_TRANSPORT_ERROR_FATAL,
+                "Couldn't enable cookie sharing");
+        goto bad;
+    }
+    if (curl_share_setopt(cpool->share, CURLSHOPT_SHARE,
+            CURL_LOCK_DATA_DNS)) {
+        g_set_error(err, VMNETFS_TRANSPORT_ERROR,
+                VMNETFS_TRANSPORT_ERROR_FATAL,
+                "Couldn't enable DNS sharing");
+        goto bad;
+    }
+    if (curl_share_setopt(cpool->share, CURLSHOPT_SHARE,
+            CURL_LOCK_DATA_SSL_SESSION)) {
+        g_set_error(err, VMNETFS_TRANSPORT_ERROR,
+                VMNETFS_TRANSPORT_ERROR_FATAL,
+                "Couldn't enable SSL session sharing");
+        goto bad;
+    }
+
     return cpool;
+
+bad:
+    if (cpool->share) {
+        curl_share_cleanup(cpool->share);
+    }
+    g_queue_free(cpool->conns);
+    g_mutex_free(cpool->lock);
+    g_slice_free(struct connection_pool, cpool);
+    return NULL;
 }
 
 void _vmnetfs_transport_pool_free(struct connection_pool *cpool)
@@ -230,6 +312,7 @@ void _vmnetfs_transport_pool_free(struct connection_pool *cpool)
         conn_free(conn);
     }
     g_queue_free(cpool->conns);
+    curl_share_cleanup(cpool->share);
     g_mutex_free(cpool->lock);
     g_slice_free(struct connection_pool, cpool);
 }

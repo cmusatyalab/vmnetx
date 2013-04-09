@@ -186,7 +186,7 @@ bool _vmnetfs_ll_modified_set_size(struct vmnetfs_image *img,
 
 /* transport */
 bool _vmnetfs_transport_init(void);
-struct connection_pool *_vmnetfs_transport_pool_new(void);
+struct connection_pool *_vmnetfs_transport_pool_new(GError **err);
 void _vmnetfs_transport_pool_free(struct connection_pool *cpool);
 bool _vmnetfs_transport_fetch(struct connection_pool *cpool, const char *url,
         const char *username, const char *password, const char *etag,

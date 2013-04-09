@@ -203,7 +203,13 @@ bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err)
         _vmnetfs_bit_group_free(img->bitmaps);
         return false;
     }
-    img->cpool = _vmnetfs_transport_pool_new();
+    img->cpool = _vmnetfs_transport_pool_new(err);
+    if (img->cpool == NULL) {
+        _vmnetfs_ll_modified_destroy(img);
+        _vmnetfs_ll_pristine_destroy(img);
+        _vmnetfs_bit_group_free(img->bitmaps);
+        return false;
+    }
     img->accessed_map = _vmnetfs_bit_new(img->bitmaps, false);
     img->chunk_state = chunk_state_new(img->initial_size);
     return true;
