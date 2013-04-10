@@ -113,8 +113,8 @@ class _ReferencedObject(object):
         if self.cookies:
             cookies = e.cookies()
             for cookie in self.cookies:
-                c = '%s="%s"; Domain=%s; Path=%s' % (cookie.name,
-                        cookie.value, cookie.domain, cookie.path)
+                c = '%s=%s; Domain=%s; Path=%s' % (cookie.name, cookie.value,
+                        cookie.domain, cookie.path)
                 if cookie.expires:
                     c += '; Expires=%s' % format_rfc1123_date(cookie.expires)
                 if cookie.secure:
