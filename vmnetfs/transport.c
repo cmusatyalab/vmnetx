@@ -28,6 +28,7 @@ struct connection_pool {
     GQueue *conns;
     GMutex *lock;
     CURLSH *share;
+    char *user_agent;
 };
 
 struct connection {
@@ -128,6 +129,12 @@ static struct connection *conn_new(struct connection_pool *pool,
         g_set_error(err, VMNETFS_TRANSPORT_ERROR,
                 VMNETFS_TRANSPORT_ERROR_FATAL,
                 "Couldn't enable file timestamps");
+        goto bad;
+    }
+    if (curl_easy_setopt(conn->curl, CURLOPT_USERAGENT, pool->user_agent)) {
+        g_set_error(err, VMNETFS_TRANSPORT_ERROR,
+                VMNETFS_TRANSPORT_ERROR_FATAL,
+                "Couldn't set user agent string");
         goto bad;
     }
     if (curl_easy_setopt(conn->curl, CURLOPT_HTTPAUTH,
@@ -244,6 +251,8 @@ struct connection_pool *_vmnetfs_transport_pool_new(GError **err)
     cpool->conns = g_queue_new();
     cpool->lock = g_mutex_new();
     cpool->share = curl_share_init();
+    cpool->user_agent = g_strdup_printf("vmnetfs/" PACKAGE_VERSION " %s",
+            curl_version());
 
     if (cpool->share == NULL) {
         g_set_error(err, VMNETFS_TRANSPORT_ERROR,
@@ -295,6 +304,7 @@ struct connection_pool *_vmnetfs_transport_pool_new(GError **err)
     return cpool;
 
 bad:
+    g_free(cpool->user_agent);
     if (cpool->share) {
         curl_share_cleanup(cpool->share);
     }
@@ -314,6 +324,7 @@ void _vmnetfs_transport_pool_free(struct connection_pool *cpool)
     g_queue_free(cpool->conns);
     curl_share_cleanup(cpool->share);
     g_mutex_free(cpool->lock);
+    g_free(cpool->user_agent);
     g_slice_free(struct connection_pool, cpool);
 }
 

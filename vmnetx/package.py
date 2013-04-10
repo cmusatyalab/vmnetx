@@ -27,6 +27,7 @@ import struct
 from urlparse import urlsplit
 import zipfile
 
+from vmnetx.system import __version__
 from vmnetx.util import DetailException
 
 NS = 'http://olivearchive.org/xmlns/vmnetx/package'
@@ -86,6 +87,8 @@ class _HttpFile(object):
         self._buffer_offset = 0
         self._buffer_size = buffer_size
         self._session = requests.Session()
+        self._session.headers['User-Agent'] = 'vmnetx/%s %s' % (__version__,
+                requests.utils.default_user_agent())
 
         # Debugging
         self._last_case = None
