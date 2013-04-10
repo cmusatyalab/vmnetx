@@ -80,6 +80,9 @@ class _ReferencedObject(object):
         self.cache = os.path.join(self._urlpath, label, str(chunk_size))
     # pylint: enable=E1103
 
+    # We must access Cookie._rest to perform case-insensitive lookup of
+    # the HttpOnly attribute
+    # pylint: disable=W0212
     @property
     def vmnetfs_config(self):
         # Write URL and validators into file for ease of debugging.
@@ -132,6 +135,7 @@ class _ReferencedObject(object):
                 e('chunk-size', str(self.chunk_size)),
             ),
         )
+    # pylint: enable=W0212
 
 
 class MachineMetadata(object):
