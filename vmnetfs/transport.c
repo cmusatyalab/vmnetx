@@ -293,13 +293,9 @@ struct connection_pool *_vmnetfs_transport_pool_new(GError **err)
                 "Couldn't enable DNS sharing");
         goto bad;
     }
-    if (curl_share_setopt(cpool->share, CURLSHOPT_SHARE,
-            CURL_LOCK_DATA_SSL_SESSION)) {
-        g_set_error(err, VMNETFS_TRANSPORT_ERROR,
-                VMNETFS_TRANSPORT_ERROR_FATAL,
-                "Couldn't enable SSL session sharing");
-        goto bad;
-    }
+    /* Not supported on RHEL 6, so ignore failures */
+    curl_share_setopt(cpool->share, CURLSHOPT_SHARE,
+            CURL_LOCK_DATA_SSL_SESSION);
 
     return cpool;
 
