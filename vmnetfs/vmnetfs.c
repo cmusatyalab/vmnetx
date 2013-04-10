@@ -43,6 +43,10 @@ static void _image_free(struct vmnetfs_image *img)
     g_free(img->url);
     g_free(img->username);
     g_free(img->password);
+    while (img->cookies) {
+        g_free(img->cookies->data);
+        img->cookies = g_list_delete_link(img->cookies, img->cookies);
+    }
     g_free(img->read_base);
     g_free(img->etag);
     g_slice_free(struct vmnetfs_image, img);
@@ -237,6 +241,9 @@ static bool image_add(GHashTable *images, xmlDocPtr args,
 {
     struct vmnetfs_image *img;
     xmlXPathContextPtr ctx;
+    xmlXPathObjectPtr obj;
+    xmlChar *content;
+    int i;
 
     ctx = make_xpath_context(args);
     ctx->node = image_args;
@@ -254,6 +261,15 @@ static bool image_add(GHashTable *images, xmlDocPtr args,
     img->etag = xpath_get_str(ctx, "v:origin/v:validators/v:etag/text()");
     img->last_modified = xpath_get_uint(ctx,
             "v:origin/v:validators/v:last-modified/text()");
+
+    obj = xmlXPathEval(BAD_CAST "v:origin/v:cookies/v:cookie/text()", ctx);
+    for (i = 0; obj && obj->nodesetval && i < obj->nodesetval->nodeNr; i++) {
+        content = xmlNodeGetContent(obj->nodesetval->nodeTab[i]);
+        img->cookies = g_list_prepend(img->cookies,
+                g_strdup((const char *) content));
+        xmlFree(content);
+    }
+    xmlXPathFreeObject(obj);
 
     img->io_stream = _vmnetfs_stream_group_new(NULL, NULL);
     img->bytes_read = _vmnetfs_stat_new();

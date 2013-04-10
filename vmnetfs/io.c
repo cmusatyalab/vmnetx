@@ -192,6 +192,8 @@ static bool fetch_data(struct vmnetfs_image *img, void *buf, uint64_t start,
 
 bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err)
 {
+    GList *cur;
+
     img->bitmaps = _vmnetfs_bit_group_new((img->initial_size +
             img->chunk_size - 1) / img->chunk_size);
     if (!_vmnetfs_ll_pristine_init(img, err)) {
@@ -209,6 +211,15 @@ bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err)
         _vmnetfs_ll_pristine_destroy(img);
         _vmnetfs_bit_group_free(img->bitmaps);
         return false;
+    }
+    for (cur = img->cookies; cur != NULL; cur = cur->next) {
+        if (!_vmnetfs_transport_pool_set_cookie(img->cpool, cur->data, err)) {
+            _vmnetfs_transport_pool_free(img->cpool);
+            _vmnetfs_ll_modified_destroy(img);
+            _vmnetfs_ll_pristine_destroy(img);
+            _vmnetfs_bit_group_free(img->bitmaps);
+            return false;
+        }
     }
     img->accessed_map = _vmnetfs_bit_new(img->bitmaps, false);
     img->chunk_state = chunk_state_new(img->initial_size);

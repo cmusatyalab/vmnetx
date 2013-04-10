@@ -317,6 +317,30 @@ void _vmnetfs_transport_pool_free(struct connection_pool *cpool)
     g_slice_free(struct connection_pool, cpool);
 }
 
+/* This is not safe if any connections may be active, curl #1215 */
+bool _vmnetfs_transport_pool_set_cookie(struct connection_pool *cpool,
+        const char *cookie, GError **err)
+{
+    struct connection *conn;
+    char *str;
+    bool ret = true;
+
+    conn = conn_get(cpool, err);
+    if (conn == NULL) {
+        return false;
+    }
+    str = g_strdup_printf("Set-Cookie:%s", cookie);
+    if (curl_easy_setopt(conn->curl, CURLOPT_COOKIELIST, str)) {
+        g_set_error(err, VMNETFS_TRANSPORT_ERROR,
+                VMNETFS_TRANSPORT_ERROR_FATAL,
+                "Couldn't set cookie");
+        ret = false;
+    }
+    g_free(str);
+    conn_put(conn);
+    return ret;
+}
+
 static bool check_validators(struct connection *conn, const char *etag,
         time_t last_modified, GError **err) {
     long filetime;

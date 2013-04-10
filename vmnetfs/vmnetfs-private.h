@@ -35,6 +35,7 @@ struct vmnetfs_image {
     char *url;
     char *username;
     char *password;
+    GList *cookies;
     char *read_base;
     uint64_t fetch_offset;
     uint64_t initial_size;
@@ -188,6 +189,8 @@ bool _vmnetfs_ll_modified_set_size(struct vmnetfs_image *img,
 bool _vmnetfs_transport_init(void);
 struct connection_pool *_vmnetfs_transport_pool_new(GError **err);
 void _vmnetfs_transport_pool_free(struct connection_pool *cpool);
+bool _vmnetfs_transport_pool_set_cookie(struct connection_pool *cpool,
+        const char *cookie, GError **err);
 bool _vmnetfs_transport_fetch(struct connection_pool *cpool, const char *url,
         const char *username, const char *password, const char *etag,
         time_t last_modified, void *buf, uint64_t offset, uint64_t length,

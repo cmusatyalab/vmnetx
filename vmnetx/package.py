@@ -126,6 +126,9 @@ class _HttpFile(object):
             # Store validators
             self.etag = self._get_etag(resp)
             self.last_modified = self._get_last_modified(resp)
+
+            # Record cookies
+            self.cookies = tuple(c for c in self._session.cookies)
         except requests.exceptions.RequestException, e:
             raise _HttpError(str(e))
     # pylint: enable=E1103
@@ -270,6 +273,7 @@ class _FileFile(file):
         if parsed.scheme != 'file':
             raise ValueError('Invalid URL scheme')
         self.url = url
+        self.cookies = ()
 
         file.__init__(self, parsed.path)
 
@@ -293,6 +297,7 @@ class _PackageObject(object):
         self.url = self._fh.url
         self.etag = self._fh.etag
         self.last_modified = self._fh.last_modified
+        self.cookies = self._fh.cookies
 
         # Calculate file offset and length
         try:

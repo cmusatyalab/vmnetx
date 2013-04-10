@@ -27,6 +27,7 @@ import os
 import tempfile
 from urlparse import urlsplit, urlunsplit
 import uuid
+from wsgiref.handlers import format_date_time as format_rfc1123_date
 
 from vmnetx.package import Package
 from vmnetx.reference import PackageReference, BadReferenceError
@@ -56,6 +57,7 @@ class _ReferencedObject(object):
         self.label = label
         self.username = username
         self.password = password
+        self.cookies = info.cookies
         self.url = info.url
         self.offset = info.offset
         self.size = info.size
@@ -108,6 +110,19 @@ class _ReferencedObject(object):
                 e.password(self.password),
             )
             origin.append(credentials)
+        if self.cookies:
+            cookies = e.cookies()
+            for cookie in self.cookies:
+                c = '%s="%s"; Domain=%s; Path=%s' % (cookie.name,
+                        cookie.value, cookie.domain, cookie.path)
+                if cookie.expires:
+                    c += '; Expires=%s' % format_rfc1123_date(cookie.expires)
+                if cookie.secure:
+                    c += '; Secure'
+                if 'httponly' in [k.lower() for k in cookie._rest]:
+                    c += '; HttpOnly'
+                cookies.append(e.cookie(c))
+            origin.append(cookies)
         return e.image(
             e.name(self.label),
             e.size(str(self.size)),

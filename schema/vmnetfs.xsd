@@ -76,6 +76,7 @@ for more details.
       </xsd:element>
       <xsd:element name="validators" type="ValidatorsSpec" minOccurs="0"/>
       <xsd:element name="credentials" type="CredentialsSpec" minOccurs="0"/>
+      <xsd:element name="cookies" type="CookiesSpec" minOccurs="0"/>
     </xsd:all>
   </xsd:complexType>
 
@@ -106,6 +107,20 @@ for more details.
       <xsd:element name="username" type="xsd:string"/>
       <xsd:element name="password" type="xsd:string"/>
     </xsd:all>
+  </xsd:complexType>
+
+  <xsd:complexType name="CookiesSpec">
+    <xsd:annotation><xsd:documentation>
+      HTTP cookies to be sent when accessing the resource.
+    </xsd:documentation></xsd:annotation>
+    <xsd:sequence>
+      <xsd:element name="cookie" type="xsd:string" minOccurs="0"
+          maxOccurs="unbounded">
+        <xsd:annotation><xsd:documentation>
+          A cookie, formatted as the value of a Set-Cookie header.
+        </xsd:documentation></xsd:annotation>
+      </xsd:element>
+    </xsd:sequence>
   </xsd:complexType>
 
   <xsd:complexType name="CacheSpec">
