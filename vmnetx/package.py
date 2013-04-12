@@ -87,8 +87,14 @@ class _HttpFile(object):
         self._buffer_offset = 0
         self._buffer_size = buffer_size
         self._session = requests.Session()
-        self._session.headers['User-Agent'] = 'vmnetx/%s %s' % (__version__,
-                requests.utils.default_user_agent())
+        if hasattr(requests.utils, 'default_user_agent'):
+            self._session.headers['User-Agent'] = 'vmnetx/%s %s' % (
+                    __version__, requests.utils.default_user_agent())
+        else:
+            # requests < 0.13.3
+            self._session.headers['User-Agent'] = \
+                    'vmnetx/%s python-requests/%s' % (
+                    __version__, requests.__version__)
 
         # Debugging
         self._last_case = None
