@@ -15,6 +15,7 @@
 # for more details.
 #
 
+from cookielib import Cookie
 from datetime import datetime
 import dateutil.parser
 from dateutil.tz import tzutc
@@ -137,7 +138,21 @@ class _HttpFile(object):
             self.last_modified = self._get_last_modified(resp)
 
             # Record cookies
-            self.cookies = tuple(c for c in self._session.cookies)
+            if hasattr(self._session.cookies, 'extract_cookies'):
+                # CookieJar
+                self.cookies = tuple(c for c in self._session.cookies)
+            else:
+                # dict (requests < 0.12.0)
+                parsed = urlsplit(self.url)
+                self.cookies = tuple(Cookie(version=0,
+                        name=name, value='"%s"' % value,
+                        port=None, port_specified=False,
+                        domain=parsed.netloc, domain_specified=False,
+                        domain_initial_dot=False,
+                        path=parsed.path, path_specified=True,
+                        secure=False, expires=None, discard=True,
+                        comment=None, comment_url=None, rest={})
+                        for name, value in self._session.cookies.iteritems())
         except requests.exceptions.RequestException, e:
             raise _HttpError(str(e))
     # pylint: enable=E1103
