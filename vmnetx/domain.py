@@ -198,6 +198,9 @@ class DomainXML(object):
                             if domain_node.get('type') == domain_type:
                                 # Found a match!
                                 emulator_nodes = domain_node.xpath('emulator')
+                                if len(emulator_nodes) == 0:
+                                    emulator_nodes = arch_node.xpath(
+                                            'emulator')
                                 if len(emulator_nodes) != 1:
                                     continue
                                 return emulator_nodes[0].text
