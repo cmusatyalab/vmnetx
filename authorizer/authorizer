@@ -84,7 +84,7 @@ class Authorizer(dbus.service.Object):
         if st.st_mode & 0006 == 0006:
             # World-accessible
             pass
-        elif st.st_mode & 0060 != 0060:
+        elif st.st_mode & 0060 == 0060:
             # Group-accessible
             needed_groups.append(st.st_gid)
         else:
