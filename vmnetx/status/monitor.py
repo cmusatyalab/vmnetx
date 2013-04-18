@@ -43,8 +43,10 @@ class _StatMonitor(_Monitor):
         except IOError:
             # Stop accessing this stat
             return
-        self.value = self._process_value(self._fh.readline().strip())
-        self.emit('stat-changed', self.name, self.value)
+        value = self._process_value(self._fh.readline().strip())
+        if value != self.value:
+            self.value = value
+            self.emit('stat-changed', self.name, self.value)
         self._source = glib.io_add_watch(self._fh, glib.IO_IN | glib.IO_ERR,
                 self._reread)
 
