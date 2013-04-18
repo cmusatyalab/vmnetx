@@ -536,6 +536,9 @@ int main(int argc G_GNUC_UNUSED, char **argv G_GNUC_UNUSED)
         open("/dev/null", O_WRONLY);
         open("/dev/null", O_WRONLY);
 
+        /* Ensure that signals generated from the terminal won't affect us */
+        setpgid(0, 0);
+
         child(pipe_fh);
         return 0;
     }
