@@ -92,11 +92,16 @@ class Authorizer(dbus.service.Object):
                     st.st_mode)
 
         # Check access permissions on fusermount
-        try:
-            # Hardcode path, as libfuse does.  This is likely, but not
-            # guaranteed, to be the path that libfuse uses.  If not, give up.
-            st = os.stat('/usr/bin/fusermount')
-        except OSError:
+        # Hardcode possible paths.  One of these is likely, but not
+        # guaranteed, to be the path that libfuse uses.  If we can't find
+        # it, give up.
+        for path in '/usr/bin/fusermount', '/bin/fusermount':
+            try:
+                st = os.stat(path)
+                break
+            except OSError:
+                pass
+        else:
             raise DBusException("Couldn't locate fusermount")
         if st.st_mode & 0001:
             # World-executable
