@@ -225,22 +225,18 @@ class VMNetXApp(object):
             if os.getgid() != primary_gid:
                 switch_group(grp.getgrgid(primary_gid).gr_name)
 
-    def _start_vm(self, cold=False):
-        threading.Thread(name='vmnetx-startup', target=self._startup,
-                kwargs={'cold': cold}).start()
+    def _start_vm(self):
+        threading.Thread(name='vmnetx-startup', target=self._startup).start()
 
     # We intentionally catch all exceptions
     # pylint: disable=W0702
-    def _startup(self, cold):
+    def _startup(self):
         # Thread function.  Load the memory image, then connect the VNC
         # viewer.
         try:
-            self._machine.start_vm(cold)
+            self._machine.start_vm(not self._have_memory)
         except:
-            if cold:
-                gobject.idle_add(self._startup_error, ErrorBuffer())
-            else:
-                gobject.idle_add(self._startup_memory_error)
+            gobject.idle_add(self._startup_error, ErrorBuffer())
         else:
             gobject.idle_add(self._startup_done)
     # pylint: enable=W0702
@@ -259,20 +255,18 @@ class VMNetXApp(object):
             self._load_window.destroy()
             self._load_monitor.close()
 
-    def _startup_memory_error(self):
-        # Runs in UI thread
-        if self._startup_cancelled:
-            self._startup_error()
-        else:
-            self._wind.add_warning('dialog-warning',
-                    'The memory image could not be loaded.')
-            self._start_vm(cold=True)
-
     def _startup_error(self, error=None):
         # Runs in UI thread
         if self._have_memory:
             self._load_window.destroy()
             self._load_monitor.close()
+            self._have_memory = False
+            if not self._startup_cancelled:
+                # Try again without memory image
+                self._wind.add_warning('dialog-warning',
+                        'The memory image could not be loaded.')
+                self._start_vm()
+                return
         if error is not None:
             ew = FatalErrorWindow(self._wind, error)
             ew.run()
@@ -304,7 +298,8 @@ class VMNetXApp(object):
 
     def _restart(self, _obj):
         self._machine.stop_vm()
-        self._start_vm(cold=True)
+        self._have_memory = False
+        self._start_vm()
 
     def _shutdown(self, _obj=None):
         self._wind.show_activity(False)
