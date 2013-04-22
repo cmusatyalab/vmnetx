@@ -131,6 +131,7 @@ class VMNetXApp(object):
 
             # Create monitors
             log_monitor = LineStreamMonitor(self._machine.log_path)
+            log_monitor.connect('line-emitted', self._vmnetfs_log)
             disk_monitor = ImageMonitor(self._machine.disk_path)
             if self._have_memory:
                 self._load_monitor = LoadProgressMonitor(
@@ -138,8 +139,7 @@ class VMNetXApp(object):
 
             # Show main window
             self._wind = VMWindow(self._machine.name,
-                    self._machine.vnc_listen_address, log_monitor,
-                    disk_monitor)
+                    self._machine.vnc_listen_address, disk_monitor)
             self._wind.connect('vnc-disconnect', self._restart)
             self._wind.connect('user-restart', self._user_restart)
             self._wind.connect('user-quit', self._shutdown)
@@ -294,6 +294,9 @@ class VMNetXApp(object):
             ew.destroy()
             if response == gtk.RESPONSE_OK:
                 self._shutdown()
+
+    def _vmnetfs_log(self, _monitor, line):
+        _log.warning('%s', line)
 
     def _user_restart(self, _obj):
         # Just terminate the VM; the vnc-disconnect handler will restart it

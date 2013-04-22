@@ -21,11 +21,12 @@ import gtk
 import gtkvnc
 import logging
 import os
+import pango
 import socket
 import sys
 import traceback
 
-from vmnetx.status import ImageStatusWidget, LogWidget, LoadProgressWidget
+from vmnetx.status import ImageStatusWidget, LoadProgressWidget
 
 # pylint chokes on Gtk widgets, #112550
 # pylint: disable=R0924
@@ -140,7 +141,7 @@ class VMWindow(gtk.Window):
         'user-quit': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
-    def __init__(self, name, path, log_monitor, disk_monitor):
+    def __init__(self, name, path, disk_monitor):
         gtk.Window.__init__(self)
         self._agrp = VMActionGroup(self)
         for sig in 'user-restart', 'user-quit':
@@ -153,8 +154,7 @@ class VMWindow(gtk.Window):
                 self._agrp.get_action('quit').activate() or True)
         self.connect('destroy', self._destroy)
 
-        self._log = LogWindow(name, log_monitor,
-                self._agrp.get_action('show-log'))
+        self._log = LogWindow(name, self._agrp.get_action('show-log'))
         self._activity = ActivityWindow(name, disk_monitor,
                 self._agrp.get_action('show-activity'))
 
@@ -301,29 +301,56 @@ class VMActionGroup(gtk.ActionGroup):
 gobject.type_register(VMActionGroup)
 
 
-class _CallbackHandler(logging.Handler):
+class _MainLoopCallbackHandler(logging.Handler):
     def __init__(self, callback):
         logging.Handler.__init__(self)
         self._callback = callback
 
     def emit(self, record):
-        self._callback(self.format(record))
+        gobject.idle_add(self._callback, self.format(record))
+
+
+class _LogWidget(gtk.ScrolledWindow):
+    FONT = 'monospace 8'
+    MIN_HEIGHT = 150
+
+    def __init__(self):
+        gtk.ScrolledWindow.__init__(self)
+        self.set_policy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
+        self._textview = gtk.TextView()
+        self._textview.set_editable(False)
+        self._textview.set_cursor_visible(False)
+        self._textview.set_wrap_mode(gtk.WRAP_WORD_CHAR)
+        font = pango.FontDescription(self.FONT)
+        self._textview.modify_font(font)
+        width = self._textview.get_pango_context().get_metrics(font,
+                None).get_approximate_char_width()
+        self._textview.set_size_request(80 * width // pango.SCALE,
+                self.MIN_HEIGHT)
+        self.add(self._textview)
+        self._handler = _MainLoopCallbackHandler(self._log)
+        logging.getLogger().addHandler(self._handler)
+        self.connect('destroy', self._destroy)
+
+    def _log(self, line):
+        buf = self._textview.get_buffer()
+        buf.insert(buf.get_end_iter(), line + '\n')
+
+    def _destroy(self, _wid):
+        logging.getLogger().removeHandler(self._handler)
 
 
 class LogWindow(gtk.Window):
-    def __init__(self, name, monitor, hide_action):
+    def __init__(self, name, hide_action):
         gtk.Window.__init__(self)
         self.set_title('Log: %s' % name)
         self.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_UTILITY)
         self.connect('delete-event',
                 lambda _wid, _ev: hide_action.activate() or True)
 
-        widget = LogWidget(monitor)
+        widget = _LogWidget()
         self.add(widget)
         widget.show_all()
-
-        cb = lambda line: gobject.idle_add(widget.log, line)
-        logging.getLogger().addHandler(_CallbackHandler(cb))
 
 
 class ActivityWindow(gtk.Window):

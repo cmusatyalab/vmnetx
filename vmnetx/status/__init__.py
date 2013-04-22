@@ -20,7 +20,6 @@ import cairo
 import glib
 import gtk
 import os
-import pango
 
 from .monitor import ImageMonitor, ChunkMapMonitor
 
@@ -283,39 +282,6 @@ class ImageStatusWidget(gtk.VBox):
         vbox.pack_start(ScrollingImageChunkWidget(image))
         frame.add(vbox)
         self.pack_start(frame)
-
-
-class LogWidget(gtk.ScrolledWindow):
-    FONT = 'monospace 8'
-    MIN_HEIGHT = 150
-
-    def __init__(self, monitor):
-        gtk.ScrolledWindow.__init__(self)
-        self.set_policy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
-        self._textview = gtk.TextView()
-        self._textview.set_editable(False)
-        self._textview.set_cursor_visible(False)
-        self._textview.set_wrap_mode(gtk.WRAP_WORD_CHAR)
-        font = pango.FontDescription(self.FONT)
-        self._textview.modify_font(font)
-        width = self._textview.get_pango_context().get_metrics(font,
-                None).get_approximate_char_width()
-        self._textview.set_size_request(80 * width // pango.SCALE,
-                self.MIN_HEIGHT)
-        self.add(self._textview)
-        self._monitor = monitor
-        self._handler = self._monitor.connect('line-emitted', self._line)
-        self.connect('destroy', self._destroy)
-
-    def log(self, line):
-        buf = self._textview.get_buffer()
-        buf.insert(buf.get_end_iter(), line + '\n')
-
-    def _line(self, _monitor, line):
-        self.log(line)
-
-    def _destroy(self, _wid):
-        self._monitor.disconnect(self._handler)
 
 
 class LoadProgressWidget(gtk.ProgressBar):
