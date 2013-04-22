@@ -19,6 +19,7 @@ from __future__ import division
 import gobject
 import gtk
 import gtkvnc
+import logging
 import os
 import socket
 import sys
@@ -300,6 +301,15 @@ class VMActionGroup(gtk.ActionGroup):
 gobject.type_register(VMActionGroup)
 
 
+class _CallbackHandler(logging.Handler):
+    def __init__(self, callback):
+        logging.Handler.__init__(self)
+        self._callback = callback
+
+    def emit(self, record):
+        self._callback(self.format(record))
+
+
 class LogWindow(gtk.Window):
     def __init__(self, name, monitor, hide_action):
         gtk.Window.__init__(self)
@@ -311,6 +321,9 @@ class LogWindow(gtk.Window):
         widget = LogWidget(monitor)
         self.add(widget)
         widget.show_all()
+
+        cb = lambda line: gobject.idle_add(widget.log, line)
+        logging.getLogger().addHandler(_CallbackHandler(cb))
 
 
 class ActivityWindow(gtk.Window):

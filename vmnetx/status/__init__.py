@@ -307,9 +307,12 @@ class LogWidget(gtk.ScrolledWindow):
         self._handler = self._monitor.connect('line-emitted', self._line)
         self.connect('destroy', self._destroy)
 
-    def _line(self, _monitor, line):
+    def log(self, line):
         buf = self._textview.get_buffer()
         buf.insert(buf.get_end_iter(), line + '\n')
+
+    def _line(self, _monitor, line):
+        self.log(line)
 
     def _destroy(self, _wid):
         self._monitor.disconnect(self._handler)

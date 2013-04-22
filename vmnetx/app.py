@@ -15,11 +15,13 @@
 # for more details.
 #
 
+from datetime import datetime
 import dbus
 import gobject
 import grp
 import gtk
 import json
+import logging
 import os
 import pipes
 import pwd
@@ -30,12 +32,15 @@ import threading
 
 from vmnetx.execute import Machine, MachineMetadata
 from vmnetx.package import NeedAuthentication
+from vmnetx.system import __version__
 from vmnetx.util import get_cache_dir
 from vmnetx.view import (VMWindow, LoadProgressWindow, PasswordWindow,
         SaveMediaWindow, ErrorWindow, FatalErrorWindow, IgnorableErrorWindow,
         ErrorBuffer)
 from vmnetx.status.monitor import (ImageMonitor, LoadProgressMonitor,
         LineStreamMonitor)
+
+_log = logging.getLogger(__name__)
 
 class _UsernameCache(object):
     def __init__(self):
@@ -150,6 +155,11 @@ class VMNetXApp(object):
                 self._load_window.connect('user-cancel', self._startup_cancel)
                 self._load_window.show_all()
 
+            # Start logging
+            logging.getLogger().setLevel(logging.INFO)
+            _log.info('VMNetX %s starting at %s', __version__,
+                    datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
             # Load memory image in the background
             self._start_vm()
 
@@ -162,6 +172,7 @@ class VMNetXApp(object):
             FatalErrorWindow(self._wind).run()
         finally:
             # Shut down
+            logging.shutdown()
             if self._wind is not None:
                 self._wind.destroy()
             if disk_monitor is not None:
