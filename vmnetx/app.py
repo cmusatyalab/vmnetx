@@ -17,6 +17,7 @@
 
 from datetime import datetime
 import dbus
+import glib
 import gobject
 import grp
 import gtk
@@ -73,6 +74,7 @@ class VMNetXApp(object):
     AUTHORIZER_NAME = 'org.olivearchive.VMNetX.Authorizer'
     AUTHORIZER_PATH = '/org/olivearchive/VMNetX/Authorizer'
     AUTHORIZER_IFACE = 'org.olivearchive.VMNetX.Authorizer'
+    RESUME_CHECK_DELAY = 1000  # ms
 
     def __init__(self, package_ref):
         gobject.threads_init()
@@ -140,6 +142,7 @@ class VMNetXApp(object):
             # Show main window
             self._wind = VMWindow(self._machine.name,
                     self._machine.vnc_listen_address, disk_monitor)
+            self._wind.connect('vnc-connect', self._connect)
             self._wind.connect('vnc-disconnect', self._restart)
             self._wind.connect('user-restart', self._user_restart)
             self._wind.connect('user-quit', self._shutdown)
@@ -263,8 +266,7 @@ class VMNetXApp(object):
             self._have_memory = False
             if not self._startup_cancelled:
                 # Try again without memory image
-                self._wind.add_warning('dialog-warning',
-                        'The memory image could not be loaded.')
+                self._warn_bad_memory()
                 self._start_vm()
                 return
         if error is not None:
@@ -272,6 +274,33 @@ class VMNetXApp(object):
             ew.run()
             ew.destroy()
         self._shutdown()
+
+    def _warn_bad_memory(self):
+        self._wind.add_warning('dialog-warning',
+                'The memory image could not be loaded.')
+
+    def _connect(self, _obj):
+        glib.timeout_add(self.RESUME_CHECK_DELAY,
+                self._startup_check_screenshot)
+
+    # pylint doesn't like '\0'
+    # pylint: disable=W1401
+    def _startup_check_screenshot(self):
+        # If qemu doesn't like a memory image, it may sit and spin rather
+        # than failing properly.  Recover from this case.
+        if not self._have_memory:
+            return
+        img = self._wind.take_screenshot()
+        if img is None:
+            return
+        black = ('\0' * (img.get_n_channels() * img.get_width() *
+                img.get_height() * img.get_bits_per_sample() // 8))
+        if img.get_pixels() == black:
+            _log.warning('Detected black screen; assuming bad memory image')
+            self._warn_bad_memory()
+            # Terminate the VM; the vnc-disconnect handler will restart it
+            self._machine.stop_vm()
+    # pylint: enable=W1401
 
     def _io_error(self, _monitor, _name, _value):
         # Runs in UI thread

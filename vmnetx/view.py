@@ -134,6 +134,7 @@ class VMWindow(gtk.Window):
     SCREEN_SIZE_FUDGE = (-100, -100)
 
     __gsignals__ = {
+        'vnc-connect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'vnc-disconnect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'user-screenshot': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (gtk.gdk.Pixbuf,)),
@@ -205,8 +206,12 @@ class VMWindow(gtk.Window):
     def add_warning(self, icon, message):
         self._statusbar.add_warning(icon, message)
 
+    def take_screenshot(self):
+        return self._vnc.get_pixbuf()
+
     def _vnc_connected(self, _obj):
         self._agrp.set_vm_running(True)
+        self.emit('vnc-connect')
 
     def _vnc_disconnected(self, _obj):
         self._agrp.set_vm_running(False)
