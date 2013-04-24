@@ -47,6 +47,7 @@ CLEANFILES = vmnetx/system.py
 EXTRA_DIST = vmnetx/system.py.in pylintrc vmnetx.te README.rst
 
 nobase_dist_pkgpython_DATA = schema/domain.xsd \
+	schema/domain-metadata.xsd \
 	schema/package.xsd \
 	schema/reference.xsd \
 	schema/vmnetfs.xsd \

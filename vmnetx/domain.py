@@ -63,6 +63,13 @@ class DomainXML(object):
         return etree.tostring(tree, pretty_print=True, encoding='UTF-8',
                 xml_declaration=True)
 
+    @classmethod
+    def _remove_metadata(cls, tree):
+        # Strip <metadata> element, which is not supported by libvirt < 0.9.10
+        # and is not meant for libvirt anyway
+        for el in tree.xpath('/domain/metadata'):
+            el.getparent().remove(el)
+
     # pylint is confused by Popen.returncode
     # pylint: disable=E1101
     def _validate(self, strict=False):
@@ -79,6 +86,10 @@ class DomainXML(object):
             raise DomainXMLError('Domain XML contains prohibited elements',
                     str(e))
 
+        # Strip <metadata> element before validating against libvirt schema
+        self._remove_metadata(tree)
+        xml = self._to_xml(tree)
+
         if strict:
             # Validate against schema from minimum supported libvirt
             # (in case our schema is accidentally more permissive than the
@@ -92,7 +103,7 @@ class DomainXML(object):
         else:
             # Validate against schema from installed libvirt
             with NamedTemporaryFile(prefix='vmnetx-xml-') as fh:
-                fh.write(self.xml)
+                fh.write(xml)
                 fh.flush()
 
                 proc = subprocess.Popen(['virt-xml-validate', fh.name,
@@ -131,6 +142,9 @@ class DomainXML(object):
             vnc_listen_address):
         # Parse XML
         tree = etree.fromstring(self.xml)
+
+        # Remove metadata element
+        self._remove_metadata(tree)
 
         # Ensure machine name is unique
         name_nodes = tree.xpath('/domain/name')

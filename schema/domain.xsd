@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- libvirt 0.9.8 domain XML schema, translated to XML Schema and
      simplified for vmnetx. -->
-<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:vx="http://olivearchive.org/xmlns/vmnetx/domain-metadata"
+    elementFormDefault="qualified">
+  <xs:import namespace="http://olivearchive.org/xmlns/vmnetx/domain-metadata"
+      schemaLocation="domain-metadata.xsd"/>
   <!-- Our unsignedInt doesn"t allow a leading "+" in its lexical form -->
   <xs:simpleType name="unsignedInt">
     <xs:restriction base="xs:unsignedInt">
@@ -49,6 +53,7 @@
           <xs:element name="name" type="domainName"/>
           <xs:element name="uuid" type="UUID"/>
           <xs:element name="description" type="xs:string"/>
+          <xs:element ref="metadata"/>
           <xs:element ref="cpu"/>
           <xs:group ref="oshvm"/>
           <xs:element ref="clock"/>
@@ -64,6 +69,13 @@
             </xs:restriction>
           </xs:simpleType>
         </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="metadata">
+    <xs:complexType>
+      <xs:all>
+        <xs:element ref="vx:vmnetx"/>
+      </xs:all>
     </xs:complexType>
   </xs:element>
   <xs:group name="oshvm">
