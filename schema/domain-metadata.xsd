@@ -5,6 +5,11 @@
   <xs:element name="vmnetx">
     <xs:complexType>
       <xs:all>
+        <xs:element name="limit_mouse_rate" minOccurs="0">
+          <xs:complexType>
+            <xs:attribute name="hz" type="xs:positiveInteger" use="required"/>
+          </xs:complexType>
+        </xs:element>
       </xs:all>
     </xs:complexType>
   </xs:element>

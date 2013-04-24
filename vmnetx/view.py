@@ -32,20 +32,35 @@ from vmnetx.status import ImageStatusWidget, LoadProgressWidget
 # pylint: disable=R0924
 
 class VNCWidget(gtkvnc.Display):
-    def __init__(self, path):
+    def __init__(self, path, max_mouse_rate=None):
         gtkvnc.Display.__init__(self)
         self._path = path
+        self._last_motion_time = 0
+        if max_mouse_rate is not None:
+            self._motion_interval = 1000 // max_mouse_rate  # ms
+        else:
+            self._motion_interval = None
 
         self.keyboard_grabbed = False
         self.mouse_grabbed = False
         def set(_wid, attr, value):
             setattr(self, attr, value)
+        if self._motion_interval is not None:
+            self.connect('motion-notify-event', self._motion)
         self.connect('vnc-keyboard-grab', set, 'keyboard_grabbed', True)
         self.connect('vnc-keyboard-ungrab', set, 'keyboard_grabbed', False)
         self.connect('vnc-pointer-grab', set, 'mouse_grabbed', True)
         self.connect('vnc-pointer-ungrab', set, 'mouse_grabbed', False)
         self.set_pointer_grab(True)
         self.set_keyboard_grab(True)
+
+    def _motion(self, _wid, motion):
+        if motion.time < self._last_motion_time + self._motion_interval:
+            # Motion event came too soon; ignore it
+            return True
+        else:
+            self._last_motion_time = motion.time
+            return False
 
     def connect_vnc(self):
         sock = socket.socket(socket.AF_UNIX)
@@ -142,7 +157,7 @@ class VMWindow(gtk.Window):
         'user-quit': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
-    def __init__(self, name, path, disk_monitor):
+    def __init__(self, name, path, disk_monitor, max_mouse_rate=None):
         gtk.Window.__init__(self)
         self._agrp = VMActionGroup(self)
         for sig in 'user-restart', 'user-quit':
@@ -172,7 +187,7 @@ class VMWindow(gtk.Window):
         tbar.insert(self._agrp.get_action('show-log').create_tool_item(), -1)
         box.pack_start(tbar, expand=False)
 
-        self._vnc = VNCWidget(path)
+        self._vnc = VNCWidget(path, max_mouse_rate)
         self._vnc.set_scaling(True)
         self._vnc.connect('vnc-desktop-resize', self._vnc_resize)
         self._vnc.connect('vnc-connected', self._vnc_connected)

@@ -141,7 +141,8 @@ class VMNetXApp(object):
 
             # Show main window
             self._wind = VMWindow(self._machine.name,
-                    self._machine.vnc_listen_address, disk_monitor)
+                    self._machine.vnc_listen_address, disk_monitor,
+                    metadata.domain_xml.max_mouse_rate)
             self._wind.connect('vnc-connect', self._connect)
             self._wind.connect('vnc-disconnect', self._restart)
             self._wind.connect('user-restart', self._user_restart)

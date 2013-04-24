@@ -23,6 +23,10 @@ import uuid
 
 from vmnetx.util import DetailException
 
+# vmnetx-specific metadata extensions
+NS = 'http://olivearchive.org/xmlns/vmnetx/domain-metadata'
+NSP = '{' + NS + '}'
+
 SAFE_SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'schema',
         'domain.xsd')
 STRICT_SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'schema',
@@ -50,23 +54,28 @@ class DomainXML(object):
         self.disk_path = self._xpath_one(in_disk, 'source/@file')
         self.disk_type = self._xpath_one(in_disk, 'driver/@type')
 
+        # Extract vmnetx-specific metadata
+        meta = self._xpath_opt(tree, '/domain/metadata/v:vmnetx')
+        self.max_mouse_rate = self._xpath_opt(meta, 'v:limit_mouse_rate/@hz',
+                int)
+
     @classmethod
-    def _xpath_opt(cls, tree, xpath):
+    def _xpath_opt(cls, tree, xpath, converter=lambda v: v):
         '''Expect zero or one results.  Return None in the former case.'''
         if tree is None:
             return None
-        result = tree.xpath(xpath)
+        result = tree.xpath(xpath, namespaces={'v': NS})
         if len(result) == 0:
             return None
         if len(result) > 1:
             raise DomainXMLError('Query "%s" returned multiple results' %
                     xpath)
-        return result[0]
+        return converter(result[0])
 
     @classmethod
-    def _xpath_one(cls, tree, xpath):
+    def _xpath_one(cls, tree, xpath, converter=lambda v: v):
         '''Expect exactly one result.'''
-        ret = cls._xpath_opt(tree, xpath)
+        ret = cls._xpath_opt(tree, xpath, converter)
         if ret is None:
             raise DomainXMLError('Query "%s" returned no results' % xpath)
         return ret
