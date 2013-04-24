@@ -46,17 +46,30 @@ class DomainXML(object):
 
         # Get disk path and type
         tree = etree.fromstring(xml)
-        in_disks = tree.xpath('/domain/devices/disk[@device="disk"]')
-        if len(in_disks) == 0:
-            raise DomainXMLError('Could not locate machine disk image')
-        if len(in_disks) > 1:
-            raise DomainXMLError('Machine has multiple disk images')
-        disk_paths = in_disks[0].xpath('source/@file')
-        disk_types = in_disks[0].xpath('driver/@type')
-        if len(disk_paths) != 1 or len(disk_types) != 1:
-            raise DomainXMLError('Could not read machine disk declaration')
-        self.disk_path = disk_paths[0]
-        self.disk_type = disk_types[0]
+        in_disk = self._xpath_one(tree, '/domain/devices/disk[@device="disk"]')
+        self.disk_path = self._xpath_one(in_disk, 'source/@file')
+        self.disk_type = self._xpath_one(in_disk, 'driver/@type')
+
+    @classmethod
+    def _xpath_opt(cls, tree, xpath):
+        '''Expect zero or one results.  Return None in the former case.'''
+        if tree is None:
+            return None
+        result = tree.xpath(xpath)
+        if len(result) == 0:
+            return None
+        if len(result) > 1:
+            raise DomainXMLError('Query "%s" returned multiple results' %
+                    xpath)
+        return result[0]
+
+    @classmethod
+    def _xpath_one(cls, tree, xpath):
+        '''Expect exactly one result.'''
+        ret = cls._xpath_opt(tree, xpath)
+        if ret is None:
+            raise DomainXMLError('Query "%s" returned no results' % xpath)
+        return ret
 
     @classmethod
     def _to_xml(cls, tree):
@@ -67,8 +80,9 @@ class DomainXML(object):
     def _remove_metadata(cls, tree):
         # Strip <metadata> element, which is not supported by libvirt < 0.9.10
         # and is not meant for libvirt anyway
-        for el in tree.xpath('/domain/metadata'):
-            el.getparent().remove(el)
+        metadata = cls._xpath_opt(tree, '/domain/metadata')
+        if metadata is not None:
+            metadata.getparent().remove(metadata)
 
     # pylint is confused by Popen.returncode
     # pylint: disable=E1101
@@ -121,19 +135,20 @@ class DomainXML(object):
         tree = etree.fromstring(self.xml)
 
         # Substitute generic VM name
-        tree.xpath('/domain/name')[0].text = 'machine'
+        self._xpath_one(tree, '/domain/name').text = 'machine'
 
         # Regenerate UUID
         if not keep_uuid:
-            tree.xpath('/domain/uuid')[0].text = str(uuid.uuid4())
+            self._xpath_one(tree, '/domain/uuid').text = str(uuid.uuid4())
 
         # Remove path information from disk image
-        disk_tag = tree.xpath('/domain/devices/disk/source')[0]
-        disk_tag.set('file', '/disk.img')
+        self._xpath_one(tree, '/domain/devices/disk/source').set('file',
+                '/disk.img')
 
         # Update disk driver
-        disk_tag = tree.xpath('/domain/devices/disk[@device="disk"]/driver')[0]
-        disk_tag.set('type', disk_type)
+        self._xpath_one(tree,
+                '/domain/devices/disk[@device="disk"]/driver').set('type',
+                disk_type)
 
         # Return new instance
         return type(self)(self._to_xml(tree))
@@ -147,25 +162,19 @@ class DomainXML(object):
         self._remove_metadata(tree)
 
         # Ensure machine name is unique
-        name_nodes = tree.xpath('/domain/name')
-        if len(name_nodes) != 1:
-            raise DomainXMLError('Error locating machine name XML node')
-        name_nodes[0].text = name
+        self._xpath_one(tree, '/domain/name').text = name
 
         # Update path to emulator
-        emulator_nodes = tree.xpath('/domain/devices/emulator')
-        if len(emulator_nodes) != 1:
-            raise DomainXMLError('Error locating machine emulator XML node')
-        emulator_nodes[0].text = self._get_emulator(conn, tree)
+        self._xpath_one(tree, '/domain/devices/emulator').text = \
+                self._get_emulator(conn, tree)
 
         # Update path to hard disk
-        source_nodes = tree.xpath('/domain/devices/disk[@device="disk"]/source')
-        if len(source_nodes) != 1:
-            raise DomainXMLError('Error locating machine disk XML node')
-        source_nodes[0].set('file', disk_image_path)
+        self._xpath_one(tree,
+                '/domain/devices/disk[@device="disk"]/source').set('file',
+                disk_image_path)
 
         # Remove graphics declarations
-        devices_node = tree.xpath('/domain/devices')[0]
+        devices_node = self._xpath_one(tree, '/domain/devices')
         for node in tree.xpath('/domain/devices/graphics'):
             devices_node.remove(node)
 
@@ -177,26 +186,22 @@ class DomainXML(object):
         # Return new instance
         return type(self)(self._to_xml(tree))
 
-    @staticmethod
-    def _get_emulator(conn, tree):
+    @classmethod
+    def _get_emulator(cls, conn, tree):
         caps = etree.fromstring(conn.getCapabilities())
 
         # Get desired emulator properties
-        type_nodes = tree.xpath('/domain/os/type')
-        if len(type_nodes) != 1:
-            raise DomainXMLError('Error locating machine OS type XML node')
+        type_node = cls._xpath_one(tree, '/domain/os/type')
         domain_type = tree.get('type')
-        type = type_nodes[0].text
-        arch = type_nodes[0].get('arch')
-        machine = type_nodes[0].get('machine')
+        type = type_node.text
+        arch = type_node.get('arch')
+        machine = type_node.get('machine')
 
         # Find a suitable emulator
         for guest in caps.xpath('/capabilities/guest'):
             # Check type
-            type_nodes = guest.xpath('os_type')
-            if len(type_nodes) != 1:
-                continue
-            if type_nodes[0].text != type:
+            type_node = cls._xpath_opt(guest, 'os_type')
+            if type_node is None or type_node.text != type:
                 continue
 
             # Check architectures
