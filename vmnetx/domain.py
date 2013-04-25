@@ -175,7 +175,7 @@ class DomainXML(object):
 
         # Update path to emulator
         self._xpath_one(tree, '/domain/devices/emulator').text = \
-                self._get_emulator(conn, tree)
+                self._get_emulator_for_domain(conn, tree)
 
         # Update path to hard disk
         self._xpath_one(tree,
@@ -196,21 +196,25 @@ class DomainXML(object):
         return type(self)(self._to_xml(tree))
 
     @classmethod
-    def _get_emulator(cls, conn, tree):
-        caps = etree.fromstring(conn.getCapabilities())
-
+    def _get_emulator_for_domain(cls, conn, tree):
         # Get desired emulator properties
         type_node = cls._xpath_one(tree, '/domain/os/type')
         domain_type = tree.get('type')
-        type = type_node.text
+        os_type = type_node.text
         arch = type_node.get('arch')
         machine = type_node.get('machine')
 
         # Find a suitable emulator
+        return cls._get_emulator(conn, os_type, domain_type, arch, machine)
+
+    @classmethod
+    def _get_emulator(cls, conn, os_type, domain_type, arch, machine):
+        caps = etree.fromstring(conn.getCapabilities())
+
         for guest in caps.xpath('/capabilities/guest'):
             # Check type
             type_node = cls._xpath_opt(guest, 'os_type')
-            if type_node is None or type_node.text != type:
+            if type_node is None or type_node.text != os_type:
                 continue
 
             # Check architectures
@@ -234,5 +238,5 @@ class DomainXML(object):
                                 return emulator_nodes[0].text
 
         # Failed.
-        raise DomainXMLError('No suitable emulator for %s/%s/%s' %
-                (type, arch, machine))
+        raise DomainXMLError('No suitable emulator for %s/%s/%s/%s' %
+                (os_type, domain_type, arch, machine))
