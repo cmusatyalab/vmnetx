@@ -32,6 +32,7 @@ vmnetfs_vmnetfs_SOURCES = vmnetfs/bitmap.c \
 
 nobase_python_PYTHON = vmnetx/__init__.py \
 	vmnetx/app.py \
+	vmnetx/define.py \
 	vmnetx/domain.py \
 	vmnetx/execute.py \
 	vmnetx/generate.py \

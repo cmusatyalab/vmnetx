@@ -16,7 +16,9 @@
 #
 
 from lxml import etree
+from lxml.builder import ElementMaker
 import os
+import random
 import subprocess
 from tempfile import NamedTemporaryFile
 import uuid
@@ -194,6 +196,154 @@ class DomainXML(object):
 
         # Return new instance
         return type(self)(self._to_xml(tree))
+
+    @classmethod
+    def get_template(cls, conn, name, disk_path, disk_type, memory_mb):
+        rand = random.SystemRandom()
+        mac_address = ':'.join(['02'] + ['%02x' % rand.randint(0, 255)
+                for _ in range(5)])
+        e = ElementMaker(nsmap={'v': NS})
+        tree = e.domain(
+            e.name(name),
+            e.uuid(str(uuid.uuid4())),
+            e.memory(str(memory_mb << 10)),
+            e.vcpu('1'),
+            e.os(
+                e.type(
+                    'hvm',
+                    arch='i686',
+                    machine='pc',
+                ),
+                e.boot(
+                    dev='hd',
+                ),
+            ),
+            e.cpu(
+                e.model('qemu32'),
+                e.topology(
+                    sockets='1',
+                    cores='1',
+                    threads='1',
+                ),
+                match='exact',
+            ),
+            e.features(
+                e.acpi(),
+                e.apic(),
+                e.pae(),
+            ),
+            e.clock(
+                offset='localtime',
+            ),
+            e.devices(
+                e.emulator(
+                    cls._get_emulator(conn, 'hvm', 'kvm', 'i686', 'pc')
+                ),
+                e.disk(
+                    e.driver(
+                        name='qemu',
+                        type=disk_type,
+                    ),
+                    e.source(
+                        file=disk_path,
+                    ),
+                    e.target(
+                        dev='hda',
+                        bus='ide',
+                    ),
+                    e.address(
+                        type='drive',
+                        controller='0',
+                        bus='0',
+                        unit='0',
+                    ),
+                    type='file',
+                    device='disk',
+                ),
+                e.controller(
+                    e.address(
+                        type='pci',
+                        domain='0x0000',
+                        bus='0x00',
+                        slot='0x01',
+                        function='0x2',
+                    ),
+                    type='usb',
+                    index='0',
+                ),
+                e.controller(
+                    e.address(
+                        type='pci',
+                        domain='0x0000',
+                        bus='0x00',
+                        slot='0x01',
+                        function='0x1',
+                    ),
+                    type='ide',
+                    index='0',
+                ),
+                e.interface(
+                    e.mac(
+                        address=mac_address,
+                    ),
+                    e.address(
+                        type='pci',
+                        domain='0x0000',
+                        bus='0x00',
+                        slot='0x03',
+                        function='0x0',
+                    ),
+                    e.model(
+                        type='e1000',
+                    ),
+                    type='user',
+                ),
+                e.input(
+                    type='mouse',
+                    bus='ps2',
+                ),
+                e.graphics(
+                    type='vnc',
+                    autoport='yes',
+                ),
+                e.sound(
+                    e.address(
+                        type='pci',
+                        domain='0x0000',
+                        bus='0x00',
+                        slot='0x04',
+                        function='0x0',
+                    ),
+                    model='ac97',
+                ),
+                e.video(
+                    e.model(
+                        type='vga',
+                        vram='4096',
+                        heads='1',
+                    ),
+                    e.address(
+                        type='pci',
+                        domain='0x0000',
+                        bus='0x00',
+                        slot='0x02',
+                        function='0x0',
+                    ),
+                ),
+                e.memballoon(
+                    e.address(
+                        type='pci',
+                        domain='0x0000',
+                        bus='0x00',
+                        slot='0x06',
+                        function='0x0',
+                    ),
+                    model='virtio',
+                ),
+            ),
+            type='kvm',
+        )
+        return cls(cls._to_xml(tree), strict=True)
 
     @classmethod
     def _get_emulator_for_domain(cls, conn, tree):
