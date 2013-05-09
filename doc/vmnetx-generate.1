@@ -1,0 +1,112 @@
+.\" First parameter, NAME, should be all caps
+.\" Second parameter, SECTION, should be 1-8
+.\" Followed by date (YYYY-MM-DD)
+.\" Adjust the date whenever revising this page
+.TH VMNETX-GENERATE 1 2013-05-09 "VMNetX 0.3.2" "User Commands"
+.SH NAME
+vmnetx-generate \- Construct a new VMNetX virtual machine image
+.SH SYNOPSIS
+.B vmnetx-generate
+.RB [ \ \-cnu \ ]
+.IR DOMAIN-XML \ [ \ OUT-FILE \ ]
+.br
+.B vmnetx-generate
+.B \-r
+.I PACKAGE-URL OUT-FILE
+.br
+.B vmnetx-generate
+.B \-a
+.I SHORT-NAME MEMORY-MB DISK-GB
+.\" .br
+.\" .B vmnetx-generate
+.\" .B \-c
+.\" .I domain-xml
+.SH DESCRIPTION
+.B vmnetx-generate
+creates and operates on
+.B vmnetx
+compatible virtual machines.
+.B vmnetx-generate
+provides a suite for adding new blank virtual machines to
+.BR virt-manager ,
+validating domain XML, and generating
+.I .nxpk
+virtual machine packages from existing virtual machine images.
+.SH OPTIONS
+.TP
+.B \-\^\-version
+Print the version number of
+.B vmnetx-generate
+to the standard output stream, then exit.
+.TP
+.BR \-h ", " \-\^\-help
+Print a usage message summarizing these options, then exit.
+.TP
+.BI \-a\  NAME \fR,\ \fB\-\-add= NAME
+Create a blank virtual machine and add it to
+.BR virt-manager .
+.TP
+.BI \-c\  PATH \fR,\ \fB\-\-check\-xml= PATH
+Validate domain xml at
+.IR PATH .
+.TP
+.BI \-n\  NAME \fR,\ \fB\-\-name= NAME
+Name of the virtual machine to create.
+.TP
+.BI \-r\  URL \fR,\ \fB\-\-reference= URL
+Create a reference to a remote VM image in your
+.B VMNetX
+package.
+.TP
+.BR \-u ", " \-\-uncompressed
+Do not compress memory and disk images at package creation.
+.SH EXAMPLES
+.TP \w'vmnetx-generate\ 'u
+.BI vmnetx-generate\ \-n \ windows3.1 \ \-u \ ~/.libvirt/qemu/windows311.xml\ ~/windows311.nxpk
+Creates an uncompressed
+.I .nxpk
+file in the user's home directory. This is a
+.B VMNetX
+package which is ready to be uploaded to a webserver or accessed remotely.
+.TP
+.BI vmnetx-generate\ \-r \ http://example.com/package.nxpk\ ~/package.netx
+Creates an executable
+.I .netx
+file in the user's home directory.  This file can be executed by
+.B VMNetX
+to run a remotely hosted virtual machine.
+.TP
+.BI vmnetx-generate\ \-a \ dos622\ 1024\ 1
+Creates a new blank virtual machine named
+.I dos622
+with
+.IR 1024 MB
+of allocated RAM and
+.IR 1 GB
+of allocated disk space and adds it to
+.BR virt-manager .
+.TP
+.BI vmnetx-generate\ \-c \ ~/.libvirt/qemu/macos.xml
+Checks domain XML at the supplied path for
+.B VMNetX
+compatibility.  Prints errors to standard output.
+.SH COPYRIGHT
+Copyright 2006-2013 Carnegie Mellon University.
+.PP
+This program is free software; you can redistribute it and/or modify it
+under the terms of version 2 of the GNU General Public License as published
+by the Free Software Foundation. This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+.
+.SH BUGS
+.BR vmnetx 's
+bug tracker and source repository are located at
+.RB < https://github.com/cmusatyalab/vmnetx >.
+.SH SEE ALSO
+.BR vmnetx (1), 
+.BR qemu (1),
+.BR qemu-kvm (1)
+.\" This is allegedly a workaround for some troff -man implementations.
+.br

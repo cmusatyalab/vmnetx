@@ -1,0 +1,76 @@
+.\" First parameter, NAME, should be all caps
+.\" Second parameter, SECTION, should be 1-8
+.\" Followed by date (YYYY-MM-DD)
+.\" Adjust the date whenever revising this page
+.TH VMNETX 1 2013-05-09 "VMNetX 0.3.2" "User Commands"
+.SH NAME
+vmnetx \- Virtual Machine Network Execution
+.SH SYNOPSIS
+.B vmnetx
+.RI [ \ OPTIONS \ ] \ LOCATION
+.\" .sp
+.SH DESCRIPTION
+.B vmnetx
+executes a
+.BR kvm -based
+virtual machine whose VMNetX reference file or package is located at the supplied 
+.IR LOCATION .
+The supplied path should point to either a
+.I .netx
+file or a 
+.I .nxpk
+file.
+.TP
+VMNetX allows virtual machines to be stored on a web server and executed on-demand on a client system. The entire disk and memory state are not downloaded before starting the VM; instead, disk and memory chunks are retrieved on demand from the web server and then cached on the client.
+.SS Local and Remote VMs
+VMNetX can handle either local or remote virtual machine images.  If the
+.I .nxpk
+file is stored locally, you can invoke the VMNetX package directly with
+.BI vmnetx \ /path/to/vm.nxpk \fR.
+.PP
+The alternative method for accessing VMNetX formatted virtual machine packages
+is via a
+.I .netx
+file, which contains a reference URL to a remote VMNetX package.
+.SH OPTIONS
+.TP
+.B \-\^\-version
+Print the version number of
+.B vmnetx
+to the standard output stream, then exit.
+.TP
+.BR \-h ", " \-\^\-help
+Print a usage message summarizing these options, then exit.
+.sp
+.SH EXAMPLES
+.TP \w'vmnetx\ 'u
+.BI vmnetx \ windows311.netx
+Executes the virtual machine whose metadata
+.I location
+is the current working directory in a file called
+.IR windows311.netx .
+.sp
+.SH COPYRIGHT
+Copyright 2006-2013 Carnegie Mellon University.
+.PP
+This program is free software; you can redistribute it and/or modify it
+under the terms of version 2 of the GNU General Public License as published
+by the Free Software Foundation. This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+.
+.SH BUGS
+VMNetX's bug tracker and source repository are located at
+.RB < https://github.com/cmusatyalab/vmnetx >.
+.\" .SH FILES
+.\" .TP
+.\" .I /usr/share/applications/vmnetx.desktop
+.\" Desktop entry file for
+.\" .BR vmnetx .
+.SH SEE ALSO
+.BR vmnetx-generate (1), 
+.BR qemu (1),
+.BR qemu-kvm (1)
+.\" This is allegedly a workaround for some troff -man implementations.
+.br

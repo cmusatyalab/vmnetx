@@ -62,6 +62,7 @@ applicationsdir = $(datarootdir)/applications
 mimedir = $(datarootdir)/mime/packages
 dist_applications_DATA = desktop/vmnetx.desktop
 dist_mime_DATA = desktop/vmnetx.xml
+dist_man_MANS = doc/vmnetx.1 doc/vmnetx-generate.1
 
 dbusconfdir = $(sysconfdir)/dbus-1/system.d
 dbusservicedir = $(datarootdir)/dbus-1/system-services
