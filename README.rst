@@ -27,6 +27,7 @@ You will need:
 * gtk-vnc Python bindings
 * libvirt Python bindings
 * dbus-python
+* glib2
 * libcurl
 * libfuse
 * libxml2
