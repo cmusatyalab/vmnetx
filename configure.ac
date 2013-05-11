@@ -24,7 +24,7 @@ AC_CONFIG_SRCDIR([vmnetfs/vmnetfs.c])
 AC_CONFIG_HEADERS([config.h])
 AC_DISABLE_STATIC
 
-AM_INIT_AUTOMAKE([foreign 1.11 dist-xz])
+AM_INIT_AUTOMAKE([foreign 1.11 dist-xz subdir-objects])
 AM_SILENT_RULES([yes])
 
 # Checks for programs.
