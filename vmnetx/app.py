@@ -270,7 +270,7 @@ class VMNetXApp(object):
                 self._warn_bad_memory()
                 self._start_vm()
                 return
-        if error is not None:
+        if error is not None and not self._startup_cancelled:
             ew = FatalErrorWindow(self._wind, error)
             ew.run()
             ew.destroy()
