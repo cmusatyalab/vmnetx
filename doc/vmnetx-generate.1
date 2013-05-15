@@ -99,9 +99,7 @@ Name of the virtual machine to create where
 is the friendly name displayed in the titlebar of the running VM.
 .TP
 .BI \-r\  URL \fR,\ \fB\-\-reference= URL
-Create a reference to a remote VM image in your
-.B VMNetX
-package.
+Create a reference file to a remote VMNetX package to enable users to execute the virtual machine without downloading the full package.
 .TP
 .BR \-u ", " \-\-uncompressed
 Do not compress memory and disk images at package creation.
@@ -117,9 +115,9 @@ package which is ready to be uploaded to a webserver or accessed remotely.
 .BI vmnetx-generate\ \-r \ http://example.com/package.nxpk\ ~/package.netx
 Creates an executable
 .I .netx
-file in the user's home directory.  This file can be executed by
-.B VMNetX
-to run a remotely hosted virtual machine.
+file in the user's home directory.  This file contains a reference to the remote 
+.I .nxpk
+file and can be executed by VMNetX to run the referenced VM without downloading the full package.
 .TP
 .BI vmnetx-generate\ \-a \ dos622\ 1024\ 1
 Creates a new blank virtual machine named
@@ -132,9 +130,7 @@ of allocated disk space and adds it to
 .BR virt-manager .
 .TP
 .BI vmnetx-generate\ \-c \ ~/.libvirt/qemu/macos.xml
-Checks domain XML at the supplied path for
-.B VMNetX
-compatibility.  Prints errors to standard output.
+Checks domain XML at the supplied path for VMNetX compatibility.
 .SH COPYRIGHT
 Copyright 2006-2013 Carnegie Mellon University.
 .PP
