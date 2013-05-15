@@ -73,63 +73,50 @@ content type. The link to this
 .I .netx
 file should be published for access.
 .SH OPTIONS
-.TP
-.B \-\^\-version
+.IP \fB\-\^\-version
 Print the version number of
 .B vmnetx-generate
 to the standard output stream, then exit.
-.TP
-.BR \-h ", " \-\^\-help
+.IP \fB\-h\fR,\ \fB\-\^\-help
 Print a usage message summarizing these options, then exit.
-.TP
-.BI \-a\  NAME \fR,\ \fB\-\-add= NAME
+.IP \fB\-a\ \fINAME\fR,\ \fB\-\-add=\fINAME
 Create a blank virtual machine and add it to
 .B virt-manager
 where
 .I NAME
 is the friendly name displayed in the titlebar of the running VM.
-.TP
-.BI \-c\  PATH \fR,\ \fB\-\-check\-xml= PATH
+.IP \fB\-c\ \fIPATH\fR,\ \fB\-\-check\-xml=\fIPATH
 Validate domain xml at
 .IR PATH .
-.TP
-.BI \-n\  NAME \fR,\ \fB\-\-name= NAME
+.IP \fB\-n\ \fINAME\fR,\ \fB\-\-name=\fINAME
 Name of the virtual machine to create where
 .I NAME
 is the friendly name displayed in the titlebar of the running VM.
-.TP
-.BI \-r\  URL \fR,\ \fB\-\-reference= URL
+.IP \fB\-r\ \fIURL\fR,\ \fB\-\-reference=\fIURL
 Create a reference file to a remote VMNetX package to enable users to execute the virtual machine without downloading the full package.
-.TP
-.BR \-u ", " \-\-uncompressed
+.IP \fB\-u\fR,\ \fB\-\-uncompressed
 Do not compress memory and disk images at package creation.
 .SH EXAMPLES
-.TP \w'vmnetx-generate\ 'u
-.BI vmnetx-generate\ \-n \ windows3.1 \ \-u \ ~/.libvirt/qemu/windows311.xml\ ~/windows311.nxpk
+.IP \fBvmnetx-generate\ \-n\ \fIwindows3.1\ \fB\-u\ \fI~/.libvirt/qemu/windows311.xml\ ~/windows311.nxpk
 Creates an uncompressed
 .I .nxpk
-file in the user's home directory. This is a
-.B VMNetX
-package which is ready to be uploaded to a webserver or accessed remotely.
-.TP
-.BI vmnetx-generate\ \-r \ http://example.com/package.nxpk\ ~/package.netx
+file in the user's home directory. This is a VMNetX package which is ready to be uploaded to a webserver or accessed remotely.
+.IP \fBvmnetx-generate\ \-r\ \fIhttp://example.com/package.nxpk\ ~/package.netx
 Creates an executable
 .I .netx
 file in the user's home directory.  This file contains a reference to the remote 
 .I .nxpk
 file and can be executed by VMNetX to run the referenced VM without downloading the full package.
-.TP
-.BI vmnetx-generate\ \-a \ dos622\ 1024\ 1
+.IP \fBvmnetx-generate\ \-a\ \fIdos622\ 1024\ 1
 Creates a new blank virtual machine named
 .I dos622
 with
-.IR 1024 MB
+.IR 1024\  MB
 of allocated RAM and
-.IR 1 GB
+.IR 1\  GB
 of allocated disk space and adds it to
 .BR virt-manager .
-.TP
-.BI vmnetx-generate\ \-c \ ~/.libvirt/qemu/macos.xml
+.IP \fBvmnetx-generate\ \-c\ \fI~/.libvirt/qemu/macos.xml
 Checks domain XML at the supplied path for VMNetX compatibility.
 .SH COPYRIGHT
 Copyright 2006-2013 Carnegie Mellon University.
