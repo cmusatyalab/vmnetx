@@ -16,7 +16,7 @@
 .\" Second parameter, SECTION, should be 1-8
 .\" Followed by date (YYYY-MM-DD)
 .\" Adjust the date whenever revising this page
-.TH VMNETX 1 2013-05-09 "VMNetX 0.3.2" "User Commands"
+.TH VMNETX 1 2013-05-09 "VMNetX @version@" "User Commands"
 .SH NAME
 vmnetx \- Virtual Machine Network Execution
 .SH SYNOPSIS
