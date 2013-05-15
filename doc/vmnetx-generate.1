@@ -46,6 +46,32 @@ provides a suite for adding new blank virtual machines to
 validating domain XML, and generating
 .I .nxpk
 virtual machine packages from existing virtual machine images.
+.SS Virtual Machine Lifecycle
+Virtual machines are created in
+.B virt-manager
+using the
+.B vmnetx-generate -a
+command.  The resulting domain XML must be hand-modified to conform to the VMNetX requirements using
+.B vmnetx-generate -c
+which will print validation errors to standard output.
+.PP
+Once no errors are returned by
+.B vmnetx-generate -c
+then a VMNetX virtual machine package can be generate using
+.BR vmnetx-generate\ -n .
+The resulting 
+.I .nxpk
+file can be uploaded to a webserver and downloaded and executed.
+.PP
+To enable users to execute the virtual machine without downloading the entire package, you must create a reference file using
+.BR vmnetx-generate\ -r .
+This file should be uploaded to the webserver with the
+.I .netx
+extension and the
+.I application/x-vmnetx-reference+xml
+content type. The link to this
+.I .netx
+file should be published for access.
 .SH OPTIONS
 .TP
 .B \-\^\-version
@@ -58,14 +84,19 @@ Print a usage message summarizing these options, then exit.
 .TP
 .BI \-a\  NAME \fR,\ \fB\-\-add= NAME
 Create a blank virtual machine and add it to
-.BR virt-manager .
+.B virt-manager
+where
+.I NAME
+is the friendly name displayed in the titlebar of the running VM.
 .TP
 .BI \-c\  PATH \fR,\ \fB\-\-check\-xml= PATH
 Validate domain xml at
 .IR PATH .
 .TP
 .BI \-n\  NAME \fR,\ \fB\-\-name= NAME
-Name of the virtual machine to create.
+Name of the virtual machine to create where
+.I NAME
+is the friendly name displayed in the titlebar of the running VM.
 .TP
 .BI \-r\  URL \fR,\ \fB\-\-reference= URL
 Create a reference to a remote VM image in your
