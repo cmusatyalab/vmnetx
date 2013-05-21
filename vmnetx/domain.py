@@ -61,6 +61,12 @@ class DomainXML(object):
         self.max_mouse_rate = self._xpath_opt(meta, 'v:limit_mouse_rate/@hz',
                 int)
 
+        # Extract runtime settings, if present
+        self.vnc_host = self._xpath_opt(tree,
+                '/domain/devices/graphics/@listen')
+        self.vnc_port = self._xpath_opt(tree,
+                '/domain/devices/graphics/@port', int)
+
     @classmethod
     def _xpath_opt(cls, tree, xpath, converter=lambda v: v):
         '''Expect zero or one results.  Return None in the former case.'''
@@ -165,8 +171,7 @@ class DomainXML(object):
         # Return new instance
         return type(self)(self._to_xml(tree), strict=True)
 
-    def get_for_execution(self, conn, name, disk_image_path,
-            vnc_listen_address):
+    def get_for_execution(self, conn, name, disk_image_path):
         # Parse XML
         tree = etree.fromstring(self.xml)
 
@@ -193,7 +198,7 @@ class DomainXML(object):
         # Add new graphics declaration
         graphics_node = etree.SubElement(devices_node, 'graphics')
         graphics_node.set('type', 'vnc')
-        graphics_node.set('socket', vnc_listen_address)
+        graphics_node.set('autoport', 'yes')
 
         # Return new instance
         return type(self)(self._to_xml(tree), safe=False)

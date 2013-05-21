@@ -20,9 +20,7 @@ import gobject
 import gtk
 import gtkvnc
 import logging
-import os
 import pango
-import socket
 import sys
 import traceback
 
@@ -62,14 +60,8 @@ class VNCWidget(gtkvnc.Display):
             return False
 
     def connect_vnc(self, address):
-        sock = socket.socket(socket.AF_UNIX)
-        try:
-            sock.connect(address)
-            self.open_fd(os.dup(sock.fileno()))
-        except socket.error:
-            self.emit('vnc-disconnected')
-        finally:
-            sock.close()
+        host, port = address
+        self.open_host(host, str(port))
 
 
 class AspectBin(gtk.Bin):

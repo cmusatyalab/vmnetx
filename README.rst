@@ -33,7 +33,6 @@ You will need:
 * libxml2
 * lxml
 * pkg-config
-* libselinux Python bindings if SELinux is in use
 
 If building from the Git repository, you will also need:
 

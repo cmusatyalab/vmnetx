@@ -24,7 +24,6 @@ from hashlib import sha256
 import libvirt
 from lxml.builder import ElementMaker
 import os
-import tempfile
 from urlparse import urlsplit, urlunsplit
 import uuid
 from wsgiref.handlers import format_date_time as format_rfc1123_date
@@ -32,16 +31,8 @@ from wsgiref.handlers import format_date_time as format_rfc1123_date
 from vmnetx.domain import DomainXML
 from vmnetx.package import Package
 from vmnetx.reference import PackageReference, BadReferenceError
-from vmnetx.util import ensure_dir, get_cache_dir, get_temp_dir
+from vmnetx.util import ensure_dir, get_cache_dir
 from vmnetx.vmnetfs import VMNetFS, NS as VMNETFS_NS
-
-try:
-    from selinux import chcon
-except ImportError:
-    def chcon(*_args, **_kwargs):
-        pass
-
-SOCKET_DIR_CONTEXT = 'unconfined_u:object_r:virt_home_t:s0'
 
 class MachineExecutionError(Exception):
     pass
@@ -176,15 +167,7 @@ class Machine(object):
     def __init__(self, metadata):
         self.name = metadata.package.name
         self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
-        self._vnc_socket_dir = tempfile.mkdtemp(dir=get_temp_dir(),
-                prefix='vmnetx-socket-')
-        self.vnc_listen_address = os.path.join(self._vnc_socket_dir, 'vnc')
-
-        # Fix socket dir SELinux context
-        try:
-            chcon(self._vnc_socket_dir, SOCKET_DIR_CONTEXT)
-        except OSError:
-            pass
+        self.vnc_listen_address = None
 
         # Start vmnetfs
         self._fs = VMNetFS(metadata.vmnetfs_config)
@@ -203,8 +186,7 @@ class Machine(object):
 
         # Get execution domain XML
         self._domain_xml = metadata.domain_xml.get_for_execution(
-                self._conn, self._domain_name, disk_image_path,
-                self.vnc_listen_address).xml
+                self._conn, self._domain_name, disk_image_path).xml
 
     def start_vm(self, cold=False):
         try:
@@ -213,9 +195,15 @@ class Machine(object):
                 # Does not allow autodestroy
                 self._conn.restoreFlags(self._memory_image_path,
                         self._domain_xml, libvirt.VIR_DOMAIN_SAVE_RUNNING)
+                domain = self._conn.lookupByName(self._domain_name)
             else:
-                self._conn.createXML(self._domain_xml,
+                domain = self._conn.createXML(self._domain_xml,
                         libvirt.VIR_DOMAIN_START_AUTODESTROY)
+
+            # Get VNC socket address
+            domain_xml = DomainXML(domain.XMLDesc(0), safe=False)
+            self.vnc_listen_address = (domain_xml.vnc_host,
+                    domain_xml.vnc_port)
         except libvirt.libvirtError, e:
             raise MachineExecutionError(str(e))
 
@@ -225,20 +213,11 @@ class Machine(object):
         except libvirt.libvirtError:
             # Assume that the VM did not exist or was already dying
             pass
+        self.vnc_listen_address = None
 
     def close(self):
         # Close libvirt connection
         self._conn.close()
-
-        # Delete VNC socket
-        try:
-            os.unlink(self.vnc_listen_address)
-        except OSError:
-            pass
-        try:
-            os.rmdir(self._vnc_socket_dir)
-        except OSError:
-            pass
 
         # Terminate vmnetfs
         self._fs.terminate()
