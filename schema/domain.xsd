@@ -411,7 +411,6 @@
           </xs:restriction>
         </xs:simpleType>
       </xs:attribute>
-      <xs:attribute name="socket" type="absFilePath"/>
     </xs:complexType>
   </xs:element>
   <!--

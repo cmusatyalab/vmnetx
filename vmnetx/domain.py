@@ -46,9 +46,9 @@ class DomainXMLError(DetailException):
 
 
 class DomainXML(object):
-    def __init__(self, xml, strict=False):
+    def __init__(self, xml, strict=False, safe=True):
         self.xml = xml
-        self._validate(strict)
+        self._validate(strict=strict, safe=safe)
 
         # Get disk path and type
         tree = etree.fromstring(xml)
@@ -97,19 +97,20 @@ class DomainXML(object):
 
     # pylint is confused by Popen.returncode
     # pylint: disable=E1101
-    def _validate(self, strict=False):
+    def _validate(self, strict=False, safe=True):
         # Parse XML
         try:
             tree = etree.fromstring(self.xml)
         except etree.XMLSyntaxError, e:
             raise DomainXMLError('Domain XML does not parse', str(e))
 
-        # Ensure XML contains no prohibited configuration
-        try:
-            safe_schema.assertValid(tree)
-        except etree.DocumentInvalid, e:
-            raise DomainXMLError('Domain XML contains prohibited elements',
-                    str(e))
+        if safe:
+            # Ensure XML contains no prohibited configuration
+            try:
+                safe_schema.assertValid(tree)
+            except etree.DocumentInvalid, e:
+                raise DomainXMLError('Domain XML contains prohibited elements',
+                        str(e))
 
         # Strip <metadata> element before validating against libvirt schema
         self._remove_metadata(tree)
@@ -195,7 +196,7 @@ class DomainXML(object):
         graphics_node.set('socket', vnc_listen_address)
 
         # Return new instance
-        return type(self)(self._to_xml(tree))
+        return type(self)(self._to_xml(tree), safe=False)
 
     @classmethod
     def get_template(cls, conn, name, disk_path, disk_type, memory_mb):
