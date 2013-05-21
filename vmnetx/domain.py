@@ -162,7 +162,7 @@ class DomainXML(object):
                 disk_type)
 
         # Return new instance
-        return type(self)(self._to_xml(tree))
+        return type(self)(self._to_xml(tree), strict=True)
 
     def get_for_execution(self, conn, name, disk_image_path,
             vnc_listen_address):
