@@ -32,9 +32,8 @@ from vmnetx.status import ImageStatusWidget, LoadProgressWidget
 # pylint: disable=R0924
 
 class VNCWidget(gtkvnc.Display):
-    def __init__(self, path, max_mouse_rate=None):
+    def __init__(self, max_mouse_rate=None):
         gtkvnc.Display.__init__(self)
-        self._path = path
         self._last_motion_time = 0
         if max_mouse_rate is not None:
             self._motion_interval = 1000 // max_mouse_rate  # ms
@@ -62,10 +61,10 @@ class VNCWidget(gtkvnc.Display):
             self._last_motion_time = motion.time
             return False
 
-    def connect_vnc(self):
+    def connect_vnc(self, address):
         sock = socket.socket(socket.AF_UNIX)
         try:
-            sock.connect(self._path)
+            sock.connect(address)
             self.open_fd(os.dup(sock.fileno()))
         except socket.error:
             self.emit('vnc-disconnected')
@@ -157,7 +156,7 @@ class VMWindow(gtk.Window):
         'user-quit': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
-    def __init__(self, name, path, disk_monitor, max_mouse_rate=None):
+    def __init__(self, name, disk_monitor, max_mouse_rate=None):
         gtk.Window.__init__(self)
         self._agrp = VMActionGroup(self)
         for sig in 'user-restart', 'user-quit':
@@ -187,7 +186,7 @@ class VMWindow(gtk.Window):
         tbar.insert(self._agrp.get_action('show-log').create_tool_item(), -1)
         box.pack_start(tbar, expand=False)
 
-        self._vnc = VNCWidget(path, max_mouse_rate)
+        self._vnc = VNCWidget(max_mouse_rate)
         self._vnc.set_scaling(True)
         self._vnc.connect('vnc-desktop-resize', self._vnc_resize)
         self._vnc.connect('vnc-connected', self._vnc_connected)
@@ -203,8 +202,8 @@ class VMWindow(gtk.Window):
         self._statusbar = StatusBarWidget(self._vnc)
         box.pack_end(self._statusbar, expand=False)
 
-    def connect_vnc(self):
-        self._vnc.connect_vnc()
+    def connect_vnc(self, address):
+        self._vnc.connect_vnc(address)
 
     def show_activity(self, enabled):
         if enabled:

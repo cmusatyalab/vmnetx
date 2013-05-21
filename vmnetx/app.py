@@ -140,8 +140,7 @@ class VMNetXApp(object):
                         self._machine.memory_path)
 
             # Show main window
-            self._wind = VMWindow(self._machine.name,
-                    self._machine.vnc_listen_address, disk_monitor,
+            self._wind = VMWindow(self._machine.name, disk_monitor,
                     metadata.domain_xml.max_mouse_rate)
             self._wind.connect('vnc-connect', self._connect)
             self._wind.connect('vnc-disconnect', self._restart)
@@ -254,7 +253,7 @@ class VMNetXApp(object):
 
     def _startup_done(self):
         # Runs in UI thread
-        self._wind.connect_vnc()
+        self._wind.connect_vnc(self._machine.vnc_listen_address)
         if self._have_memory:
             self._load_window.destroy()
             self._load_monitor.close()
