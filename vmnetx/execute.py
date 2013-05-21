@@ -29,19 +29,17 @@ from urlparse import urlsplit, urlunsplit
 import uuid
 from wsgiref.handlers import format_date_time as format_rfc1123_date
 
+from vmnetx.domain import DomainXML
 from vmnetx.package import Package
 from vmnetx.reference import PackageReference, BadReferenceError
-from vmnetx.util import ensure_dir
+from vmnetx.util import ensure_dir, get_cache_dir, get_temp_dir
+from vmnetx.vmnetfs import VMNetFS, NS as VMNETFS_NS
 
 try:
     from selinux import chcon
 except ImportError:
     def chcon(*_args, **_kwargs):
         pass
-
-from vmnetx.domain import DomainXML
-from vmnetx.util import get_cache_dir, get_temp_dir
-from vmnetx.vmnetfs import VMNetFS, NS as VMNETFS_NS
 
 SOCKET_DIR_CONTEXT = 'unconfined_u:object_r:virt_home_t:s0'
 
