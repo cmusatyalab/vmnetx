@@ -253,7 +253,8 @@ class VMNetXApp(object):
 
     def _startup_done(self):
         # Runs in UI thread
-        self._wind.connect_vnc(self._machine.vnc_listen_address)
+        self._wind.connect_vnc(self._machine.vnc_listen_address,
+                self._machine.vnc_password)
         if self._have_memory:
             self._load_window.destroy()
             self._load_monitor.close()

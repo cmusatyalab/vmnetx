@@ -59,8 +59,9 @@ class VNCWidget(gtkvnc.Display):
             self._last_motion_time = motion.time
             return False
 
-    def connect_vnc(self, address):
+    def connect_vnc(self, address, password):
         host, port = address
+        self.set_credential(gtkvnc.CREDENTIAL_PASSWORD, password)
         self.open_host(host, str(port))
 
 
@@ -194,8 +195,8 @@ class VMWindow(gtk.Window):
         self._statusbar = StatusBarWidget(self._vnc)
         box.pack_end(self._statusbar, expand=False)
 
-    def connect_vnc(self, address):
-        self._vnc.connect_vnc(address)
+    def connect_vnc(self, address, password):
+        self._vnc.connect_vnc(address, password)
 
     def show_activity(self, enabled):
         if enabled:

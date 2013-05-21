@@ -15,6 +15,7 @@
 # for more details.
 #
 
+import base64
 from calendar import timegm
 import json
 # pylint doesn't understand hashlib.sha256
@@ -168,6 +169,7 @@ class Machine(object):
         self.name = metadata.package.name
         self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
         self.vnc_listen_address = None
+        self.vnc_password = base64.urlsafe_b64encode(os.urandom(6))
 
         # Start vmnetfs
         self._fs = VMNetFS(metadata.vmnetfs_config)
@@ -186,7 +188,8 @@ class Machine(object):
 
         # Get execution domain XML
         self._domain_xml = metadata.domain_xml.get_for_execution(
-                self._conn, self._domain_name, disk_image_path).xml
+                self._conn, self._domain_name, disk_image_path,
+                self.vnc_password).xml
 
     def start_vm(self, cold=False):
         try:
