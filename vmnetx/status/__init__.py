@@ -285,19 +285,40 @@ class ImageStatusWidget(gtk.VBox):
 
 
 class LoadProgressWidget(gtk.ProgressBar):
+    PULSE_INITIAL_DELAY = 750  # ms
+    PULSE_INTERVAL = 100  # ms
+
     def __init__(self, monitor):
         gtk.ProgressBar.__init__(self)
         self._monitor = monitor
         self._handler = self._monitor.connect('progress', self._progress)
+        self._timer = None
         self.connect('destroy', self._destroy)
 
     def _destroy(self, _wid):
+        if self._timer is not None:
+            glib.source_remove(self._timer)
+            self._timer = None
         self._monitor.disconnect(self._handler)
 
     def _progress(self, _monitor, count, total):
         if total != 0:
-            self.set_fraction(count / total)
+            fraction = count / total
         else:
-            self.set_fraction(1)
+            fraction = 1
+        self.set_fraction(fraction)
+        # qemu can take a long time to finish starting up after it loads the
+        # memory image.  Alert the user that something is still happening.
+        if fraction == 1 and self._timer is None:
+            self._timer = glib.timeout_add(self.PULSE_INITIAL_DELAY,
+                    self._timer_tick)
+        elif fraction != 1 and self._timer is not None:
+            glib.source_remove(self._timer)
+            self._timer = None
+
+    def _timer_tick(self):
+        self.pulse()
+        self._timer = glib.timeout_add(self.PULSE_INTERVAL, self._timer_tick)
+        return False
 
 # pylint: enable=R0924
