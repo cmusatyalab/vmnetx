@@ -15,8 +15,16 @@ can run the software.
 
 VMNetX is licensed under the GNU General Public License, version 2.
 
-Installing
-----------
+Binary packages
+---------------
+
+`Binary packages`_ are available for Debian, Fedora, Red Hat Enterprise
+Linux, and Ubuntu.
+
+.. _`Binary packages`: https://olivearchive.org/docs/vmnetx/install/
+
+Installing from source
+----------------------
 
 You will need:
 
