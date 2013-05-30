@@ -1,0 +1,109 @@
+.\"
+.\" Copyright (C) 2012-2013 Carnegie Mellon University
+.\"
+.\" This program is free software; you can redistribute it and/or modify it
+.\" under the terms of version 2 of the GNU General Public License as published
+.\" by the Free Software Foundation.  A copy of the GNU General Public License
+.\" should have been distributed along with this program in the file
+.\" COPYING.
+.\"
+.\" This program is distributed in the hope that it will be useful, but
+.\" WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+.\" or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+.\" for more details.
+.\"
+.\" First parameter, NAME, should be all caps
+.\" Second parameter, SECTION, should be 1-8
+.\" Followed by date (YYYY-MM-DD)
+.\" Adjust the date whenever revising this page
+.TH VMNETX 1 2013-05-09 "VMNetX @version@" "User Commands"
+.SH NAME
+vmnetx \- Virtual Machine Network Execution
+.SH SYNOPSIS
+.B vmnetx
+.RI [ \ OPTIONS \ ] \ LOCATION
+.\" .sp
+.SH DESCRIPTION
+.B vmnetx
+executes a
+.BR kvm -based
+virtual machine whose VMNetX reference file or package is located at the supplied 
+.IR LOCATION .
+The supplied path should point to either a
+.I .netx
+file or a 
+.I .nxpk
+file.
+.PP
+VMNetX allows virtual machines to be stored on a web server and executed
+on-demand on a client system. The entire disk and memory state are not
+downloaded before starting the VM; instead, disk and memory chunks are
+retrieved on demand from the web server and then cached on the client.
+
+.SS Local and Remote VMs
+VMNetX can handle either local or remote virtual machine images.  If the
+.I .nxpk
+file is stored locally, you can invoke the VMNetX package directly with
+.BI vmnetx \ /path/to/vm.nxpk \fR.
+.PP
+When
+.B vmnetx
+is invoked with a URL to a remote virtual machine package, the virtual machine
+is streamed from the remote URL as though a reference
+.I .netx
+file were supplied.
+.PP
+The alternative method for accessing VMNetX formatted virtual machine packages
+is to supply the path to a local
+.I .netx
+file, which contains a reference URL to a remote VMNetX package. This approach
+allows package creators to provide small reference files for download for users
+navigating with web browsers rather than supplying the entire package as a URL
+which would download the full VM image and associated packaged data.
+
+.SH OPTIONS
+.TP
+.B \-\^\-version
+Print the version number of
+.B vmnetx
+to the standard output stream, then exit.
+.TP
+.BR \-h ", " \-\^\-help
+Print a usage message summarizing these options, then exit.
+.SH EXAMPLES
+.B "  vmnetx windows311.nxpk"
+.br
+Executes the virtual machine bundled in the
+.I windows311.nxpk
+package located in the current working directory.
+
+.B "  vmnetx http://example.com/windows311.nxpk"
+.br
+Downloads the virtual machine package
+.I windows311.nxpk
+from the supplied URL and executes it.
+
+.B "  vmnetx windows311.netx"
+.br
+Executes the virtual machine whose reference file is called
+.I windows311.netx
+in the current working directory.
+.SH COPYRIGHT
+Copyright 2006-2013 Carnegie Mellon University.
+.PP
+This program is free software; you can redistribute it and/or modify it
+under the terms of version 2 of the GNU General Public License as published
+by the Free Software Foundation. This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+.
+.SH BUGS
+VMNetX's bug tracker and source repository are located at
+.RB < https://github.com/cmusatyalab/vmnetx >.
+.SH SEE ALSO
+.BR vmnetx-generate (1), 
+.BR qemu (1),
+.BR qemu-kvm (1)
+.\" This is allegedly a workaround for some troff -man implementations.
+.br

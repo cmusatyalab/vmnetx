@@ -1,0 +1,198 @@
+.\"
+.\" Copyright (C) 2012-2013 Carnegie Mellon University
+.\"
+.\" This program is free software; you can redistribute it and/or modify it
+.\" under the terms of version 2 of the GNU General Public License as published
+.\" by the Free Software Foundation.  A copy of the GNU General Public License
+.\" should have been distributed along with this program in the file
+.\" COPYING.
+.\"
+.\" This program is distributed in the hope that it will be useful, but
+.\" WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+.\" or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+.\" for more details.
+.\"
+.\" First parameter, NAME, should be all caps
+.\" Second parameter, SECTION, should be 1-8
+.\" Followed by date (YYYY-MM-DD)
+.\" Adjust the date whenever revising this page
+.TH VMNETX-GENERATE 1 2013-05-09 "VMNetX @version@" "User Commands"
+.SH NAME
+vmnetx-generate \- Construct a new VMNetX virtual machine image
+.SH SYNOPSIS
+.B vmnetx-generate
+.RB [ \ \-cnu \ ]
+.IR DOMAIN-XML \ [ \ OUT-FILE \ ]
+.br
+.B vmnetx-generate
+.B \-r
+.I PACKAGE-URL OUT-FILE
+.br
+.B vmnetx-generate
+.B \-a
+.I SHORT-NAME MEMORY-MB DISK-GB
+.\" .br
+.\" .B vmnetx-generate
+.\" .B \-c
+.\" .I domain-xml
+.SH DESCRIPTION
+.B vmnetx-generate
+creates and operates on
+.B vmnetx
+compatible virtual machines.
+.B vmnetx-generate
+provides a suite for adding new blank virtual machines to
+.BR virt-manager ,
+validating domain XML, and generating
+.I .nxpk
+virtual machine packages from existing virtual machine images.
+.SS Virtual Machine Lifecycle
+Virtual machines are created in
+.B virt-manager
+using the
+.B vmnetx-generate -a
+command.  The user must then open 
+.B virt-manager
+and install and configure the virtual machine. If a memory image is desired, the
+VM should be suspended.  If the VM is executed or modified in
+.B virt-manager
+then the domain XML may no longer conform to the VMNetX requirements, so it
+should be hand-modified until
+.B vmnetx-generate -c
+no longer prints validation errors to standard output.
+.PP
+Once no errors are returned by
+.B vmnetx-generate -c
+then a VMNetX virtual machine package can be generate using
+.BR vmnetx-generate .
+The resulting 
+.I .nxpk
+file can be uploaded to a webserver and downloaded and executed.
+.PP
+To enable users to execute the virtual machine without downloading the entire package, you must create a reference file using
+.BR vmnetx-generate\ -r .
+This file should be uploaded to the webserver with the
+.I .netx
+extension and the
+.I application/x-vmnetx-reference+xml
+content type. The link to this
+.I .netx
+file should be published for access.
+
+.SH MODES
+vmnetx-generate has several modes of operation:
+
+.TP
+.B Create
+Create a new blank virtual machine in
+.B virt-manager
+for use when creating a VMNetX package.
+
+.TP
+.B Validate
+Validate the domain XML of a virtual machine before generating a
+.I .nxpk
+package to ensure compliance across libvirt/qemu versions.
+.I vmnetx
+restricts valid domain XML to ensure compatibility. This is done automatically
+when using
+.B vmnetx-generate
+in Package mode.
+
+.TP
+.B Package
+Package the domain XML, virtual disk, and memory image of the virtual machine
+in order to upload the virtual machine for remote access.
+.I vmnetx
+only recognizes its own
+.I .nxpk
+packages or
+.I .netx
+reference files for execution. This mode also validates the supplied domain XML.
+
+.SH OPTIONS
+.TP 
+.B \-\^\-version
+Print the version number of
+.B vmnetx-generate
+to the standard output stream, then exit.
+.TP 
+.BR \-h ", " \-\^\-help
+Print a usage message summarizing these options, then exit.
+.TP
+.BR \-a ", " \-\-add=
+Create a blank virtual machine and add it to
+.BR virt-manager .
+The argument given to this flag is the short name associated with the VM in the
+.B virt-manager
+interface, and is used as the filename of the domain XML.
+.TP
+.BR \-c ", " \-\-check\-xml=
+Validate domain XML for a virtual machine.
+The argument given to this flag is the path of the domain XML.
+.TP 
+.BR \-n ", " \-\-name=
+Name of the virtual machine package to create where the argument is the friendly name displayed in the titlebar of VMNetX.
+.TP
+.BR \-r ", " \-\-reference=
+Create a reference file to a remote VMNetX package to enable users to execute the virtual machine without downloading the full package.
+The argument given to this flag is the URL of the referenced
+.I .nxpk
+package.
+.TP
+.BR \-u ", " \-\-uncompressed
+Do not compress memory and disk images at package creation.  Used with the
+.B \-n
+flag.
+
+.SH EXAMPLES
+
+.B "  vmnetx-generate \-n windows3.1 ~/.libvirt/qemu/windows311.xml ~/windows311.nxpk"
+.br
+Creates a
+.I .nxpk
+file in the user's home directory. This is a VMNetX package which is ready to be uploaded to a webserver or accessed remotely.
+
+.B "  vmnetx-generate \-r http://example.com/package.nxpk ~/package.netx"
+.br
+Creates an executable
+.I .netx
+file in the user's home directory.  This file contains a reference to the remote 
+.I .nxpk
+file and can be executed by VMNetX to run the referenced VM without downloading the full package.
+
+.B "  vmnetx-generate \-a dos622 1024 1"
+.br
+Creates a new blank virtual machine named
+.I dos622
+with
+.I 1024
+MB of allocated RAM and
+.I 1
+GB of allocated disk space and adds it to
+.BR virt-manager .
+
+.B "  vmnetx-generate \-c ~/.libvirt/qemu/macos.xml"
+.br
+Checks domain XML at the supplied path for VMNetX compatibility.
+
+.SH COPYRIGHT
+Copyright 2006-2013 Carnegie Mellon University.
+.PP
+This program is free software; you can redistribute it and/or modify it
+under the terms of version 2 of the GNU General Public License as published
+by the Free Software Foundation. This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+.
+.SH BUGS
+.BR vmnetx 's
+bug tracker and source repository are located at
+.RB < https://github.com/cmusatyalab/vmnetx >.
+.SH SEE ALSO
+.BR vmnetx (1), 
+.BR qemu (1),
+.BR qemu-kvm (1)
+.\" This is allegedly a workaround for some troff -man implementations.
+.br
