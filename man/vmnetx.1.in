@@ -48,15 +48,18 @@ file is stored locally, you can invoke the VMNetX package directly with
 .PP
 When
 .B vmnetx
-is invoked with a URL to a remote virtual machine package, the entire package
-will be downloaded prior to execution.
+is invoked with a URL to a remote virtual machine package, the virtual machine
+is streamed from the remote URL as though a reference
+.I .netx
+file were supplied.
 .PP
 The alternative method for accessing VMNetX formatted virtual machine packages
 is to supply the path to a local
 .I .netx
 file, which contains a reference URL to a remote VMNetX package. This approach
-allows remote virtual machines to be executed without downloading the full
-package.
+allows package creators to provide small reference files for download for users
+navigating with web browsers rather than supplying the entire package as a URL
+which would download the full VM image and associated packaged data.
 
 .SH OPTIONS
 .TP
