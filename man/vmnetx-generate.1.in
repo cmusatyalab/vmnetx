@@ -51,14 +51,20 @@ Virtual machines are created in
 .B virt-manager
 using the
 .B vmnetx-generate -a
-command.  The resulting domain XML must be hand-modified to conform to the VMNetX requirements using
+command.  The user must then open 
+.B virt-manager
+and install and configure the virtual machine. If a memory image is desired, the
+VM should be suspended.  If the VM is executed or modified in
+.B virt-manager
+then the domain XML may no longer conform to the VMNetX requirements, so it
+should be hand-modified until
 .B vmnetx-generate -c
-which will print validation errors to standard output.
+no longer prints validation errors to standard output.
 .PP
 Once no errors are returned by
 .B vmnetx-generate -c
 then a VMNetX virtual machine package can be generate using
-.BR vmnetx-generate\ -n .
+.BR vmnetx-generate .
 The resulting 
 .I .nxpk
 file can be uploaded to a webserver and downloaded and executed.
@@ -88,7 +94,10 @@ Validate the domain XML of a virtual machine before generating a
 .I .nxpk
 package to ensure compliance across libvirt/qemu versions.
 .I vmnetx
-restricts valid domain XML to ensure compatibility.
+restricts valid domain XML to ensure compatibility. This is done automatically
+when using
+.B vmnetx-generate
+in Package mode.
 
 .TP
 .B Package
@@ -99,7 +108,7 @@ only recognizes its own
 .I .nxpk
 packages or
 .I .netx
-reference files for execution.
+reference files for execution. This mode also validates the supplied domain XML.
 
 .SH OPTIONS
 .TP 
@@ -114,7 +123,9 @@ Print a usage message summarizing these options, then exit.
 .BR \-a ", " \-\-add=
 Create a blank virtual machine and add it to
 .BR virt-manager .
-The argument given to this flag is the friendly name displayed in the titlebar of the running VM.
+The argument given to this flag is the short name associated with the VM in the
+.B virt-manager
+interface, and is used as the filename of the domain XML.
 .TP
 .BR \-c ", " \-\-check\-xml=
 Validate domain XML for a virtual machine.
@@ -136,9 +147,9 @@ flag.
 
 .SH EXAMPLES
 
-.B "  vmnetx-generate \-n windows3.1 \-u ~/.libvirt/qemu/windows311.xml ~/windows311.nxpk"
+.B "  vmnetx-generate \-n windows3.1 ~/.libvirt/qemu/windows311.xml ~/windows311.nxpk"
 .br
-Creates an uncompressed
+Creates a
 .I .nxpk
 file in the user's home directory. This is a VMNetX package which is ready to be uploaded to a webserver or accessed remotely.
 
