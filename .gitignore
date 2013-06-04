@@ -16,5 +16,6 @@
 .libs
 *.o
 *.pyc
+*.1
 
 vmnetfs/vmnetfs

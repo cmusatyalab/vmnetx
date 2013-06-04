@@ -63,6 +63,10 @@ mimedir = $(datarootdir)/mime/packages
 dist_applications_DATA = desktop/vmnetx.desktop
 dist_mime_DATA = desktop/vmnetx.xml
 
+man_MANS = man/vmnetx.1 man/vmnetx-generate.1
+CLEANFILES += man/vmnetx.1 man/vmnetx-generate.1
+EXTRA_DIST += man/vmnetx.1.in man/vmnetx-generate.1.in
+
 dbusconfdir = $(sysconfdir)/dbus-1/system.d
 dbusservicedir = $(datarootdir)/dbus-1/system-services
 polkitactiondir = $(datarootdir)/polkit-1/actions
@@ -77,6 +81,10 @@ vmnetx/system.py: vmnetx/system.py.in Makefile
 	$(AM_V_at)$(MKDIR_P) vmnetx
 	$(AM_V_GEN) sed -e "s:@pkglibexecdir@:$(pkglibexecdir):g" \
 		-e "s:@version@:$(VERSION):g" $< > $@
+
+%.1: %.1.in Makefile
+	$(AM_V_at)$(MKDIR_P) man
+	$(AM_V_GEN) sed -e "s:@version@:$(VERSION):g" $< > $@
 
 %.service: %.service.in Makefile
 	$(AM_V_at)$(MKDIR_P) authorizer

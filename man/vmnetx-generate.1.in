@@ -1,0 +1,193 @@
+.\"
+.\" Copyright (C) 2012-2013 Carnegie Mellon University
+.\"
+.\" This program is free software; you can redistribute it and/or modify it
+.\" under the terms of version 2 of the GNU General Public License as published
+.\" by the Free Software Foundation.  A copy of the GNU General Public License
+.\" should have been distributed along with this program in the file
+.\" COPYING.
+.\"
+.\" This program is distributed in the hope that it will be useful, but
+.\" WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+.\" or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+.\" for more details.
+.\"
+.TH VMNETX-GENERATE 1 2013-06-04 "VMNetX @version@" "User Commands"
+
+.SH NAME
+vmnetx-generate \- Construct a new VMNetX virtual machine image
+
+.SH SYNOPSIS
+.B vmnetx-generate
+.RB [ \ \-nu \ ]
+.IR DOMAIN-XML \ [ \ OUT-FILE \ ]
+.br
+.B vmnetx-generate
+.B \-r
+.I PACKAGE-URL OUT-FILE
+.br
+.B vmnetx-generate
+.B \-a
+.I SHORT-NAME MEMORY-MB DISK-GB
+.br
+.B vmnetx-generate
+.B \-c
+.I DOMAIN-XML
+
+.SH DESCRIPTION
+.B vmnetx-generate
+creates and operates on virtual machines compatible with
+.BR vmnetx (1).
+.B vmnetx-generate
+provides tools for adding new blank virtual machines to
+.BR virt-manager (1),
+validating libvirt domain XML, generating
+.I .nxpk
+virtual machine packages from
+.BR virt-manager (1)
+virtual machines, and creating
+.I .netx
+reference files linking to remote virtual machines.
+
+.SS Packaging a Virtual Machine for VMNetX
+To create a virtual machine package, begin by using
+.B vmnetx-generate -a
+to add a new, empty VM to
+.BR virt-manager (1).
+Use
+.BR virt-manager (1)
+to install and configure the VM.
+
+.PP
+Once the VM is ready to be packaged, it should be shut down.
+The VM's domain XML should be validated with
+.B vmnetx-generate -c
+and modified if necessary to ensure that it conforms to the requirements of
+.BR vmnetx (1).
+If the VM package should include a memory image, the VM should then be
+started in
+.BR virt-manager (1)
+and subsequently suspended.
+
+.PP
+.B vmnetx-generate
+should be used to generate a VMNetX virtual machine package with a
+.I .nxpk
+extension.  This package file can be uploaded to a web server.
+
+.PP
+To enable users to execute the virtual machine without downloading the
+entire package, you must create a
+.I reference file
+using
+.BR vmnetx-generate\ -r .
+This file should be uploaded to the web server with a
+.I .netx
+extension and an
+.I application/x-vmnetx-reference+xml
+content type.
+A link to this
+.I .netx
+file should be published for access.
+
+.SH MODES
+vmnetx-generate has several modes of operation:
+
+.TP
+.B Create
+Create a new, empty virtual machine in
+.BR virt-manager (1).
+
+.TP
+.B Validate
+Validate the domain XML of a virtual machine to ensure that it will be
+accepted by
+.BR vmnetx (1).
+
+.TP
+.B Package
+Validate the domain XML of a virtual machine, then create a VMNetX package
+containing its domain XML, virtual disk, and optionally its memory image.
+
+.TP
+.B Create Reference
+Create a reference file linking to a remote virtual machine package.
+
+.SH OPTIONS
+.TP
+.BI \-a\fR, "" \ \-\-add\  SHORT-NAME\ MEMORY-MB\ DISK-GB
+Create a blank virtual machine with the specified name, memory size in MB,
+and disk size in GB, and add it to
+.BR virt-manager (1).
+.TP
+.BI \-c\fR, "" \ \-\-check\-xml\  DOMAIN-XML
+Validate the specified domain XML file.
+.TP
+.BR \-h ", " \-\^\-help
+Print a usage message summarizing these options, then exit.
+.TP
+.BI \-n\fR, "" \ \-\-name\  FRIENDLY-NAME
+The friendly name of the virtual machine, to be displayed in the
+.BR vmnetx (1)
+title bar.
+.TP
+.BI \-r\fR, "" \ \-\-reference\  PACKAGE-URL\ OUT-FILE
+Create the reference file
+.I OUT-FILE
+linking to the remote VMNetX package at
+.IR PACKAGE-URL .
+.TP
+.BR \-u ", " \-\-uncompressed
+Create the package with uncompressed memory and disk images.
+.TP
+.B \-\^\-version
+Print the version number of
+.B vmnetx-generate
+and exit.
+
+.SH EXAMPLES
+
+.TP
+.B vmnetx-generate \-a dos622 1024 1
+Create a new, empty virtual machine named
+.I dos622
+with 1024
+MB of allocated RAM and 1 GB of allocated disk space, and add it to
+.BR virt-manager (1).
+
+.TP
+.B vmnetx-generate \-c ~/.config/libvirt/qemu/macos.xml
+Check the specified domain XML for VMNetX compatibility.
+
+.TP
+.B vmnetx-generate \-n \(dqWindows 3.1\(dq ~/.config/libvirt/qemu/windows311.xml windows311.nxpk
+Create a VMNetX package file in the current directory.
+
+.TP
+.B vmnetx-generate \-r http://example.com/package.nxpk package.netx
+Create a reference file in the current directory linking to a package file
+hosted on
+.IR example.com .
+
+.SH COPYRIGHT
+Copyright 2006-2013 Carnegie Mellon University.
+.PP
+This program is free software; you can redistribute it and/or modify it
+under the terms of version 2 of the GNU General Public License as published
+by the Free Software Foundation. This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+.
+.SH BUGS
+.BR vmnetx 's
+bug tracker and source repository are located at
+.RB < https://github.com/cmusatyalab/vmnetx >.
+
+.SH SEE ALSO
+.BR vmnetx (1),
+.BR virt-manager (1),
+.BR qemu (1),
+.BR qemu-kvm (1)
+.\" This is allegedly a workaround for some troff -man implementations.
+.br
