@@ -12,11 +12,7 @@
 .\" or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 .\" for more details.
 .\"
-.\" First parameter, NAME, should be all caps
-.\" Second parameter, SECTION, should be 1-8
-.\" Followed by date (YYYY-MM-DD)
-.\" Adjust the date whenever revising this page
-.TH VMNETX 1 2013-05-09 "VMNetX @version@" "User Commands"
+.TH VMNETX 1 2013-06-04 "VMNetX @version@" "User Commands"
 
 .SH NAME
 vmnetx \- Virtual Machine Network Execution
@@ -28,16 +24,10 @@ vmnetx \- Virtual Machine Network Execution
 
 .SH DESCRIPTION
 .B vmnetx
-executes a
-.BR kvm -based
-virtual machine whose VMNetX reference file or package is located at the
-supplied
+executes a KVM-based virtual machine whose VMNetX package or reference file
+is located at the supplied
 .IR LOCATION .
-The supplied path should point to either a
-.I .netx
-file or a
-.I .nxpk
-file.
+
 .PP
 VMNetX allows virtual machines to be stored on a web server and executed
 on-demand on a client system.
@@ -45,54 +35,46 @@ The entire disk and memory state are not downloaded before starting the VM;
 instead, disk and memory chunks are retrieved on demand from the web server
 and then cached on the client.
 
-.SS Local and Remote VMs
-VMNetX can handle either local or remote virtual machine images.
-If the
-.I .nxpk
-file is stored locally, you can invoke the VMNetX package directly with
-.BI vmnetx \ /path/to/vm.nxpk \fR.
 .PP
-When
+.I LOCATION
+can be the path to a virtual machine package in the local filesystem, or
+the HTTP or HTTPS URL for a package on a remote server.
 .B vmnetx
-is invoked with a URL to a remote virtual machine package, the virtual
-machine is streamed from the remote URL as though a reference
-.I .netx
-file were supplied.
-.PP
-The alternative method for accessing VMNetX formatted virtual machine
-packages is to supply the path to a local
-.I .netx
-file, which contains a reference URL to a remote VMNetX package.
-This approach allows package creators to provide small reference files for
-download for users navigating with web browsers rather than supplying the
-entire package as a URL which would download the full VM image and
-associated packaged data.
+also supports
+.IR reference\ files ,
+which are small documents containing the URL for a remote package.
+If
+.I LOCATION
+is a path to a reference file,
+.B vmnetx
+will launch the virtual machine to which the file refers.
 
 .SH OPTIONS
+.TP
+.BR \-h ", " \-\^\-help
+Print a usage message summarizing these options, then exit.
 .TP
 .B \-\^\-version
 Print the version number of
 .B vmnetx
-to the standard output stream, then exit.
-.TP
-.BR \-h ", " \-\^\-help
-Print a usage message summarizing these options, then exit.
+and exit.
+
 .SH EXAMPLES
-.B "  vmnetx windows311.nxpk"
-.br
-Executes the virtual machine bundled in the
+.TP
+.B vmnetx windows311.nxpk
+Execute the virtual machine bundled in the
 .I windows311.nxpk
-package located in the current working directory.
+package in the current working directory.
 
-.B "  vmnetx http://example.com/windows311.nxpk"
-.br
-Downloads the virtual machine package
+.TP
+.B vmnetx http://example.com/windows311.nxpk
+Execute the virtual machine package
 .I windows311.nxpk
-from the supplied URL and executes it.
+from the supplied URL, downloading pieces of the VM as required.
 
-.B "  vmnetx windows311.netx"
-.br
-Executes the virtual machine whose reference file is called
+.TP
+.B vmnetx windows311.netx
+Execute the virtual machine linked from the reference file
 .I windows311.netx
 in the current working directory.
 

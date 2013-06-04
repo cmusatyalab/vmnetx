@@ -12,18 +12,14 @@
 .\" or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 .\" for more details.
 .\"
-.\" First parameter, NAME, should be all caps
-.\" Second parameter, SECTION, should be 1-8
-.\" Followed by date (YYYY-MM-DD)
-.\" Adjust the date whenever revising this page
-.TH VMNETX-GENERATE 1 2013-05-09 "VMNetX @version@" "User Commands"
+.TH VMNETX-GENERATE 1 2013-06-04 "VMNetX @version@" "User Commands"
 
 .SH NAME
 vmnetx-generate \- Construct a new VMNetX virtual machine image
 
 .SH SYNOPSIS
 .B vmnetx-generate
-.RB [ \ \-cnu \ ]
+.RB [ \ \-nu \ ]
 .IR DOMAIN-XML \ [ \ OUT-FILE \ ]
 .br
 .B vmnetx-generate
@@ -33,57 +29,64 @@ vmnetx-generate \- Construct a new VMNetX virtual machine image
 .B vmnetx-generate
 .B \-a
 .I SHORT-NAME MEMORY-MB DISK-GB
-.\" .br
-.\" .B vmnetx-generate
-.\" .B \-c
-.\" .I domain-xml
+.br
+.B vmnetx-generate
+.B \-c
+.I DOMAIN-XML
 
 .SH DESCRIPTION
 .B vmnetx-generate
-creates and operates on
-.B vmnetx
-compatible virtual machines.
+creates and operates on virtual machines compatible with
+.BR vmnetx (1).
 .B vmnetx-generate
-provides a suite for adding new blank virtual machines to
-.BR virt-manager ,
-validating domain XML, and generating
+provides tools for adding new blank virtual machines to
+.BR virt-manager (1),
+validating libvirt domain XML, generating
 .I .nxpk
-virtual machine packages from existing virtual machine images.
+virtual machine packages from
+.BR virt-manager (1)
+virtual machines, and creating
+.I .netx
+reference files linking to remote virtual machines.
 
-.SS Virtual Machine Lifecycle
-Virtual machines are created in
-.B virt-manager
-using the
+.SS Packaging a Virtual Machine for VMNetX
+To create a virtual machine package, begin by using
 .B vmnetx-generate -a
-command.
-The user must then open
-.B virt-manager
-and install and configure the virtual machine.
-If a memory image is desired, the VM should be suspended.
-If the VM is executed or modified in
-.B virt-manager
-then the domain XML may no longer conform to the VMNetX requirements, so it
-should be hand-modified until
-.B vmnetx-generate -c
-no longer prints validation errors to standard output.
+to add a new, empty VM to
+.BR virt-manager (1).
+Use
+.BR virt-manager (1)
+to install and configure the VM.
+
 .PP
-Once no errors are returned by
+Once the VM is ready to be packaged, it should be shut down.
+The VM's domain XML should be validated with
 .B vmnetx-generate -c
-then a VMNetX virtual machine package can be generate using
-.BR vmnetx-generate .
-The resulting
+and modified if necessary to ensure that it conforms to the requirements of
+.BR vmnetx (1).
+If the VM package should include a memory image, the VM should then be
+started in
+.BR virt-manager (1)
+and subsequently suspended.
+
+.PP
+.B vmnetx-generate
+should be used to generate a VMNetX virtual machine package with a
 .I .nxpk
-file can be uploaded to a webserver and downloaded and executed.
+extension.  This package file can be uploaded to a web server.
+
 .PP
 To enable users to execute the virtual machine without downloading the
-entire package, you must create a reference file using
+entire package, you must create a
+.I reference file
+using
 .BR vmnetx-generate\ -r .
-This file should be uploaded to the webserver with the
+This file should be uploaded to the web server with a
 .I .netx
-extension and the
+extension and an
 .I application/x-vmnetx-reference+xml
 content type.
-The link to this
+A link to this
 .I .netx
 file should be published for access.
 
@@ -92,107 +95,79 @@ vmnetx-generate has several modes of operation:
 
 .TP
 .B Create
-Create a new blank virtual machine in
-.B virt-manager
-for use when creating a VMNetX package.
+Create a new, empty virtual machine in
+.BR virt-manager (1).
 
 .TP
 .B Validate
-Validate the domain XML of a virtual machine before generating a
-.I .nxpk
-package to ensure compliance across libvirt/qemu versions.
-.I vmnetx
-restricts valid domain XML to ensure compatibility.
-This is done automatically
-when using
-.B vmnetx-generate
-in Package mode.
+Validate the domain XML of a virtual machine to ensure that it will be
+accepted by
+.BR vmnetx (1).
 
 .TP
 .B Package
-Package the domain XML, virtual disk, and memory image of the virtual
-machine in order to upload the virtual machine for remote access.
-.I vmnetx
-only recognizes its own
-.I .nxpk
-packages or
-.I .netx
-reference files for execution.
-This mode also validates the supplied domain XML.
+Validate the domain XML of a virtual machine, then create a VMNetX package
+containing its domain XML, virtual disk, and optionally its memory image.
+
+.TP
+.B Create Reference
+Create a reference file linking to a remote virtual machine package.
 
 .SH OPTIONS
 .TP
-.B \-\^\-version
-Print the version number of
-.B vmnetx-generate
-to the standard output stream, then exit.
+.BI \-a\fR, "" \ \-\-add\  SHORT-NAME\ MEMORY-MB\ DISK-GB
+Create a blank virtual machine with the specified name, memory size in MB,
+and disk size in GB, and add it to
+.BR virt-manager (1).
+.TP
+.BI \-c\fR, "" \ \-\-check\-xml\  DOMAIN-XML
+Validate the specified domain XML file.
 .TP
 .BR \-h ", " \-\^\-help
 Print a usage message summarizing these options, then exit.
 .TP
-.BR \-a ", " \-\-add=
-Create a blank virtual machine and add it to
-.BR virt-manager .
-The argument given to this flag is the short name associated with the VM in
-the
-.B virt-manager
-interface, and is used as the filename of the domain XML.
+.BI \-n\fR, "" \ \-\-name\  FRIENDLY-NAME
+The friendly name of the virtual machine, to be displayed in the
+.BR vmnetx (1)
+title bar.
 .TP
-.BR \-c ", " \-\-check\-xml=
-Validate domain XML for a virtual machine.
-The argument given to this flag is the path of the domain XML.
-.TP
-.BR \-n ", " \-\-name=
-Name of the virtual machine package to create where the argument is the
-friendly name displayed in the titlebar of VMNetX.
-.TP
-.BR \-r ", " \-\-reference=
-Create a reference file to a remote VMNetX package to enable users to
-execute the virtual machine without downloading the full package.
-The argument given to this flag is the URL of the referenced
-.I .nxpk
-package.
+.BI \-r\fR, "" \ \-\-reference\  PACKAGE-URL\ OUT-FILE
+Create the reference file
+.I OUT-FILE
+linking to the remote VMNetX package at
+.IR PACKAGE-URL .
 .TP
 .BR \-u ", " \-\-uncompressed
-Do not compress memory and disk images at package creation.
-Used with the
-.B \-n
-flag.
+Create the package with uncompressed memory and disk images.
+.TP
+.B \-\^\-version
+Print the version number of
+.B vmnetx-generate
+and exit.
 
 .SH EXAMPLES
 
-.B "  vmnetx-generate \-n windows3.1 ~/.libvirt/qemu/windows311.xml ~/windows311.nxpk"
-.br
-Creates a
-.I .nxpk
-file in the user's home directory.
-This is a VMNetX package which is ready to be uploaded to a webserver or
-accessed remotely.
-
-.B "  vmnetx-generate \-r http://example.com/package.nxpk ~/package.netx"
-.br
-Creates an executable
-.I .netx
-file in the user's home directory.
-This file contains a reference to the remote
-.I .nxpk
-file and can be executed by VMNetX to run the referenced VM without
-downloading the full package.
-
-.B "  vmnetx-generate \-a dos622 1024 1"
-.br
-Creates a new blank virtual machine named
+.TP
+.B vmnetx-generate \-a dos622 1024 1
+Create a new, empty virtual machine named
 .I dos622
-with
-.I 1024
-MB of allocated RAM and
-.I 1
-GB of allocated disk space and adds it to
-.BR virt-manager .
+with 1024
+MB of allocated RAM and 1 GB of allocated disk space, and add it to
+.BR virt-manager (1).
 
-.B "  vmnetx-generate \-c ~/.libvirt/qemu/macos.xml"
-.br
-Checks domain XML at the supplied path for VMNetX compatibility.
+.TP
+.B vmnetx-generate \-c ~/.config/libvirt/qemu/macos.xml
+Check the specified domain XML for VMNetX compatibility.
+
+.TP
+.B vmnetx-generate \-n \(dqWindows 3.1\(dq ~/.config/libvirt/qemu/windows311.xml windows311.nxpk
+Create a VMNetX package file in the current directory.
+
+.TP
+.B vmnetx-generate \-r http://example.com/package.nxpk package.netx
+Create a reference file in the current directory linking to a package file
+hosted on
+.IR example.com .
 
 .SH COPYRIGHT
 Copyright 2006-2013 Carnegie Mellon University.
@@ -211,6 +186,7 @@ bug tracker and source repository are located at
 
 .SH SEE ALSO
 .BR vmnetx (1),
+.BR virt-manager (1),
 .BR qemu (1),
 .BR qemu-kvm (1)
 .\" This is allegedly a workaround for some troff -man implementations.
