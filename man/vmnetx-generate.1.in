@@ -17,8 +17,10 @@
 .\" Followed by date (YYYY-MM-DD)
 .\" Adjust the date whenever revising this page
 .TH VMNETX-GENERATE 1 2013-05-09 "VMNetX @version@" "User Commands"
+
 .SH NAME
 vmnetx-generate \- Construct a new VMNetX virtual machine image
+
 .SH SYNOPSIS
 .B vmnetx-generate
 .RB [ \ \-cnu \ ]
@@ -35,6 +37,7 @@ vmnetx-generate \- Construct a new VMNetX virtual machine image
 .\" .B vmnetx-generate
 .\" .B \-c
 .\" .I domain-xml
+
 .SH DESCRIPTION
 .B vmnetx-generate
 creates and operates on
@@ -46,15 +49,18 @@ provides a suite for adding new blank virtual machines to
 validating domain XML, and generating
 .I .nxpk
 virtual machine packages from existing virtual machine images.
+
 .SS Virtual Machine Lifecycle
 Virtual machines are created in
 .B virt-manager
 using the
 .B vmnetx-generate -a
-command.  The user must then open 
+command.
+The user must then open
 .B virt-manager
-and install and configure the virtual machine. If a memory image is desired, the
-VM should be suspended.  If the VM is executed or modified in
+and install and configure the virtual machine.
+If a memory image is desired, the VM should be suspended.
+If the VM is executed or modified in
 .B virt-manager
 then the domain XML may no longer conform to the VMNetX requirements, so it
 should be hand-modified until
@@ -65,17 +71,19 @@ Once no errors are returned by
 .B vmnetx-generate -c
 then a VMNetX virtual machine package can be generate using
 .BR vmnetx-generate .
-The resulting 
+The resulting
 .I .nxpk
 file can be uploaded to a webserver and downloaded and executed.
 .PP
-To enable users to execute the virtual machine without downloading the entire package, you must create a reference file using
+To enable users to execute the virtual machine without downloading the
+entire package, you must create a reference file using
 .BR vmnetx-generate\ -r .
 This file should be uploaded to the webserver with the
 .I .netx
 extension and the
 .I application/x-vmnetx-reference+xml
-content type. The link to this
+content type.
+The link to this
 .I .netx
 file should be published for access.
 
@@ -94,54 +102,60 @@ Validate the domain XML of a virtual machine before generating a
 .I .nxpk
 package to ensure compliance across libvirt/qemu versions.
 .I vmnetx
-restricts valid domain XML to ensure compatibility. This is done automatically
+restricts valid domain XML to ensure compatibility.
+This is done automatically
 when using
 .B vmnetx-generate
 in Package mode.
 
 .TP
 .B Package
-Package the domain XML, virtual disk, and memory image of the virtual machine
-in order to upload the virtual machine for remote access.
+Package the domain XML, virtual disk, and memory image of the virtual
+machine in order to upload the virtual machine for remote access.
 .I vmnetx
 only recognizes its own
 .I .nxpk
 packages or
 .I .netx
-reference files for execution. This mode also validates the supplied domain XML.
+reference files for execution.
+This mode also validates the supplied domain XML.
 
 .SH OPTIONS
-.TP 
+.TP
 .B \-\^\-version
 Print the version number of
 .B vmnetx-generate
 to the standard output stream, then exit.
-.TP 
+.TP
 .BR \-h ", " \-\^\-help
 Print a usage message summarizing these options, then exit.
 .TP
 .BR \-a ", " \-\-add=
 Create a blank virtual machine and add it to
 .BR virt-manager .
-The argument given to this flag is the short name associated with the VM in the
+The argument given to this flag is the short name associated with the VM in
+the
 .B virt-manager
 interface, and is used as the filename of the domain XML.
 .TP
 .BR \-c ", " \-\-check\-xml=
 Validate domain XML for a virtual machine.
 The argument given to this flag is the path of the domain XML.
-.TP 
+.TP
 .BR \-n ", " \-\-name=
-Name of the virtual machine package to create where the argument is the friendly name displayed in the titlebar of VMNetX.
+Name of the virtual machine package to create where the argument is the
+friendly name displayed in the titlebar of VMNetX.
 .TP
 .BR \-r ", " \-\-reference=
-Create a reference file to a remote VMNetX package to enable users to execute the virtual machine without downloading the full package.
+Create a reference file to a remote VMNetX package to enable users to
+execute the virtual machine without downloading the full package.
 The argument given to this flag is the URL of the referenced
 .I .nxpk
 package.
 .TP
 .BR \-u ", " \-\-uncompressed
-Do not compress memory and disk images at package creation.  Used with the
+Do not compress memory and disk images at package creation.
+Used with the
 .B \-n
 flag.
 
@@ -151,15 +165,19 @@ flag.
 .br
 Creates a
 .I .nxpk
-file in the user's home directory. This is a VMNetX package which is ready to be uploaded to a webserver or accessed remotely.
+file in the user's home directory.
+This is a VMNetX package which is ready to be uploaded to a webserver or
+accessed remotely.
 
 .B "  vmnetx-generate \-r http://example.com/package.nxpk ~/package.netx"
 .br
 Creates an executable
 .I .netx
-file in the user's home directory.  This file contains a reference to the remote 
+file in the user's home directory.
+This file contains a reference to the remote
 .I .nxpk
-file and can be executed by VMNetX to run the referenced VM without downloading the full package.
+file and can be executed by VMNetX to run the referenced VM without
+downloading the full package.
 
 .B "  vmnetx-generate \-a dos622 1024 1"
 .br
@@ -190,8 +208,9 @@ for more details.
 .BR vmnetx 's
 bug tracker and source repository are located at
 .RB < https://github.com/cmusatyalab/vmnetx >.
+
 .SH SEE ALSO
-.BR vmnetx (1), 
+.BR vmnetx (1),
 .BR qemu (1),
 .BR qemu-kvm (1)
 .\" This is allegedly a workaround for some troff -man implementations.
