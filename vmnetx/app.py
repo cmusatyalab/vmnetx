@@ -142,8 +142,8 @@ class VMNetXApp(object):
             # Show main window
             self._wind = VMWindow(self._machine.name, disk_monitor,
                     metadata.domain_xml.max_mouse_rate)
-            self._wind.connect('vnc-connect', self._connect)
-            self._wind.connect('vnc-disconnect', self._restart)
+            self._wind.connect('viewer-connect', self._connect)
+            self._wind.connect('viewer-disconnect', self._restart)
             self._wind.connect('user-restart', self._user_restart)
             self._wind.connect('user-quit', self._shutdown)
             self._wind.connect('user-screenshot', self._screenshot)
@@ -234,7 +234,7 @@ class VMNetXApp(object):
     # We intentionally catch all exceptions
     # pylint: disable=W0702
     def _startup(self):
-        # Thread function.  Load the memory image, then connect the VNC
+        # Thread function.  Load the memory image, then connect the display
         # viewer.
         try:
             self._machine.start_vm(not self._have_memory)
@@ -253,8 +253,8 @@ class VMNetXApp(object):
 
     def _startup_done(self):
         # Runs in UI thread
-        self._wind.connect_vnc(self._machine.vnc_listen_address,
-                self._machine.vnc_password)
+        self._wind.connect_viewer(self._machine.viewer_listen_address,
+                self._machine.viewer_password)
         if self._have_memory:
             self._load_window.destroy()
             self._load_monitor.close()
@@ -299,7 +299,7 @@ class VMNetXApp(object):
         if img.get_pixels() == black:
             _log.warning('Detected black screen; assuming bad memory image')
             self._warn_bad_memory()
-            # Terminate the VM; the vnc-disconnect handler will restart it
+            # Terminate the VM; the viewer-disconnect handler will restart it
             self._machine.stop_vm()
     # pylint: enable=W1401
 
@@ -323,7 +323,7 @@ class VMNetXApp(object):
         _log.warning('%s', line)
 
     def _user_restart(self, _obj):
-        # Just terminate the VM; the vnc-disconnect handler will restart it
+        # Just terminate the VM; the viewer-disconnect handler will restart it
         self._machine.stop_vm()
 
     def _restart(self, _obj):

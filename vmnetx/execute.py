@@ -168,8 +168,8 @@ class Machine(object):
     def __init__(self, metadata):
         self.name = metadata.package.name
         self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
-        self.vnc_listen_address = None
-        self.vnc_password = base64.urlsafe_b64encode(os.urandom(6))
+        self.viewer_listen_address = None
+        self.viewer_password = base64.urlsafe_b64encode(os.urandom(6))
 
         # Start vmnetfs
         self._fs = VMNetFS(metadata.vmnetfs_config)
@@ -189,7 +189,7 @@ class Machine(object):
         # Get execution domain XML
         self._domain_xml = metadata.domain_xml.get_for_execution(
                 self._conn, self._domain_name, disk_image_path,
-                self.vnc_password).xml
+                self.viewer_password).xml
 
     def start_vm(self, cold=False):
         try:
@@ -203,10 +203,10 @@ class Machine(object):
                 domain = self._conn.createXML(self._domain_xml,
                         libvirt.VIR_DOMAIN_START_AUTODESTROY)
 
-            # Get VNC socket address
+            # Get viewer socket address
             domain_xml = DomainXML(domain.XMLDesc(0), safe=False)
-            self.vnc_listen_address = (domain_xml.vnc_host,
-                    domain_xml.vnc_port)
+            self.viewer_listen_address = (domain_xml.viewer_host,
+                    domain_xml.viewer_port)
         except libvirt.libvirtError, e:
             raise MachineExecutionError(str(e))
 
@@ -216,7 +216,7 @@ class Machine(object):
         except libvirt.libvirtError:
             # Assume that the VM did not exist or was already dying
             pass
-        self.vnc_listen_address = None
+        self.viewer_listen_address = None
 
     def close(self):
         # Close libvirt connection

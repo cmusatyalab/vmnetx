@@ -30,6 +30,17 @@ from vmnetx.status import ImageStatusWidget, LoadProgressWidget
 # pylint: disable=R0924
 
 class VNCWidget(gtkvnc.Display):
+    __gsignals__ = {
+        'viewer-connect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'viewer-disconnect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'viewer-resize': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (gobject.TYPE_INT, gobject.TYPE_INT)),
+        'viewer-keyboard-grab': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (gobject.TYPE_BOOLEAN,)),
+        'viewer-mouse-grab': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (gobject.TYPE_BOOLEAN,)),
+    }
+
     def __init__(self, max_mouse_rate=None):
         gtkvnc.Display.__init__(self)
         self._last_motion_time = 0
@@ -40,16 +51,27 @@ class VNCWidget(gtkvnc.Display):
 
         self.keyboard_grabbed = False
         self.mouse_grabbed = False
-        def set(_wid, attr, value):
-            setattr(self, attr, value)
         if self._motion_interval is not None:
             self.connect('motion-notify-event', self._motion)
-        self.connect('vnc-keyboard-grab', set, 'keyboard_grabbed', True)
-        self.connect('vnc-keyboard-ungrab', set, 'keyboard_grabbed', False)
-        self.connect('vnc-pointer-grab', set, 'mouse_grabbed', True)
-        self.connect('vnc-pointer-ungrab', set, 'mouse_grabbed', False)
+        self.connect('vnc-connected', self._reemit, 'viewer-connect')
+        self.connect('vnc-disconnected', self._reemit, 'viewer-disconnect')
+        self.connect('vnc-desktop-resize', self._resize)
+        self.connect('vnc-keyboard-grab', self._grab, 'keyboard', True)
+        self.connect('vnc-keyboard-ungrab', self._grab, 'keyboard', False)
+        self.connect('vnc-pointer-grab', self._grab, 'mouse', True)
+        self.connect('vnc-pointer-ungrab', self._grab, 'mouse', False)
         self.set_pointer_grab(True)
         self.set_keyboard_grab(True)
+
+    def _reemit(self, _wid, target):
+        self.emit(target)
+
+    def _resize(self, _wid, width, height):
+        self.emit('viewer-resize', width, height)
+
+    def _grab(self, _wid, what, whether):
+        setattr(self, what + '_grabbed', whether)
+        self.emit('viewer-%s-grab' % what, whether)
 
     def _motion(self, _wid, motion):
         if motion.time < self._last_motion_time + self._motion_interval:
@@ -59,10 +81,11 @@ class VNCWidget(gtkvnc.Display):
             self._last_motion_time = motion.time
             return False
 
-    def connect_vnc(self, address, password):
+    def connect_viewer(self, address, password):
         host, port = address
         self.set_credential(gtkvnc.CREDENTIAL_PASSWORD, password)
         self.open_host(host, str(port))
+gobject.type_register(VNCWidget)
 
 
 class AspectBin(gtk.Bin):
@@ -93,7 +116,7 @@ class AspectBin(gtk.Bin):
 
 
 class StatusBarWidget(gtk.HBox):
-    def __init__(self, vnc):
+    def __init__(self, viewer):
         gtk.HBox.__init__(self, spacing=3)
         self._theme = gtk.icon_theme_get_default()
 
@@ -113,19 +136,17 @@ class StatusBarWidget(gtk.HBox):
         escape_label.set_padding(3, 0)
         self.pack_start(escape_label, expand=False)
 
-        keyboard_icon = add_icon('input-keyboard', vnc.keyboard_grabbed)
-        mouse_icon = add_icon('input-mouse', vnc.mouse_grabbed)
-        vnc.connect('vnc-keyboard-grab', self._grabbed, keyboard_icon, True)
-        vnc.connect('vnc-keyboard-ungrab', self._grabbed, keyboard_icon, False)
-        vnc.connect('vnc-pointer-grab', self._grabbed, mouse_icon, True)
-        vnc.connect('vnc-pointer-ungrab', self._grabbed, mouse_icon, False)
+        keyboard_icon = add_icon('input-keyboard', viewer.keyboard_grabbed)
+        mouse_icon = add_icon('input-mouse', viewer.mouse_grabbed)
+        viewer.connect('viewer-keyboard-grab', self._grabbed, keyboard_icon)
+        viewer.connect('viewer-mouse-grab', self._grabbed, mouse_icon)
 
     def _get_icon(self, name):
         icon = gtk.Image()
         icon.set_from_pixbuf(self._theme.load_icon(name, 24, 0))
         return icon
 
-    def _grabbed(self, _wid, icon, grabbed):
+    def _grabbed(self, _wid, grabbed, icon):
         icon.set_sensitive(grabbed)
 
     def add_warning(self, icon, message):
@@ -136,13 +157,13 @@ class StatusBarWidget(gtk.HBox):
 
 
 class VMWindow(gtk.Window):
-    INITIAL_VNC_SIZE = (640, 480)
+    INITIAL_VIEWER_SIZE = (640, 480)
     MIN_SCALE = 0.25
     SCREEN_SIZE_FUDGE = (-100, -100)
 
     __gsignals__ = {
-        'vnc-connect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-        'vnc-disconnect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'viewer-connect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'viewer-disconnect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'user-screenshot': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (gtk.gdk.Pixbuf,)),
         'user-restart': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
@@ -179,24 +200,24 @@ class VMWindow(gtk.Window):
         tbar.insert(self._agrp.get_action('show-log').create_tool_item(), -1)
         box.pack_start(tbar, expand=False)
 
-        self._vnc = VNCWidget(max_mouse_rate)
-        self._vnc.set_scaling(True)
-        self._vnc.connect('vnc-desktop-resize', self._vnc_resize)
-        self._vnc.connect('vnc-connected', self._vnc_connected)
-        self._vnc.connect('vnc-disconnected', self._vnc_disconnected)
+        self._viewer = VNCWidget(max_mouse_rate)
+        self._viewer.set_scaling(True)
+        self._viewer.connect('viewer-resize', self._viewer_resized)
+        self._viewer.connect('viewer-connect', self._viewer_connected)
+        self._viewer.connect('viewer-disconnect', self._viewer_disconnected)
         aspect = AspectBin()
-        aspect.add(self._vnc)
+        aspect.add(self._viewer)
         box.pack_start(aspect)
-        w, h = self.INITIAL_VNC_SIZE
-        self.set_geometry_hints(self._vnc, min_width=w, max_width=w,
+        w, h = self.INITIAL_VIEWER_SIZE
+        self.set_geometry_hints(self._viewer, min_width=w, max_width=w,
                 min_height=h, max_height=h)
-        self._vnc.grab_focus()
+        self._viewer.grab_focus()
 
-        self._statusbar = StatusBarWidget(self._vnc)
+        self._statusbar = StatusBarWidget(self._viewer)
         box.pack_end(self._statusbar, expand=False)
 
-    def connect_vnc(self, address, password):
-        self._vnc.connect_vnc(address, password)
+    def connect_viewer(self, address, password):
+        self._viewer.connect_viewer(address, password)
 
     def show_activity(self, enabled):
         if enabled:
@@ -214,21 +235,21 @@ class VMWindow(gtk.Window):
         self._statusbar.add_warning(icon, message)
 
     def take_screenshot(self):
-        return self._vnc.get_pixbuf()
+        return self._viewer.get_pixbuf()
 
-    def _vnc_connected(self, _obj):
+    def _viewer_connected(self, _obj):
         self._agrp.set_vm_running(True)
-        self.emit('vnc-connect')
+        self.emit('viewer-connect')
 
-    def _vnc_disconnected(self, _obj):
+    def _viewer_disconnected(self, _obj):
         self._agrp.set_vm_running(False)
-        self.emit('vnc-disconnect')
+        self.emit('viewer-disconnect')
 
-    def _vnc_resize(self, _wid, width, height):
+    def _viewer_resized(self, _wid, width, height):
         # Update window geometry constraints for the new guest size.
         # We would like to use min_aspect and max_aspect as well, but they
         # seem to apply to the whole window rather than the geometry widget.
-        self.set_geometry_hints(self._vnc,
+        self.set_geometry_hints(self._viewer,
                 min_width=int(width * self.MIN_SCALE),
                 min_height=int(height * self.MIN_SCALE),
                 max_width=width, max_height=height)
@@ -242,7 +263,7 @@ class VMWindow(gtk.Window):
         self.resize(max(1, geom.width + ow), max(1, geom.height + oh))
 
     def _screenshot(self, _obj):
-        self.emit('user-screenshot', self._vnc.get_pixbuf())
+        self.emit('user-screenshot', self._viewer.get_pixbuf())
 
     def _destroy(self, _wid):
         self._log.destroy()
