@@ -56,7 +56,7 @@ class AspectBin(gtk.Bin):
             child.size_allocate(rect)
 
 
-class VNCWidget(gtkvnc.Display):
+class _ViewerWidget(AspectBin):
     __gsignals__ = {
         'viewer-connect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'viewer-disconnect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
@@ -69,36 +69,31 @@ class VNCWidget(gtkvnc.Display):
     }
 
     def __init__(self, max_mouse_rate=None):
-        gtkvnc.Display.__init__(self)
+        AspectBin.__init__(self)
+        # Must be updated by subclasses
+        self.keyboard_grabbed = False
+        self.mouse_grabbed = False
+
+        self.connect('grab-focus', self._grab_focus)
+
         self._last_motion_time = 0
         if max_mouse_rate is not None:
             self._motion_interval = 1000 // max_mouse_rate  # ms
+            self.connect('motion-notify-event', self._motion)
         else:
             self._motion_interval = None
 
-        self.keyboard_grabbed = False
-        self.mouse_grabbed = False
-        if self._motion_interval is not None:
-            self.connect('motion-notify-event', self._motion)
-        self.connect('vnc-connected', self._reemit, 'viewer-connect')
-        self.connect('vnc-disconnected', self._reemit, 'viewer-disconnect')
-        self.connect('vnc-desktop-resize', self._resize)
-        self.connect('vnc-keyboard-grab', self._grab, 'keyboard', True)
-        self.connect('vnc-keyboard-ungrab', self._grab, 'keyboard', False)
-        self.connect('vnc-pointer-grab', self._grab, 'mouse', True)
-        self.connect('vnc-pointer-ungrab', self._grab, 'mouse', False)
-        self.set_pointer_grab(True)
-        self.set_keyboard_grab(True)
+    def connect_viewer(self, address, password):
+        raise NotImplementedError
+
+    def get_pixbuf(self):
+        raise NotImplementedError
 
     def _reemit(self, _wid, target):
         self.emit(target)
 
-    def _resize(self, _wid, width, height):
-        self.emit('viewer-resize', width, height)
-
-    def _grab(self, _wid, what, whether):
-        setattr(self, what + '_grabbed', whether)
-        self.emit('viewer-%s-grab' % what, whether)
+    def _grab_focus(self, _wid):
+        self.get_child().grab_focus()
 
     def _motion(self, _wid, motion):
         if motion.time < self._last_motion_time + self._motion_interval:
@@ -108,10 +103,39 @@ class VNCWidget(gtkvnc.Display):
             self._last_motion_time = motion.time
             return False
 
+
+class VNCWidget(_ViewerWidget):
+    def __init__(self, max_mouse_rate=None):
+        _ViewerWidget.__init__(self, max_mouse_rate)
+        self._vnc = gtkvnc.Display()
+        self.add(self._vnc)
+
+        self._vnc.connect('vnc-connected', self._reemit, 'viewer-connect')
+        self._vnc.connect('vnc-disconnected', self._reemit,
+                'viewer-disconnect')
+        self._vnc.connect('vnc-desktop-resize', self._resize)
+        self._vnc.connect('vnc-keyboard-grab', self._grab, 'keyboard', True)
+        self._vnc.connect('vnc-keyboard-ungrab', self._grab, 'keyboard', False)
+        self._vnc.connect('vnc-pointer-grab', self._grab, 'mouse', True)
+        self._vnc.connect('vnc-pointer-ungrab', self._grab, 'mouse', False)
+        self._vnc.set_pointer_grab(True)
+        self._vnc.set_keyboard_grab(True)
+        self._vnc.set_scaling(True)
+
+    def _resize(self, _wid, width, height):
+        self.emit('viewer-resize', width, height)
+
+    def _grab(self, _wid, what, whether):
+        setattr(self, what + '_grabbed', whether)
+        self.emit('viewer-%s-grab' % what, whether)
+
     def connect_viewer(self, address, password):
         host, port = address
-        self.set_credential(gtkvnc.CREDENTIAL_PASSWORD, password)
-        self.open_host(host, str(port))
+        self._vnc.set_credential(gtkvnc.CREDENTIAL_PASSWORD, password)
+        self._vnc.open_host(host, str(port))
+
+    def get_pixbuf(self):
+        return self._vnc.get_pixbuf()
 gobject.type_register(VNCWidget)
 
 
@@ -201,13 +225,10 @@ class VMWindow(gtk.Window):
         box.pack_start(tbar, expand=False)
 
         self._viewer = VNCWidget(max_mouse_rate)
-        self._viewer.set_scaling(True)
         self._viewer.connect('viewer-resize', self._viewer_resized)
         self._viewer.connect('viewer-connect', self._viewer_connected)
         self._viewer.connect('viewer-disconnect', self._viewer_disconnected)
-        aspect = AspectBin()
-        aspect.add(self._viewer)
-        box.pack_start(aspect)
+        box.pack_start(self._viewer)
         w, h = self.INITIAL_VIEWER_SIZE
         self.set_geometry_hints(self._viewer, min_width=w, max_width=w,
                 min_height=h, max_height=h)
