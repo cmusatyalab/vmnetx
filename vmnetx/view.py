@@ -38,33 +38,6 @@ from vmnetx.status import ImageStatusWidget, LoadProgressWidget
 # pylint chokes on Gtk widgets, #112550
 # pylint: disable=R0924
 
-class AspectBin(gtk.Bin):
-    # Like an AspectFrame but without the frame.
-
-    __gtype_name__ = 'AspectBin'
-
-    def do_size_request(self, req):
-        child = self.get_child()
-        if child is not None:
-            req.width, req.height = child.get_size_request()
-
-    def do_size_allocate(self, alloc):
-        self.allocation = alloc
-        child = self.get_child()
-        if child is not None:
-            width, height = child.get_child_requisition()
-            if width > 0 and height > 0:
-                scale = min(1.0, alloc.width / width, alloc.height / height)
-            else:
-                scale = 1.0
-            rect = gtk.gdk.Rectangle()
-            rect.width = int(width * scale)
-            rect.height = int(height * scale)
-            rect.x = alloc.x + max(0, (alloc.width - rect.width) // 2)
-            rect.y = alloc.y + max(0, (alloc.height - rect.height) // 2)
-            child.size_allocate(rect)
-
-
 class _ViewerWidget(gtk.EventBox):
     __gsignals__ = {
         'viewer-connect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
@@ -111,6 +84,33 @@ class _ViewerWidget(gtk.EventBox):
         else:
             self._last_motion_time = motion.time
             return False
+
+
+class AspectBin(gtk.Bin):
+    # Like an AspectFrame but without the frame.
+
+    __gtype_name__ = 'AspectBin'
+
+    def do_size_request(self, req):
+        child = self.get_child()
+        if child is not None:
+            req.width, req.height = child.get_size_request()
+
+    def do_size_allocate(self, alloc):
+        self.allocation = alloc
+        child = self.get_child()
+        if child is not None:
+            width, height = child.get_child_requisition()
+            if width > 0 and height > 0:
+                scale = min(1.0, alloc.width / width, alloc.height / height)
+            else:
+                scale = 1.0
+            rect = gtk.gdk.Rectangle()
+            rect.width = int(width * scale)
+            rect.height = int(height * scale)
+            rect.x = alloc.x + max(0, (alloc.width - rect.width) // 2)
+            rect.y = alloc.y + max(0, (alloc.height - rect.height) // 2)
+            child.size_allocate(rect)
 
 
 class VNCWidget(_ViewerWidget):
