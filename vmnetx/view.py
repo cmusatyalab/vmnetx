@@ -65,7 +65,7 @@ class AspectBin(gtk.Bin):
             child.size_allocate(rect)
 
 
-class _ViewerWidget(AspectBin):
+class _ViewerWidget(gtk.EventBox):
     __gsignals__ = {
         'viewer-connect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'viewer-disconnect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
@@ -78,7 +78,7 @@ class _ViewerWidget(AspectBin):
     }
 
     def __init__(self, max_mouse_rate=None):
-        AspectBin.__init__(self)
+        gtk.EventBox.__init__(self)
         # Must be updated by subclasses
         self.keyboard_grabbed = False
         self.mouse_grabbed = False
@@ -116,8 +116,10 @@ class _ViewerWidget(AspectBin):
 class VNCWidget(_ViewerWidget):
     def __init__(self, max_mouse_rate=None):
         _ViewerWidget.__init__(self, max_mouse_rate)
+        aspect = AspectBin()
+        self.add(aspect)
         self._vnc = gtkvnc.Display()
-        self.add(self._vnc)
+        aspect.add(self._vnc)
 
         self._vnc.connect('vnc-connected', self._reemit, 'viewer-connect')
         self._vnc.connect('vnc-disconnected', self._reemit,
