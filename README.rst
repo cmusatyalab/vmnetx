@@ -32,6 +32,7 @@ You will need:
 * pygtk2
 * Requests
 * dateutil
+* spice-gtk Python bindings (optional)
 * gtk-vnc Python bindings
 * libvirt Python bindings
 * dbus-python

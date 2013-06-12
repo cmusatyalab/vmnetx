@@ -37,7 +37,7 @@ from vmnetx.system import __version__
 from vmnetx.util import get_cache_dir
 from vmnetx.view import (VMWindow, LoadProgressWindow, PasswordWindow,
         SaveMediaWindow, ErrorWindow, FatalErrorWindow, IgnorableErrorWindow,
-        ErrorBuffer)
+        ErrorBuffer, have_spice_viewer)
 from vmnetx.status.monitor import (ImageMonitor, LoadProgressMonitor,
         LineStreamMonitor)
 
@@ -162,6 +162,9 @@ class VMNetXApp(object):
             logging.getLogger().setLevel(logging.INFO)
             _log.info('VMNetX %s starting at %s', __version__,
                     datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            _log.info('SPICE viewer %s, qemu support %s',
+                    'available' if have_spice_viewer else 'unavailable',
+                    'available' if self._machine.have_spice else 'unavailable')
 
             # Load memory image in the background
             self._start_vm()

@@ -24,6 +24,15 @@ import pango
 import sys
 import traceback
 
+# have_spice_viewer is a variable, not a constant
+# pylint: disable=C0103
+try:
+    import SpiceClientGtk
+    have_spice_viewer = True
+except ImportError:
+    have_spice_viewer = False
+# pylint: enable=C0103
+
 from vmnetx.status import ImageStatusWidget, LoadProgressWidget
 
 # pylint chokes on Gtk widgets, #112550

@@ -1,7 +1,7 @@
 #
 # vmnetx.domain - Handling of libvirt domain XML
 #
-# Copyright (C) 2012 Carnegie Mellon University
+# Copyright (C) 2012-2013 Carnegie Mellon University
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of version 2 of the GNU General Public License as published
@@ -171,7 +171,13 @@ class DomainXML(object):
         # Return new instance
         return type(self)(self._to_xml(tree), strict=True)
 
-    def get_for_execution(self, conn, name, disk_image_path, viewer_password):
+    def detect_emulator(self, conn):
+        '''Return the emulator path that we should use for this domain XML.
+        (*Not* the one actually specified in the XML document.)'''
+        return self._get_emulator_for_domain(conn, etree.fromstring(self.xml))
+
+    def get_for_execution(self, name, emulator, disk_image_path,
+            viewer_password):
         # Parse XML
         tree = etree.fromstring(self.xml)
 
@@ -182,8 +188,7 @@ class DomainXML(object):
         self._xpath_one(tree, '/domain/name').text = name
 
         # Update path to emulator
-        self._xpath_one(tree, '/domain/devices/emulator').text = \
-                self._get_emulator_for_domain(conn, tree)
+        self._xpath_one(tree, '/domain/devices/emulator').text = emulator
 
         # Update path to hard disk
         self._xpath_one(tree,

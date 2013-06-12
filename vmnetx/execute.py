@@ -25,6 +25,7 @@ from hashlib import sha256
 import libvirt
 from lxml.builder import ElementMaker
 import os
+import subprocess
 from urlparse import urlsplit, urlunsplit
 import uuid
 from wsgiref.handlers import format_date_time as format_rfc1123_date
@@ -186,10 +187,28 @@ class Machine(object):
         # Set up libvirt connection
         self._conn = libvirt.open('qemu:///session')
 
+        # Get emulator path
+        emulator = metadata.domain_xml.detect_emulator(self._conn)
+
+        # Detect SPICE support.
+        self.have_spice = self._spice_is_usable(emulator)
+
         # Get execution domain XML
         self._domain_xml = metadata.domain_xml.get_for_execution(
-                self._conn, self._domain_name, disk_image_path,
+                self._domain_name, emulator, disk_image_path,
                 self.viewer_password).xml
+
+    def _spice_is_usable(self, emulator):
+        '''Determine whether emulator supports SPICE.'''
+        proc = subprocess.Popen([emulator, '-spice', 'foo'],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                close_fds=True)
+        out, err = proc.communicate()
+        out += err
+        if 'invalid option' in out or 'spice is not supported' in out:
+            # qemu is too old to support SPICE, or SPICE is not compiled in
+            return False
+        return True
 
     def start_vm(self, cold=False):
         try:
