@@ -166,7 +166,7 @@ class MachineMetadata(object):
 
 
 class Machine(object):
-    def __init__(self, metadata):
+    def __init__(self, metadata, use_spice=True):
         self.name = metadata.package.name
         self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
         self.viewer_listen_address = None
@@ -192,11 +192,12 @@ class Machine(object):
 
         # Detect SPICE support.
         self.have_spice = self._spice_is_usable(emulator)
+        self.using_spice = use_spice and self.have_spice
 
         # Get execution domain XML
         self._domain_xml = metadata.domain_xml.get_for_execution(
                 self._domain_name, emulator, disk_image_path,
-                self.viewer_password).xml
+                self.viewer_password, use_spice=self.using_spice).xml
 
     def _spice_is_usable(self, emulator):
         '''Determine whether emulator supports SPICE.'''

@@ -177,7 +177,7 @@ class DomainXML(object):
         return self._get_emulator_for_domain(conn, etree.fromstring(self.xml))
 
     def get_for_execution(self, name, emulator, disk_image_path,
-            viewer_password):
+            viewer_password, use_spice=True):
         # Parse XML
         tree = etree.fromstring(self.xml)
 
@@ -202,7 +202,13 @@ class DomainXML(object):
 
         # Add new graphics declaration
         graphics_node = etree.SubElement(devices_node, 'graphics')
-        graphics_node.set('type', 'vnc')
+        if use_spice:
+            graphics_node.set('type', 'spice')
+            # Disable clipboard sharing for safety
+            clipboard_node = etree.SubElement(graphics_node, 'clipboard')
+            clipboard_node.set('copypaste', 'no')
+        else:
+            graphics_node.set('type', 'vnc')
         graphics_node.set('autoport', 'yes')
         graphics_node.set('passwd', viewer_password)
 

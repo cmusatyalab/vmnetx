@@ -128,7 +128,7 @@ class VMNetXApp(object):
                     break
 
             # Start vmnetfs
-            self._machine = Machine(metadata)
+            self._machine = Machine(metadata, use_spice=have_spice_viewer)
             self._have_memory = self._machine.memory_path is not None
 
             # Create monitors
@@ -141,7 +141,8 @@ class VMNetXApp(object):
 
             # Show main window
             self._wind = VMWindow(self._machine.name, disk_monitor,
-                    metadata.domain_xml.max_mouse_rate)
+                    use_spice=self._machine.using_spice,
+                    max_mouse_rate=metadata.domain_xml.max_mouse_rate)
             self._wind.connect('viewer-connect', self._connect)
             self._wind.connect('viewer-disconnect', self._restart)
             self._wind.connect('user-restart', self._user_restart)

@@ -150,6 +150,100 @@ class VNCWidget(_ViewerWidget):
 gobject.type_register(VNCWidget)
 
 
+class SpiceWidget(_ViewerWidget):
+    # Defer attribute lookups: SpiceClientGtk is conditionally imported
+    _ERROR_EVENTS = (
+        'CHANNEL_CLOSED',
+        'CHANNEL_ERROR_AUTH',
+        'CHANNEL_ERROR_CONNECT',
+        'CHANNEL_ERROR_IO',
+        'CHANNEL_ERROR_LINK',
+        'CHANNEL_ERROR_TLS',
+    )
+
+    def __init__(self, max_mouse_rate=None):
+        _ViewerWidget.__init__(self, max_mouse_rate)
+        self._session = None
+        self._gtk_session = None
+        self._display = None
+        self._error_events = set([getattr(SpiceClientGtk, e)
+                for e in self._ERROR_EVENTS])
+
+        self._placeholder = gtk.EventBox()
+        self._placeholder.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color())
+        self._placeholder.set_can_focus(True)
+        self.add(self._placeholder)
+
+    def connect_viewer(self, address, password):
+        assert self._session is None
+        host, port = address
+        self._session = SpiceClientGtk.Session()
+        self._session.set_property('host', host)
+        self._session.set_property('port', str(port))
+        self._session.set_property('password', password)
+        self._session.set_property('enable-usbredir', False)
+        # Ensure clipboard sharing is disabled
+        self._gtk_session = SpiceClientGtk.spice_gtk_session_get(self._session)
+        self._gtk_session.set_property('auto-clipboard', False)
+        self._session.connect_object('channel-new', self._new_channel,
+                self._session)
+        self._session.connect()
+
+    def _new_channel(self, _session, channel):
+        channel.connect_object('channel-event', self._channel_event, channel)
+        type = SpiceClientGtk.spice_channel_type_to_string(
+                channel.get_property('channel-type'))
+        if type == 'display':
+            self._destroy_display()
+            self.remove(self._placeholder)
+            channel.connect_object('display-primary-create',
+                    self._display_create, channel)
+            self._display = SpiceClientGtk.Display(self._session,
+                    channel.get_property('channel-id'))
+            self._display.set_property('only-downscale', True)
+            self._display.connect('keyboard-grab', self._grab, 'keyboard')
+            self._display.connect('mouse-grab', self._grab, 'mouse')
+            self.add(self._display)
+            self._display.show()
+            self.emit('viewer-connect')
+
+    def _channel_event(self, _channel, event):
+        if event in self._error_events:
+            self._disconnect()
+
+    def _display_create(self, _channel, _format, width, height, _stride,
+            _shmid, _imgdata):
+        self.emit('viewer-resize', width, height)
+
+    def _grab(self, _wid, whether, what):
+        setattr(self, what + '_grabbed', whether)
+        self.emit('viewer-%s-grab' % what, whether)
+
+    def _destroy_display(self):
+        if self._display is not None:
+            self.remove(self._display)
+            self._display.destroy()
+            self._display = None
+            self.add(self._placeholder)
+            self._placeholder.show()
+
+    def _disconnect(self):
+        if self._session is not None:
+            self._destroy_display()
+            self._session.disconnect()
+            self._gtk_session = None
+            self._session = None
+            for what in 'keyboard', 'mouse':
+                self._grab(None, False, what)
+            self.emit('viewer-disconnect')
+
+    def get_pixbuf(self):
+        if self._display is None:
+            return None
+        return self._display.get_pixbuf()
+gobject.type_register(SpiceWidget)
+
+
 class StatusBarWidget(gtk.HBox):
     def __init__(self, viewer):
         gtk.HBox.__init__(self, spacing=3)
@@ -205,7 +299,8 @@ class VMWindow(gtk.Window):
         'user-quit': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
-    def __init__(self, name, disk_monitor, max_mouse_rate=None):
+    def __init__(self, name, disk_monitor, use_spice=True,
+            max_mouse_rate=None):
         gtk.Window.__init__(self)
         self._agrp = VMActionGroup(self)
         for sig in 'user-restart', 'user-quit':
@@ -235,7 +330,10 @@ class VMWindow(gtk.Window):
         tbar.insert(self._agrp.get_action('show-log').create_tool_item(), -1)
         box.pack_start(tbar, expand=False)
 
-        self._viewer = VNCWidget(max_mouse_rate)
+        if use_spice:
+            self._viewer = SpiceWidget(max_mouse_rate)
+        else:
+            self._viewer = VNCWidget(max_mouse_rate)
         self._viewer.connect('viewer-resize', self._viewer_resized)
         self._viewer.connect('viewer-connect', self._viewer_connected)
         self._viewer.connect('viewer-disconnect', self._viewer_disconnected)
