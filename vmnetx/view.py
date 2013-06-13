@@ -165,6 +165,7 @@ class SpiceWidget(_ViewerWidget):
         _ViewerWidget.__init__(self, max_mouse_rate)
         self._session = None
         self._gtk_session = None
+        self._audio = None
         self._display = None
         self._error_events = set([getattr(SpiceClientGtk, e)
                 for e in self._ERROR_EVENTS])
@@ -185,6 +186,8 @@ class SpiceWidget(_ViewerWidget):
         # Ensure clipboard sharing is disabled
         self._gtk_session = SpiceClientGtk.spice_gtk_session_get(self._session)
         self._gtk_session.set_property('auto-clipboard', False)
+        # Enable audio
+        self._audio = SpiceClientGtk.Audio(self._session)
         self._session.connect_object('channel-new', self._new_channel,
                 self._session)
         self._session.connect()
@@ -231,6 +234,7 @@ class SpiceWidget(_ViewerWidget):
         if self._session is not None:
             self._destroy_display()
             self._session.disconnect()
+            self._audio = None
             self._gtk_session = None
             self._session = None
             for what in 'keyboard', 'mouse':
