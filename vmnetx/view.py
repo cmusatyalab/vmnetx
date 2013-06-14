@@ -199,11 +199,10 @@ class SpiceWidget(_ViewerWidget):
         if type == 'display':
             self._destroy_display()
             self.remove(self._placeholder)
-            channel.connect_object('display-primary-create',
-                    self._display_create, channel)
             self._display = SpiceClientGtk.Display(self._session,
                     channel.get_property('channel-id'))
             self._display.set_property('only-downscale', True)
+            self._display.connect('size-request', self._size_request)
             self._display.connect('keyboard-grab', self._grab, 'keyboard')
             self._display.connect('mouse-grab', self._grab, 'mouse')
             self.add(self._display)
@@ -214,9 +213,11 @@ class SpiceWidget(_ViewerWidget):
         if event in self._error_events:
             self._disconnect()
 
-    def _display_create(self, _channel, _format, width, height, _stride,
-            _shmid, _imgdata):
-        self.emit('viewer-resize', width, height)
+    def _size_request(self, _wid, _req):
+        if self._display is not None:
+            width, height = self._display.get_size_request()
+            if width > 1 and height > 1:
+                self.emit('viewer-resize', width, height)
 
     def _grab(self, _wid, whether, what):
         setattr(self, what + '_grabbed', whether)
