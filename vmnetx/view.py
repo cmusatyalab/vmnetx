@@ -172,7 +172,7 @@ class SpiceWidget(_ViewerWidget):
 
         self._placeholder = gtk.EventBox()
         self._placeholder.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color())
-        self._placeholder.set_can_focus(True)
+        self._placeholder.set_property('can-focus', True)
         self.add(self._placeholder)
 
     def connect_viewer(self, address, password):
