@@ -44,9 +44,9 @@ static int u64_stat_open(void *dentry_ctx, struct vmnetfs_fuse_fh *fh)
     return 0;
 }
 
-static int u64_fixed_open(void *dentry_ctx, struct vmnetfs_fuse_fh *fh)
+static int u32_fixed_open(void *dentry_ctx, struct vmnetfs_fuse_fh *fh)
 {
-    uint64_t *val = dentry_ctx;
+    uint32_t *val = dentry_ctx;
 
     fh->buf = format_u64(*val);
     fh->length = strlen(fh->buf);
@@ -116,9 +116,9 @@ static const struct vmnetfs_fuse_ops u64_stat_ops = {
     .release = stat_release,
 };
 
-static const struct vmnetfs_fuse_ops u64_fixed_ops = {
+static const struct vmnetfs_fuse_ops u32_fixed_ops = {
     .getattr = stat_getattr,
-    .open = u64_fixed_open,
+    .open = u32_fixed_open,
     .read = stat_read,
     .release = stat_release,
 };
@@ -146,8 +146,8 @@ void _vmnetfs_fuse_stats_populate(struct vmnetfs_fuse_dentry *dir,
     add_stat(io_errors);
 #undef add_stat
 
-#define add_fixed(n) _vmnetfs_fuse_add_file(stats, #n, &u64_fixed_ops, &img->n)
-    add_fixed(chunk_size);
+#define add_fixed32(n) _vmnetfs_fuse_add_file(stats, #n, &u32_fixed_ops, &img->n)
+    add_fixed32(chunk_size);
 #undef add_fixed
 
     _vmnetfs_fuse_add_file(stats, "chunks", &chunks_ops, img);
