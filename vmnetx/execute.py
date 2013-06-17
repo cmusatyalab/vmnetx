@@ -224,7 +224,8 @@ class Machine(object):
                         libvirt.VIR_DOMAIN_START_AUTODESTROY)
 
             # Get viewer socket address
-            domain_xml = DomainXML(domain.XMLDesc(0), safe=False)
+            domain_xml = DomainXML(domain.XMLDesc(0),
+                    validate=DomainXML.VALIDATE_NONE, safe=False)
             self.viewer_listen_address = (domain_xml.viewer_host,
                     domain_xml.viewer_port)
         except libvirt.libvirtError, e:

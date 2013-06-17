@@ -156,7 +156,7 @@ def generate_machine(name, in_xml, out_file, compress=True):
     # Parse domain XML
     try:
         with open(in_xml) as fh:
-            domain = DomainXML(fh.read(), strict=True)
+            domain = DomainXML(fh.read(), validate=DomainXML.VALIDATE_STRICT)
     except (IOError, DomainXMLError), e:
         raise MachineGenerationError(str(e), getattr(e, 'detail', None))
 
@@ -208,7 +208,8 @@ def compress_machine(in_file, out_file, name=None):
 
     # Parse domain XML
     try:
-        domain = DomainXML(package.domain.data, strict=True)
+        domain = DomainXML(package.domain.data,
+                validate=DomainXML.VALIDATE_STRICT)
     except DomainXMLError, e:
         raise MachineGenerationError(str(e), e.detail)
 

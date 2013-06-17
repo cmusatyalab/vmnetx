@@ -46,9 +46,16 @@ class DomainXMLError(DetailException):
 
 
 class DomainXML(object):
-    def __init__(self, xml, strict=False, safe=True):
+    # Do not validate domain XML against any libvirt schema
+    VALIDATE_NONE = 0
+    # Validate domain XML against schema from installed libvirt
+    VALIDATE_NORMAL = 1
+    # Validate domain XML against schema from oldest supported libvirt
+    VALIDATE_STRICT = 2
+
+    def __init__(self, xml, validate=VALIDATE_NORMAL, safe=True):
         self.xml = xml
-        self._validate(strict=strict, safe=safe)
+        self._validate(mode=validate, safe=safe)
 
         # Get disk path and type
         tree = etree.fromstring(xml)
@@ -103,7 +110,7 @@ class DomainXML(object):
 
     # pylint is confused by Popen.returncode
     # pylint: disable=E1101
-    def _validate(self, strict=False, safe=True):
+    def _validate(self, mode, safe=True):
         # Parse XML
         try:
             tree = etree.fromstring(self.xml)
@@ -122,7 +129,7 @@ class DomainXML(object):
         self._remove_metadata(tree)
         xml = self._to_xml(tree)
 
-        if strict:
+        if mode == self.VALIDATE_STRICT:
             # Validate against schema from minimum supported libvirt
             # (in case our schema is accidentally more permissive than the
             # libvirt schema)
@@ -132,7 +139,7 @@ class DomainXML(object):
                 raise DomainXMLError(
                         'Domain XML unsupported by oldest supported libvirt',
                         str(e))
-        else:
+        elif mode == self.VALIDATE_NORMAL:
             # Validate against schema from installed libvirt
             with NamedTemporaryFile(prefix='vmnetx-xml-') as fh:
                 fh.write(xml)
@@ -169,7 +176,7 @@ class DomainXML(object):
                 disk_type)
 
         # Return new instance
-        return type(self)(self._to_xml(tree), strict=True)
+        return type(self)(self._to_xml(tree), validate=self.VALIDATE_STRICT)
 
     def detect_emulator(self, conn):
         '''Return the emulator path that we should use for this domain XML.
@@ -361,7 +368,7 @@ class DomainXML(object):
             ),
             type='kvm',
         )
-        return cls(cls._to_xml(tree), strict=True)
+        return cls(cls._to_xml(tree), validate=cls.VALIDATE_STRICT)
 
     @classmethod
     def _get_emulator_for_domain(cls, conn, tree):
