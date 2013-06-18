@@ -226,8 +226,10 @@ class Machine(object):
             # Get viewer socket address
             domain_xml = DomainXML(domain.XMLDesc(0),
                     validate=DomainXML.VALIDATE_NONE, safe=False)
-            self.viewer_listen_address = (domain_xml.viewer_host,
-                    domain_xml.viewer_port)
+            self.viewer_listen_address = (
+                domain_xml.viewer_host or '127.0.0.1',
+                domain_xml.viewer_port
+            )
         except libvirt.libvirtError, e:
             raise MachineExecutionError(str(e))
 
