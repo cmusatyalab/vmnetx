@@ -94,7 +94,7 @@ class AspectBin(gtk.Bin):
     def do_size_request(self, req):
         child = self.get_child()
         if child is not None:
-            req.width, req.height = child.get_size_request()
+            req.width, req.height = child.size_request()
 
     def do_size_allocate(self, alloc):
         self.allocation = alloc
