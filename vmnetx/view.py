@@ -179,6 +179,7 @@ class SpiceWidget(_ViewerWidget):
         self._error_events = set([getattr(SpiceClientGtk, e)
                 for e in self._ERROR_EVENTS])
 
+        self._aspect = AspectBin()
         self._placeholder = gtk.EventBox()
         self._placeholder.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color())
         self._placeholder.set_property('can-focus', True)
@@ -208,14 +209,16 @@ class SpiceWidget(_ViewerWidget):
         if type == 'display':
             self._destroy_display()
             self.remove(self._placeholder)
+            self.add(self._aspect)
             self._display = SpiceClientGtk.Display(self._session,
                     channel.get_property('channel-id'))
-            self._display.set_property('only-downscale', True)
+            # Default was False in spice-gtk < 0.14
+            self._display.set_property('scaling', True)
             self._display.connect('size-request', self._size_request)
             self._display.connect('keyboard-grab', self._grab, 'keyboard')
             self._display.connect('mouse-grab', self._grab, 'mouse')
-            self.add(self._display)
-            self._display.show()
+            self._aspect.add(self._display)
+            self._aspect.show_all()
             self.emit('viewer-connect')
 
     def _channel_event(self, _channel, event):
@@ -234,9 +237,10 @@ class SpiceWidget(_ViewerWidget):
 
     def _destroy_display(self):
         if self._display is not None:
-            self.remove(self._display)
+            self._aspect.remove(self._display)
             self._display.destroy()
             self._display = None
+            self.remove(self._aspect)
             self.add(self._placeholder)
             self._placeholder.show()
 
