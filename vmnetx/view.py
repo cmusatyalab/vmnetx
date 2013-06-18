@@ -91,6 +91,15 @@ class AspectBin(gtk.Bin):
 
     __gtype_name__ = 'AspectBin'
 
+    def __init__(self):
+        gtk.Bin.__init__(self)
+        self.connect('grab-focus', self._grab_focus)
+
+    def _grab_focus(self, _wid):
+        child = self.get_child()
+        if child is not None:
+            child.grab_focus()
+
     def do_size_request(self, req):
         child = self.get_child()
         if child is not None:
