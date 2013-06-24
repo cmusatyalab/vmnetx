@@ -1,0 +1,41 @@
+VMNetX 0.3.3 (2013-06-21)
+-------------------------
+
+- Improve display performance
+- Add sound support on newer hosts
+- Add manual pages
+- Fix some minor bugs
+
+VMNetX 0.3.2 (2013-04-26)
+-------------------------
+
+- Recover from "black screen" qemu crashes at startup
+- Allow limiting the frequency of guest mouse updates
+- Add vmnetx-generate option to create a new virt-manager VM
+
+VMNetX 0.3.1 (2013-04-22)
+-------------------------
+
+- Compatibility fixes for older host OSes
+- Improve signal handling
+
+VMNetX 0.3 (2013-04-10)
+-----------------------
+
+- Switch to single-file VM package format
+- Bump minimum libvirt to 0.9.8
+- Validate domain XML against libvirt 0.9.8 schema
+- Protect client from malicious domain XML using restrictive schema
+- Send custom HTTP User-Agent
+- Remember HTTP cookies for entire session
+- Automatically add user to necessary Unix groups for FUSE access
+- Fail chunk fetches if ETag or Last-Modified date has changed
+- Alert user if I/O errors occur
+- Add screenshot button
+- Drop unused image segmentation feature
+- Many fixes and improvements
+
+VMNetX 0.2 (2012-04-08)
+-----------------------
+
+- Initial release
