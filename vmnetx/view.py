@@ -21,8 +21,6 @@ import gtk
 import gtkvnc
 import logging
 import pango
-import sys
-import traceback
 
 # have_spice_viewer is a variable, not a constant
 # pylint: disable=C0103
@@ -34,6 +32,7 @@ except ImportError:
 # pylint: enable=C0103
 
 from vmnetx.status import ImageStatusWidget, LoadProgressWidget
+from .util import ErrorBuffer
 
 # pylint chokes on Gtk widgets, #112550
 # pylint: disable=R0924
@@ -717,18 +716,6 @@ class IgnorableErrorWindow(gtk.MessageDialog):
         self.add_buttons('Continue', gtk.RESPONSE_CANCEL,
                 gtk.STOCK_QUIT, gtk.RESPONSE_OK)
         self.set_default_response(gtk.RESPONSE_OK)
-
-
-class ErrorBuffer(object):
-    def __init__(self):
-        exception = sys.exc_info()[1]
-        detail = getattr(exception, 'detail', None)
-        tb = traceback.format_exc()
-        self.exception = str(exception)
-        if detail:
-            self.detail = detail + '\n\n' + tb
-        else:
-            self.detail = tb
 
 
 class FatalErrorWindow(gtk.MessageDialog):

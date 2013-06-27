@@ -34,10 +34,10 @@ import threading
 from vmnetx.controller.local import LocalController
 from vmnetx.package import NeedAuthentication
 from vmnetx.system import __version__
-from vmnetx.util import get_cache_dir
+from vmnetx.util import ErrorBuffer, get_cache_dir
 from vmnetx.view import (VMWindow, LoadProgressWindow, PasswordWindow,
         SaveMediaWindow, ErrorWindow, FatalErrorWindow, IgnorableErrorWindow,
-        ErrorBuffer, have_spice_viewer)
+        have_spice_viewer)
 from vmnetx.status.monitor import (ImageMonitor, LoadProgressMonitor,
         LineStreamMonitor)
 

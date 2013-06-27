@@ -17,12 +17,26 @@
 
 import errno
 import os
+import sys
+import traceback
 
 class DetailException(Exception):
     def __init__(self, msg, detail=None):
         Exception.__init__(self, msg)
         if detail:
             self.detail = detail
+
+
+class ErrorBuffer(object):
+    def __init__(self):
+        exception = sys.exc_info()[1]
+        detail = getattr(exception, 'detail', None)
+        tb = traceback.format_exc()
+        self.exception = str(exception)
+        if detail:
+            self.detail = detail + '\n\n' + tb
+        else:
+            self.detail = tb
 
 
 def get_cache_dir():
