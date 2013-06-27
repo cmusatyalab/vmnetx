@@ -32,7 +32,6 @@ from tempfile import NamedTemporaryFile
 import threading
 
 from vmnetx.controller.local import LocalController
-from vmnetx.execute import Machine, MachineMetadata
 from vmnetx.package import NeedAuthentication
 from vmnetx.system import __version__
 from vmnetx.util import get_cache_dir
@@ -80,7 +79,7 @@ class VMNetXApp(object):
     def __init__(self, package_ref):
         gobject.threads_init()
         self._username_cache = _UsernameCache()
-        self._controller = LocalController()
+        self._controller = LocalController(package_ref, have_spice_viewer)
         self._package_ref = package_ref
         self._machine = None
         self._have_memory = False
@@ -103,11 +102,10 @@ class VMNetXApp(object):
             self._ensure_permissions()
 
             # Fetch and parse metadata
-            pw_wind = scheme = username = password = None
+            pw_wind = None
             while True:
                 try:
-                    metadata = MachineMetadata(self._package_ref, scheme,
-                            username, password)
+                    self._controller.initialize()
                 except NeedAuthentication, e:
                     if pw_wind is None:
                         username = self._username_cache.get(e.host, e.realm)
@@ -120,31 +118,27 @@ class VMNetXApp(object):
                     if pw_wind.run() != gtk.RESPONSE_OK:
                         pw_wind.destroy()
                         raise KeyboardInterrupt
-                    scheme = e.scheme
-                    username = pw_wind.username
-                    password = pw_wind.password
+                    self._controller.scheme = e.scheme
+                    self._controller.username = pw_wind.username
+                    self._controller.password = pw_wind.password
                     self._username_cache.put(e.host, e.realm, username)
                 else:
                     if pw_wind is not None:
                         pw_wind.destroy()
                     break
 
-            # Start vmnetfs
-            self._machine = Machine(metadata, use_spice=have_spice_viewer)
-            self._have_memory = self._machine.memory_path is not None
-
             # Create monitors
-            log_monitor = LineStreamMonitor(self._machine.log_path)
+            log_monitor = LineStreamMonitor(self._controller.machine.log_path)
             log_monitor.connect('line-emitted', self._vmnetfs_log)
-            disk_monitor = ImageMonitor(self._machine.disk_path)
-            if self._have_memory:
+            disk_monitor = ImageMonitor(self._controller.machine.disk_path)
+            if self._controller.have_memory:
                 self._load_monitor = LoadProgressMonitor(
-                        self._machine.memory_path)
+                        self._controller.machine.memory_path)
 
             # Show main window
-            self._wind = VMWindow(self._machine.name, disk_monitor,
-                    use_spice=self._machine.using_spice,
-                    max_mouse_rate=metadata.domain_xml.max_mouse_rate)
+            self._wind = VMWindow(self._controller.machine.name, disk_monitor,
+                    use_spice=self._controller.machine.using_spice,
+                    max_mouse_rate=self._controller.metadata.domain_xml.max_mouse_rate)
             self._wind.connect('viewer-connect', self._connect)
             self._wind.connect('viewer-disconnect', self._restart)
             self._wind.connect('user-restart', self._user_restart)
@@ -167,7 +161,7 @@ class VMNetXApp(object):
                     datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
             _log.info('SPICE viewer %s, qemu support %s',
                     'available' if have_spice_viewer else 'unavailable',
-                    'available' if self._machine.have_spice else 'unavailable')
+                    'available' if self._controller.machine.have_spice else 'unavailable')
 
             # Load memory image in the background
             self._start_vm()
@@ -188,9 +182,7 @@ class VMNetXApp(object):
                 disk_monitor.close()
             if log_monitor is not None:
                 log_monitor.close()
-            if self._machine is not None:
-                self._machine.stop_vm()
-                self._machine.close()
+            self._controller.shutdown()
     # pylint: enable=W0702
 
     def _signal(self, _signum, _frame):
@@ -243,7 +235,7 @@ class VMNetXApp(object):
         # Thread function.  Load the memory image, then connect the display
         # viewer.
         try:
-            self._machine.start_vm(not self._have_memory)
+            self._controller.machine.start_vm(not self._have_memory)
         except:
             gobject.idle_add(self._startup_error, ErrorBuffer())
         else:
@@ -254,13 +246,13 @@ class VMNetXApp(object):
         if not self._startup_cancelled:
             self._startup_cancelled = True
             threading.Thread(name='vmnetx-startup-cancel',
-                    target=self._machine.stop_vm).start()
+                    target=self._controller.machine.stop_vm).start()
             self._wind.hide()
 
     def _startup_done(self):
         # Runs in UI thread
-        self._wind.connect_viewer(self._machine.viewer_listen_address,
-                self._machine.viewer_password)
+        self._wind.connect_viewer(self._controller.machine.viewer_listen_address,
+                self._controller.machine.viewer_password)
         if self._have_memory:
             self._load_window.destroy()
             self._load_monitor.close()
@@ -306,7 +298,7 @@ class VMNetXApp(object):
             _log.warning('Detected black screen; assuming bad memory image')
             self._warn_bad_memory()
             # Terminate the VM; the viewer-disconnect handler will restart it
-            self._machine.stop_vm()
+            self._controller.machine.stop_vm()
     # pylint: enable=W1401
 
     def _io_error(self, _monitor, _name, _value):
@@ -330,10 +322,10 @@ class VMNetXApp(object):
 
     def _user_restart(self, _obj):
         # Just terminate the VM; the viewer-disconnect handler will restart it
-        self._machine.stop_vm()
+        self._controller.machine.stop_vm()
 
     def _restart(self, _obj):
-        self._machine.stop_vm()
+        self._controller.machine.stop_vm()
         self._have_memory = False
         self._start_vm()
 
@@ -345,7 +337,7 @@ class VMNetXApp(object):
 
     def _screenshot(self, _obj, pixbuf):
         sw = SaveMediaWindow(self._wind, 'Save Screenshot',
-                self._machine.name + '.png', pixbuf)
+                self._controller.machine.name + '.png', pixbuf)
         if sw.run() == gtk.RESPONSE_OK:
             try:
                 pixbuf.save(sw.get_filename(), 'png')
