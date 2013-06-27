@@ -41,6 +41,8 @@ nobase_python_PYTHON = vmnetx/__init__.py \
 	vmnetx/util.py \
 	vmnetx/view.py \
 	vmnetx/vmnetfs.py \
+	vmnetx/controller/__init__.py \
+	vmnetx/controller/local/__init__.py \
 	vmnetx/status/__init__.py \
 	vmnetx/status/monitor.py
 nobase_nodist_python_PYTHON = vmnetx/system.py

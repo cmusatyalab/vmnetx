@@ -31,6 +31,7 @@ import sys
 from tempfile import NamedTemporaryFile
 import threading
 
+from vmnetx.controller.local import LocalController
 from vmnetx.execute import Machine, MachineMetadata
 from vmnetx.package import NeedAuthentication
 from vmnetx.system import __version__
@@ -79,6 +80,7 @@ class VMNetXApp(object):
     def __init__(self, package_ref):
         gobject.threads_init()
         self._username_cache = _UsernameCache()
+        self._controller = LocalController()
         self._package_ref = package_ref
         self._machine = None
         self._have_memory = False
