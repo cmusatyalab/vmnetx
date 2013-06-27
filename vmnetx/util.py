@@ -16,6 +16,7 @@
 #
 
 import errno
+import gobject
 import os
 import sys
 import traceback
@@ -27,8 +28,9 @@ class DetailException(Exception):
             self.detail = detail
 
 
-class ErrorBuffer(object):
+class ErrorBuffer(gobject.GObject):
     def __init__(self):
+        gobject.GObject.__init__(self)
         exception = sys.exc_info()[1]
         detail = getattr(exception, 'detail', None)
         tb = traceback.format_exc()
@@ -37,6 +39,7 @@ class ErrorBuffer(object):
             self.detail = detail + '\n\n' + tb
         else:
             self.detail = tb
+gobject.type_register(ErrorBuffer)
 
 
 def get_cache_dir():

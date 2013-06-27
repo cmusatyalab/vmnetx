@@ -29,12 +29,11 @@ import pwd
 import signal
 import sys
 from tempfile import NamedTemporaryFile
-import threading
 
 from vmnetx.controller.local import LocalController
 from vmnetx.package import NeedAuthentication
 from vmnetx.system import __version__
-from vmnetx.util import ErrorBuffer, get_cache_dir
+from vmnetx.util import get_cache_dir
 from vmnetx.view import (VMWindow, LoadProgressWindow, PasswordWindow,
         SaveMediaWindow, ErrorWindow, FatalErrorWindow, IgnorableErrorWindow,
         have_spice_viewer)
@@ -82,12 +81,13 @@ class VMNetXApp(object):
         self._controller = LocalController(package_ref, have_spice_viewer)
         self._package_ref = package_ref
         self._machine = None
-        self._have_memory = False
         self._wind = None
         self._load_monitor = None
         self._load_window = None
-        self._startup_cancelled = False
         self._io_failed = False
+
+        self._controller.connect('startup-complete', self._startup_done)
+        self._controller.connect('startup-failed', self._startup_error)
 
     # We intentionally catch all exceptions
     # pylint: disable=W0702
@@ -149,7 +149,7 @@ class VMNetXApp(object):
                     self._io_error)
 
             # Show loading window
-            if self._have_memory:
+            if self._controller.have_memory:
                 self._load_window = LoadProgressWindow(self._load_monitor,
                         self._wind)
                 self._load_window.connect('user-cancel', self._startup_cancel)
@@ -163,8 +163,8 @@ class VMNetXApp(object):
                     'available' if have_spice_viewer else 'unavailable',
                     'available' if self._controller.machine.have_spice else 'unavailable')
 
-            # Load memory image in the background
-            self._start_vm()
+            # Load memory image
+            self._controller.start_vm()
 
             # Run main loop
             gtk.main()
@@ -226,49 +226,27 @@ class VMNetXApp(object):
             if os.getgid() != primary_gid:
                 switch_group(grp.getgrgid(primary_gid).gr_name)
 
-    def _start_vm(self):
-        threading.Thread(name='vmnetx-startup', target=self._startup).start()
-
-    # We intentionally catch all exceptions
-    # pylint: disable=W0702
-    def _startup(self):
-        # Thread function.  Load the memory image, then connect the display
-        # viewer.
-        try:
-            self._controller.machine.start_vm(not self._have_memory)
-        except:
-            gobject.idle_add(self._startup_error, ErrorBuffer())
-        else:
-            gobject.idle_add(self._startup_done)
-    # pylint: enable=W0702
-
     def _startup_cancel(self, _obj):
-        if not self._startup_cancelled:
-            self._startup_cancelled = True
-            threading.Thread(name='vmnetx-startup-cancel',
-                    target=self._controller.machine.stop_vm).start()
-            self._wind.hide()
+        self._controller.startup_cancel()
+        self._wind.hide()
 
-    def _startup_done(self):
-        # Runs in UI thread
+    def _startup_done(self, _obj):
         self._wind.connect_viewer(self._controller.machine.viewer_listen_address,
                 self._controller.machine.viewer_password)
-        if self._have_memory:
+        if self._controller.have_memory:
             self._load_window.destroy()
             self._load_monitor.close()
 
-    def _startup_error(self, error=None):
-        # Runs in UI thread
-        if self._have_memory:
+    def _startup_error(self, _obj, error):
+        if self._controller.have_memory:
             self._load_window.destroy()
             self._load_monitor.close()
-            self._have_memory = False
-            if not self._startup_cancelled:
+            if not self._controller.startup_cancelled:
                 # Try again without memory image
                 self._warn_bad_memory()
-                self._start_vm()
+                self._controller.start_vm(with_memory=False)
                 return
-        if error is not None and not self._startup_cancelled:
+        if error is not None and not self._controller.startup_cancelled:
             ew = FatalErrorWindow(self._wind, error)
             ew.run()
             ew.destroy()
@@ -287,7 +265,7 @@ class VMNetXApp(object):
     def _startup_check_screenshot(self):
         # If qemu doesn't like a memory image, it may sit and spin rather
         # than failing properly.  Recover from this case.
-        if not self._have_memory:
+        if not self._controller.have_memory:
             return
         img = self._wind.take_screenshot()
         if img is None:
@@ -302,7 +280,6 @@ class VMNetXApp(object):
     # pylint: enable=W1401
 
     def _io_error(self, _monitor, _name, _value):
-        # Runs in UI thread
         if not self._io_failed:
             self._io_failed = True
             self._wind.add_warning('dialog-error',
@@ -322,12 +299,11 @@ class VMNetXApp(object):
 
     def _user_restart(self, _obj):
         # Just terminate the VM; the viewer-disconnect handler will restart it
-        self._controller.machine.stop_vm()
+        self._controller.stop_vm()
 
     def _restart(self, _obj):
-        self._controller.machine.stop_vm()
-        self._have_memory = False
-        self._start_vm()
+        self._controller.stop_vm()
+        self._controller.start_vm(with_memory=False)
 
     def _shutdown(self, _obj=None):
         self._wind.show_activity(False)
