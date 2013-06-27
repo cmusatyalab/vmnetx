@@ -196,8 +196,12 @@ class SpiceWidget(_ViewerWidget):
         # Ensure clipboard sharing is disabled
         self._gtk_session = SpiceClientGtk.spice_gtk_session_get(self._session)
         self._gtk_session.set_property('auto-clipboard', False)
-        # Enable audio
-        self._audio = SpiceClientGtk.Audio(self._session)
+        try:
+            # Enable audio
+            self._audio = SpiceClientGtk.Audio(self._session)
+        except RuntimeError:
+            # No local PulseAudio, etc.
+            pass
         self._session.connect_object('channel-new', self._new_channel,
                 self._session)
         self._session.connect()
