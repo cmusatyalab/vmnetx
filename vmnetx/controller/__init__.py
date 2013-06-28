@@ -18,7 +18,12 @@ class AbstractController(gobject.GObject):
         gobject.GObject.__init__(self)
 
         # Publicly readable
+        self.vm_name = None
         self.have_memory = None
+        self.use_spice = True
+        self.viewer_address = None
+        self.viewer_password = None
+        self.max_mouse_rate = None
         self.disk_chunk_size = None
         self.disk_chunks = ChunkStateArray()
         self.disk_stats = {}

@@ -117,12 +117,12 @@ class VMNetXApp(object):
                     break
 
             # Show main window
-            self._wind = VMWindow(self._controller.machine.name,
+            self._wind = VMWindow(self._controller.vm_name,
                     disk_stats=self._controller.disk_stats,
                     disk_chunks=self._controller.disk_chunks,
                     disk_chunk_size=self._controller.disk_chunk_size,
-                    use_spice=self._controller.machine.use_spice,
-                    max_mouse_rate=self._controller.metadata.domain_xml.max_mouse_rate)
+                    use_spice=self._controller.use_spice,
+                    max_mouse_rate=self._controller.max_mouse_rate)
             self._wind.connect('viewer-connect', self._connect)
             self._wind.connect('viewer-disconnect', self._restart)
             self._wind.connect('user-restart', self._user_restart)
@@ -138,7 +138,7 @@ class VMNetXApp(object):
                     datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
             _log.info('SPICE viewer %s, protocol %s',
                     'available' if have_spice_viewer else 'unavailable',
-                    'enabled' if self._controller.machine.use_spice else 'disabled')
+                    'enabled' if self._controller.use_spice else 'disabled')
 
             # Load memory image
             self._controller.start_vm()
@@ -178,8 +178,8 @@ class VMNetXApp(object):
             self._load_window = None
 
     def _startup_done(self, _obj):
-        self._wind.connect_viewer(self._controller.machine.viewer_listen_address,
-                self._controller.machine.viewer_password)
+        self._wind.connect_viewer(self._controller.viewer_address,
+                self._controller.viewer_password)
         self._destroy_load_window()
 
     def _startup_cancelled(self, _obj):
@@ -254,7 +254,7 @@ class VMNetXApp(object):
 
     def _screenshot(self, _obj, pixbuf):
         sw = SaveMediaWindow(self._wind, 'Save Screenshot',
-                self._controller.machine.name + '.png', pixbuf)
+                self._controller.vm_name + '.png', pixbuf)
         if sw.run() == gtk.RESPONSE_OK:
             try:
                 pixbuf.save(sw.get_filename(), 'png')

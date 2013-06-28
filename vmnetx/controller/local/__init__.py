@@ -26,7 +26,7 @@ class LocalController(AbstractController):
     def __init__(self, package_ref, use_spice):
         AbstractController.__init__(self)
         self._package_ref = package_ref
-        self._use_spice = use_spice
+        self._want_spice = use_spice
         self.metadata = None
         self.machine = None
         self._startup_cancelled = False
@@ -44,8 +44,14 @@ class LocalController(AbstractController):
                 self.username, self.password)
 
         # Start vmnetfs
-        self.machine = Machine(self.metadata, use_spice=self._use_spice)
+        self.machine = Machine(self.metadata, use_spice=self._want_spice)
+
+        # Load configuration
+        self.vm_name = self.machine.name
         self.have_memory = self.machine.memory_path is not None
+        self.use_spice = self.machine.use_spice
+        self.viewer_password = self.machine.viewer_password
+        self.max_mouse_rate = self.metadata.domain_xml.max_mouse_rate
 
         # Set chunk size
         path = os.path.join(self.machine.disk_path, 'stats', 'chunk_size')
@@ -135,6 +141,7 @@ class LocalController(AbstractController):
             else:
                 gobject.idle_add(self.emit, 'startup-failed', ErrorBuffer())
         else:
+            self.viewer_address = self.machine.viewer_listen_address
             gobject.idle_add(self.emit, 'startup-complete')
     # pylint: enable=W0702
 
