@@ -32,7 +32,7 @@ from vmnetx.util import get_cache_dir
 from vmnetx.view import (VMWindow, LoadProgressWindow, PasswordWindow,
         SaveMediaWindow, ErrorWindow, FatalErrorWindow, IgnorableErrorWindow,
         have_spice_viewer)
-from vmnetx.status.monitor import ImageMonitor, LineStreamMonitor
+from vmnetx.status.monitor import ImageMonitor
 
 _log = logging.getLogger(__name__)
 
@@ -86,7 +86,7 @@ class VMNetXApp(object):
     # We intentionally catch all exceptions
     # pylint: disable=W0702
     def run(self):
-        log_monitor = disk_monitor = None
+        disk_monitor = None
         try:
             # Attempt to catch SIGTERM.  This is dubious, but not more so
             # than the default handling of SIGINT.
@@ -119,8 +119,6 @@ class VMNetXApp(object):
                     break
 
             # Create monitors
-            log_monitor = LineStreamMonitor(self._controller.machine.log_path)
-            log_monitor.connect('line-emitted', self._vmnetfs_log)
             disk_monitor = ImageMonitor(self._controller.machine.disk_path)
 
             # Show main window
@@ -156,14 +154,12 @@ class VMNetXApp(object):
             FatalErrorWindow(self._wind).run()
         finally:
             # Shut down
-            logging.shutdown()
             if self._wind is not None:
                 self._wind.destroy()
             if disk_monitor is not None:
                 disk_monitor.close()
-            if log_monitor is not None:
-                log_monitor.close()
             self._controller.shutdown()
+            logging.shutdown()
     # pylint: enable=W0702
 
     def _signal(self, _signum, _frame):
@@ -245,9 +241,6 @@ class VMNetXApp(object):
             ew.destroy()
             if response == gtk.RESPONSE_OK:
                 self._shutdown()
-
-    def _vmnetfs_log(self, _monitor, line):
-        _log.warning('%s', line)
 
     def _user_restart(self, _obj):
         # Just terminate the VM; the viewer-disconnect handler will restart it

@@ -1,6 +1,7 @@
 import dbus
 import gobject
 import grp
+import logging
 import os
 import pipes
 import pwd
@@ -8,9 +9,11 @@ import sys
 import threading
 
 from ...execute import Machine, MachineMetadata
-from ...status.monitor import LoadProgressMonitor
+from ...status.monitor import LineStreamMonitor, LoadProgressMonitor
 from ...util import ErrorBuffer
 from .. import AbstractController
+
+_log = logging.getLogger(__name__)
 
 class LocalController(AbstractController):
     AUTHORIZER_NAME = 'org.olivearchive.VMNetX.Authorizer'
@@ -24,6 +27,7 @@ class LocalController(AbstractController):
         self.metadata = None
         self.machine = None
         self._startup_cancelled = False
+        self._log_monitor = None
         self._load_monitor = None
 
     # Should be called before we open any windows, since we may re-exec
@@ -41,6 +45,8 @@ class LocalController(AbstractController):
         self.have_memory = self.machine.memory_path is not None
 
         # Create monitors
+        self._log_monitor = LineStreamMonitor(self.machine.log_path)
+        self._log_monitor.connect('line-emitted', self._vmnetfs_log)
         if self.have_memory:
             self._load_monitor = LoadProgressMonitor(self.machine.memory_path)
             self._load_monitor.connect('progress', self._load_progress)
@@ -82,6 +88,9 @@ class LocalController(AbstractController):
             primary_gid = pwd.getpwuid(os.getuid()).pw_gid
             if os.getgid() != primary_gid:
                 switch_group(grp.getgrgid(primary_gid).gr_name)
+
+    def _vmnetfs_log(self, _monitor, line):
+        _log.warning('%s', line)
 
     def start_vm(self):
         if self.have_memory:
@@ -129,6 +138,8 @@ class LocalController(AbstractController):
         self.have_memory = False
 
     def shutdown(self):
+        if self._log_monitor is not None:
+            self._log_monitor.close()
         self.stop_vm()
         if self.machine is not None:
             self.machine.close()
