@@ -64,6 +64,9 @@ class Statistic(gobject.GObject):
 gobject.type_register(Statistic)
 
 
+# pylint complains about the missing  __setitem__ and __delitem__, but we
+# don't intend to allow array writes
+# pylint: disable=R0924
 class ChunkStateArray(gobject.GObject):
     INVALID = 0  # Beyond EOF.  Never stored in chunks array.
     MISSING = 1
@@ -124,3 +127,4 @@ class ChunkStateArray(gobject.GObject):
                     self._chunks[chunk] = state
                     c.emit(chunk)
 gobject.type_register(ChunkStateArray)
+# pylint: enable=R0924
