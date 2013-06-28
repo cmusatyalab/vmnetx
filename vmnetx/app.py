@@ -88,6 +88,8 @@ class VMNetXApp(object):
 
         self._controller.connect('startup-complete', self._startup_done)
         self._controller.connect('startup-cancelled', self._startup_cancelled)
+        self._controller.connect('startup-rejected-memory',
+                self._startup_rejected_memory)
         self._controller.connect('startup-failed', self._startup_error)
 
     # We intentionally catch all exceptions
@@ -243,18 +245,16 @@ class VMNetXApp(object):
         self._load_monitor.close()
         self._shutdown()
 
+    def _startup_rejected_memory(self, _obj):
+        self._load_window.destroy()
+        self._load_monitor.close()
+        self._warn_bad_memory()
+
     def _startup_error(self, _obj, error):
-        if self._controller.have_memory:
-            self._load_window.destroy()
-            self._load_monitor.close()
-            # Try again without memory image
-            self._warn_bad_memory()
-            self._controller.start_vm(with_memory=False)
-        else:
-            ew = FatalErrorWindow(self._wind, error)
-            ew.run()
-            ew.destroy()
-            self._shutdown()
+        ew = FatalErrorWindow(self._wind, error)
+        ew.run()
+        ew.destroy()
+        self._shutdown()
 
     def _warn_bad_memory(self):
         self._wind.add_warning('dialog-warning',

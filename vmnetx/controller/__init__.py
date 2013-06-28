@@ -6,6 +6,8 @@ class AbstractController(gobject.GObject):
     __gsignals__ = {
         'startup-complete': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'startup-cancelled': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'startup-rejected-memory': (gobject.SIGNAL_RUN_LAST,
+                gobject.TYPE_NONE, ()),
         'startup-failed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (ErrorBuffer,)),
     }

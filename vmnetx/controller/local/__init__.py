@@ -37,6 +37,11 @@ class LocalController(AbstractController):
         except:
             if self._startup_cancelled:
                 gobject.idle_add(self.emit, 'startup-cancelled')
+            elif self.have_memory:
+                self.have_memory = False
+                gobject.idle_add(self.emit, 'startup-rejected-memory')
+                # Retry without memory image
+                self._startup()
             else:
                 gobject.idle_add(self.emit, 'startup-failed', ErrorBuffer())
         else:
