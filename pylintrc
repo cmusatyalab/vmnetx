@@ -6,6 +6,7 @@ persistent=no
 
 [MESSAGES CONTROL]
 # C0111: Missing docstring
+# C0302: Too many lines in module
 # I0011: Test disabled via inline comment
 # R0201: Method could be a function
 # R0801: Code duplication
@@ -20,7 +21,7 @@ persistent=no
 # R0915: Too many statements
 # W0142: Used * or ** magic
 # W0622: Redefining a built-in function
-disable=C0111,I0011,R0201,R0801,R0901,R0902,R0903,R0904,R0911,R0912,R0913,R0914,R0915,W0142,W0622
+disable=C0111,C0302,I0011,R0201,R0801,R0901,R0902,R0903,R0904,R0911,R0912,R0913,R0914,R0915,W0142,W0622
 
 [REPORTS]
 # Disable reports
