@@ -288,10 +288,8 @@ class LoadProgressWidget(gtk.ProgressBar):
     PULSE_INITIAL_DELAY = 750  # ms
     PULSE_INTERVAL = 100  # ms
 
-    def __init__(self, monitor):
+    def __init__(self):
         gtk.ProgressBar.__init__(self)
-        self._monitor = monitor
-        self._handler = self._monitor.connect('progress', self._progress)
         self._timer = None
         self.connect('destroy', self._destroy)
 
@@ -299,9 +297,8 @@ class LoadProgressWidget(gtk.ProgressBar):
         if self._timer is not None:
             glib.source_remove(self._timer)
             self._timer = None
-        self._monitor.disconnect(self._handler)
 
-    def _progress(self, _monitor, count, total):
+    def progress(self, count, total):
         if total != 0:
             fraction = count / total
         else:

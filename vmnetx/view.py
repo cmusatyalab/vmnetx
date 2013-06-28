@@ -555,7 +555,7 @@ class LoadProgressWindow(gtk.Dialog):
         'user-cancel': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
-    def __init__(self, monitor, parent):
+    def __init__(self, parent):
         gtk.Dialog.__init__(self, parent.get_title(), parent, gtk.DIALOG_MODAL,
                 (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL))
         self.set_resizable(False)
@@ -569,8 +569,9 @@ class LoadProgressWindow(gtk.Dialog):
         label.set_padding(5, 5)
         box.pack_start(label)
 
+        self._widget = LoadProgressWidget()
         bin = gtk.Alignment(xscale=1)
-        bin.add(LoadProgressWidget(monitor))
+        bin.add(self._widget)
         bin.set_padding(5, 5, 3, 3)
         box.pack_start(bin, expand=True)
 
@@ -579,6 +580,9 @@ class LoadProgressWindow(gtk.Dialog):
         label = gtk.Label()
         label.set_size_request(300, 0)
         box.pack_start(label)
+
+    def progress(self, count, total):
+        self._widget.progress(count, total)
 
     def _response(self, _wid, _id):
         self.hide()

@@ -37,8 +37,7 @@ from vmnetx.util import get_cache_dir
 from vmnetx.view import (VMWindow, LoadProgressWindow, PasswordWindow,
         SaveMediaWindow, ErrorWindow, FatalErrorWindow, IgnorableErrorWindow,
         have_spice_viewer)
-from vmnetx.status.monitor import (ImageMonitor, LoadProgressMonitor,
-        LineStreamMonitor)
+from vmnetx.status.monitor import ImageMonitor, LineStreamMonitor
 
 _log = logging.getLogger(__name__)
 
@@ -82,10 +81,10 @@ class VMNetXApp(object):
         self._package_ref = package_ref
         self._machine = None
         self._wind = None
-        self._load_monitor = None
         self._load_window = None
         self._io_failed = False
 
+        self._controller.connect('startup-progress', self._startup_progress)
         self._controller.connect('startup-complete', self._startup_done)
         self._controller.connect('startup-cancelled', self._startup_cancelled)
         self._controller.connect('startup-rejected-memory',
@@ -134,9 +133,6 @@ class VMNetXApp(object):
             log_monitor = LineStreamMonitor(self._controller.machine.log_path)
             log_monitor.connect('line-emitted', self._vmnetfs_log)
             disk_monitor = ImageMonitor(self._controller.machine.disk_path)
-            if self._controller.have_memory:
-                self._load_monitor = LoadProgressMonitor(
-                        self._controller.machine.memory_path)
 
             # Show main window
             self._wind = VMWindow(self._controller.machine.name, disk_monitor,
@@ -150,13 +146,6 @@ class VMNetXApp(object):
             self._wind.show_all()
             disk_monitor.stats['io_errors'].connect('stat-changed',
                     self._io_error)
-
-            # Show loading window
-            if self._controller.have_memory:
-                self._load_window = LoadProgressWindow(self._load_monitor,
-                        self._wind)
-                self._load_window.connect('user-cancel', self._startup_cancel)
-                self._load_window.show_all()
 
             # Start logging
             logging.getLogger().setLevel(logging.INFO)
@@ -229,25 +218,33 @@ class VMNetXApp(object):
             if os.getgid() != primary_gid:
                 switch_group(grp.getgrgid(primary_gid).gr_name)
 
+    def _startup_progress(self, _obj, count, total):
+        if self._load_window is None:
+            self._load_window = LoadProgressWindow(self._wind)
+            self._load_window.connect('user-cancel', self._startup_cancel)
+            self._load_window.show_all()
+        self._load_window.progress(count, total)
+
     def _startup_cancel(self, _obj):
         self._controller.startup_cancel()
         self._wind.hide()
 
+    def _destroy_load_window(self):
+        if self._load_window is not None:
+            self._load_window.destroy()
+            self._load_window = None
+
     def _startup_done(self, _obj):
         self._wind.connect_viewer(self._controller.machine.viewer_listen_address,
                 self._controller.machine.viewer_password)
-        if self._controller.have_memory:
-            self._load_window.destroy()
-            self._load_monitor.close()
+        self._destroy_load_window()
 
     def _startup_cancelled(self, _obj):
-        self._load_window.destroy()
-        self._load_monitor.close()
+        self._destroy_load_window()
         self._shutdown()
 
     def _startup_rejected_memory(self, _obj):
-        self._load_window.destroy()
-        self._load_monitor.close()
+        self._destroy_load_window()
         self._warn_bad_memory()
 
     def _startup_error(self, _obj, error):

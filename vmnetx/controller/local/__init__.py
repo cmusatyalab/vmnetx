@@ -2,6 +2,7 @@ import gobject
 import threading
 
 from ...execute import Machine, MachineMetadata
+from ...status.monitor import LoadProgressMonitor
 from ...util import ErrorBuffer
 from .. import AbstractController
 
@@ -13,6 +14,7 @@ class LocalController(AbstractController):
         self.metadata = None
         self.machine = None
         self._startup_cancelled = False
+        self._load_monitor = None
 
     def initialize(self):
         # Authenticate and fetch metadata
@@ -23,7 +25,14 @@ class LocalController(AbstractController):
         self.machine = Machine(self.metadata, use_spice=self._use_spice)
         self.have_memory = self.machine.memory_path is not None
 
+        # Create monitors
+        if self.have_memory:
+            self._load_monitor = LoadProgressMonitor(self.machine.memory_path)
+            self._load_monitor.connect('progress', self._load_progress)
+
     def start_vm(self):
+        if self.have_memory:
+            self.emit('startup-progress', 0, self._load_monitor.chunks)
         threading.Thread(name='vmnetx-startup', target=self._startup).start()
 
     # We intentionally catch all exceptions
@@ -31,7 +40,12 @@ class LocalController(AbstractController):
     def _startup(self):
         # Thread function.
         try:
-            self.machine.start_vm(not self.have_memory)
+            have_memory = self.have_memory
+            try:
+                self.machine.start_vm(not have_memory)
+            finally:
+                if have_memory:
+                    gobject.idle_add(self._load_monitor.close)
         except:
             if self._startup_cancelled:
                 gobject.idle_add(self.emit, 'startup-cancelled')
@@ -45,6 +59,10 @@ class LocalController(AbstractController):
         else:
             gobject.idle_add(self.emit, 'startup-complete')
     # pylint: enable=W0702
+
+    def _load_progress(self, _obj, count, total):
+        if self.have_memory and not self._startup_cancelled:
+            self.emit('startup-progress', count, total)
 
     def startup_cancel(self):
         if not self._startup_cancelled:
