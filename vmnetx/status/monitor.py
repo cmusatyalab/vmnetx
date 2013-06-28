@@ -28,6 +28,14 @@ gobject.type_register(_Monitor)
 
 
 class _StatMonitor(_Monitor):
+    STATS = ('bytes_read', 'bytes_written', 'chunk_dirties', 'chunk_fetches',
+            'io_errors')
+
+    __gsignals__ = {
+        'stat-changed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (gobject.TYPE_STRING, gobject.TYPE_UINT64)),
+    }
+
     def __init__(self, name, path):
         _Monitor.__init__(self)
         self.name = name
@@ -43,15 +51,12 @@ class _StatMonitor(_Monitor):
         except IOError:
             # Stop accessing this stat
             return
-        value = self._process_value(self._fh.readline().strip())
+        value = int(self._fh.readline().strip())
         if value != self.value:
             self.value = value
             self.emit('stat-changed', self.name, self.value)
         self._source = glib.io_add_watch(self._fh, glib.IO_IN | glib.IO_ERR,
                 self._reread)
-
-    def _process_value(self, value):
-        raise NotImplementedError()
 
     def _reread(self, _fh, _condition):
         self.close()
@@ -65,36 +70,9 @@ class _StatMonitor(_Monitor):
 
     @classmethod
     def open_all(cls, image_path):
-        stats = {}
-        stats.update(_IntStatMonitor.open_all(image_path))
-        return stats
-gobject.type_register(_StatMonitor)
-
-
-class _IntStatMonitor(_StatMonitor):
-    STATS = ('bytes_read', 'bytes_written', 'chunk_dirties', 'chunk_fetches',
-            'io_errors')
-
-    __gsignals__ = {
-        'stat-changed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_STRING, gobject.TYPE_UINT64)),
-    }
-
-    def _process_value(self, value):
-        return int(value)
-
-    @classmethod
-    def open_all(cls, image_path):
         return dict((name, cls(name, os.path.join(image_path, 'stats', name)))
                 for name in cls.STATS)
-gobject.type_register(_IntStatMonitor)
-
-
-# To avoid pylint R0922.  Remove when a second subclass of _StatMonitor
-# is added.
-class _DummyStatMonitor(_StatMonitor):
-    def _process_value(self, value):
-        return value
+gobject.type_register(_StatMonitor)
 
 
 class _StreamMonitorBase(_Monitor):
@@ -217,7 +195,7 @@ class ChunkMapMonitor(_Monitor):
         _Monitor.__init__(self)
         self._monitors = []
 
-        chunks = _IntStatMonitor('chunks',
+        chunks = _StatMonitor('chunks',
                 os.path.join(image_path, 'stats', 'chunks'))
         chunks.connect('stat-changed', self._resize_image)
         self._monitors.append(chunks)
