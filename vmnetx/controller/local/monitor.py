@@ -1,7 +1,7 @@
 #
-# vmnetx.status.monitor - Track VMNetX disk and memory state
+# vmnetx.controller.local.monitor - Track vmnetfs disk and memory state
 #
-# Copyright (C) 2008-2012 Carnegie Mellon University
+# Copyright (C) 2008-2013 Carnegie Mellon University
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of version 2 of the GNU General Public License as published
@@ -21,8 +21,8 @@ import gobject
 import io
 import os
 
-from ..controller import ChunkStateArray, Statistic
-from ..util import RangeConsolidator
+from .. import ChunkStateArray, Statistic
+from ...util import RangeConsolidator
 
 class _Monitor(gobject.GObject):
     def close(self):

@@ -9,10 +9,10 @@ import sys
 import threading
 
 from ...execute import Machine, MachineMetadata
-from ...status.monitor import (ChunkMapMonitor, LineStreamMonitor,
-        LoadProgressMonitor, StatMonitor)
 from ...util import ErrorBuffer
 from .. import AbstractController, Statistic
+from .monitor import (ChunkMapMonitor, LineStreamMonitor,
+        LoadProgressMonitor, StatMonitor)
 
 _log = logging.getLogger(__name__)
 
