@@ -26,7 +26,7 @@ class AbstractController(gobject.GObject):
     def initialize(self):
         raise NotImplementedError
 
-    def start_vm(self, with_memory=True):
+    def start_vm(self):
         raise NotImplementedError
 
     def stop_vm(self):

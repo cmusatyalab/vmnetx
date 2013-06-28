@@ -23,9 +23,7 @@ class LocalController(AbstractController):
         self.machine = Machine(self.metadata, use_spice=self._use_spice)
         self.have_memory = self.machine.memory_path is not None
 
-    def start_vm(self, with_memory=True):
-        if not with_memory:
-            self.have_memory = False
+    def start_vm(self):
         threading.Thread(name='vmnetx-startup', target=self._startup).start()
 
     # We intentionally catch all exceptions
@@ -57,6 +55,7 @@ class LocalController(AbstractController):
     def stop_vm(self):
         if self.machine is not None:
             self.machine.stop_vm()
+        self.have_memory = False
 
     def shutdown(self):
         self.stop_vm()

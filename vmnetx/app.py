@@ -307,7 +307,7 @@ class VMNetXApp(object):
 
     def _restart(self, _obj):
         self._controller.stop_vm()
-        self._controller.start_vm(with_memory=False)
+        self._controller.start_vm()
 
     def _shutdown(self, _obj=None):
         self._wind.show_activity(False)
