@@ -27,8 +27,8 @@ class LocalController(AbstractController):
         AbstractController.__init__(self)
         self._package_ref = package_ref
         self._want_spice = use_spice
-        self.metadata = None
-        self.machine = None
+        self._metadata = None
+        self._machine = None
         self._startup_cancelled = False
         self._monitors = []
         self._load_monitor = None
@@ -40,21 +40,21 @@ class LocalController(AbstractController):
         self._ensure_permissions()
 
         # Authenticate and fetch metadata
-        self.metadata = MachineMetadata(self._package_ref, self.scheme,
+        self._metadata = MachineMetadata(self._package_ref, self.scheme,
                 self.username, self.password)
 
         # Start vmnetfs
-        self.machine = Machine(self.metadata, use_spice=self._want_spice)
+        self._machine = Machine(self._metadata, use_spice=self._want_spice)
 
         # Load configuration
-        self.vm_name = self.machine.name
-        self.have_memory = self.machine.memory_path is not None
-        self.use_spice = self.machine.use_spice
-        self.viewer_password = self.machine.viewer_password
-        self.max_mouse_rate = self.metadata.domain_xml.max_mouse_rate
+        self.vm_name = self._machine.name
+        self.have_memory = self._machine.memory_path is not None
+        self.use_spice = self._machine.use_spice
+        self.viewer_password = self._machine.viewer_password
+        self.max_mouse_rate = self._metadata.domain_xml.max_mouse_rate
 
         # Set chunk size
-        path = os.path.join(self.machine.disk_path, 'stats', 'chunk_size')
+        path = os.path.join(self._machine.disk_path, 'stats', 'chunk_size')
         with open(path) as fh:
             self.disk_chunk_size = int(fh.readline().strip())
 
@@ -62,15 +62,15 @@ class LocalController(AbstractController):
         for name in self.STATS:
             stat = Statistic(name)
             self.disk_stats[name] = stat
-            self._monitors.append(StatMonitor(stat, self.machine.disk_path,
+            self._monitors.append(StatMonitor(stat, self._machine.disk_path,
                     name))
         self._monitors.append(ChunkMapMonitor(self.disk_chunks,
-                self.machine.disk_path))
-        log_monitor = LineStreamMonitor(self.machine.log_path)
+                self._machine.disk_path))
+        log_monitor = LineStreamMonitor(self._machine.log_path)
         log_monitor.connect('line-emitted', self._vmnetfs_log)
         self._monitors.append(log_monitor)
         if self.have_memory:
-            self._load_monitor = LoadProgressMonitor(self.machine.memory_path)
+            self._load_monitor = LoadProgressMonitor(self._machine.memory_path)
             self._load_monitor.connect('progress', self._load_progress)
 
     def _ensure_permissions(self):
@@ -126,7 +126,7 @@ class LocalController(AbstractController):
         try:
             have_memory = self.have_memory
             try:
-                self.machine.start_vm(not have_memory)
+                self._machine.start_vm(not have_memory)
             finally:
                 if have_memory:
                     gobject.idle_add(self._load_monitor.close)
@@ -141,7 +141,7 @@ class LocalController(AbstractController):
             else:
                 gobject.idle_add(self.emit, 'startup-failed', ErrorBuffer())
         else:
-            self.viewer_address = self.machine.viewer_listen_address
+            self.viewer_address = self._machine.viewer_listen_address
             gobject.idle_add(self.emit, 'startup-complete')
     # pylint: enable=W0702
 
@@ -153,17 +153,17 @@ class LocalController(AbstractController):
         if not self._startup_cancelled:
             self._startup_cancelled = True
             threading.Thread(name='vmnetx-startup-cancel',
-                    target=self.machine.stop_vm).start()
+                    target=self._machine.stop_vm).start()
 
     def stop_vm(self):
-        if self.machine is not None:
-            self.machine.stop_vm()
+        if self._machine is not None:
+            self._machine.stop_vm()
         self.have_memory = False
 
     def shutdown(self):
         for monitor in self._monitors:
             monitor.close()
         self.stop_vm()
-        if self.machine is not None:
-            self.machine.close()
+        if self._machine is not None:
+            self._machine.close()
 gobject.type_register(LocalController)
