@@ -191,13 +191,12 @@ class Machine(object):
         emulator = metadata.domain_xml.detect_emulator(self._conn)
 
         # Detect SPICE support.
-        self.have_spice = self._spice_is_usable(emulator)
-        self.using_spice = use_spice and self.have_spice
+        self.use_spice = use_spice and self._spice_is_usable(emulator)
 
         # Get execution domain XML
         self._domain_xml = metadata.domain_xml.get_for_execution(
                 self._domain_name, emulator, disk_image_path,
-                self.viewer_password, use_spice=self.using_spice).xml
+                self.viewer_password, use_spice=self.use_spice).xml
 
     def _spice_is_usable(self, emulator):
         '''Determine whether emulator supports SPICE.'''

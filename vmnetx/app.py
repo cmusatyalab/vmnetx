@@ -121,7 +121,7 @@ class VMNetXApp(object):
                     disk_stats=self._controller.disk_stats,
                     disk_chunks=self._controller.disk_chunks,
                     disk_chunk_size=self._controller.disk_chunk_size,
-                    use_spice=self._controller.machine.using_spice,
+                    use_spice=self._controller.machine.use_spice,
                     max_mouse_rate=self._controller.metadata.domain_xml.max_mouse_rate)
             self._wind.connect('viewer-connect', self._connect)
             self._wind.connect('viewer-disconnect', self._restart)
@@ -136,9 +136,9 @@ class VMNetXApp(object):
             logging.getLogger().setLevel(logging.INFO)
             _log.info('VMNetX %s starting at %s', __version__,
                     datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-            _log.info('SPICE viewer %s, qemu support %s',
+            _log.info('SPICE viewer %s, protocol %s',
                     'available' if have_spice_viewer else 'unavailable',
-                    'available' if self._controller.machine.have_spice else 'unavailable')
+                    'enabled' if self._controller.machine.use_spice else 'disabled')
 
             # Load memory image
             self._controller.start_vm()
