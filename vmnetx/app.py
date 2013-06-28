@@ -32,7 +32,6 @@ from vmnetx.util import get_cache_dir
 from vmnetx.view import (VMWindow, LoadProgressWindow, PasswordWindow,
         SaveMediaWindow, ErrorWindow, FatalErrorWindow, IgnorableErrorWindow,
         have_spice_viewer)
-from vmnetx.status.monitor import ImageMonitor
 
 _log = logging.getLogger(__name__)
 
@@ -86,7 +85,6 @@ class VMNetXApp(object):
     # We intentionally catch all exceptions
     # pylint: disable=W0702
     def run(self):
-        disk_monitor = None
         try:
             # Attempt to catch SIGTERM.  This is dubious, but not more so
             # than the default handling of SIGINT.
@@ -118,11 +116,11 @@ class VMNetXApp(object):
                         pw_wind.destroy()
                     break
 
-            # Create monitors
-            disk_monitor = ImageMonitor(self._controller.machine.disk_path)
-
             # Show main window
-            self._wind = VMWindow(self._controller.machine.name, disk_monitor,
+            self._wind = VMWindow(self._controller.machine.name,
+                    disk_stats=self._controller.disk_stats,
+                    disk_chunks=self._controller.disk_chunks,
+                    disk_chunk_size=self._controller.disk_chunk_size,
                     use_spice=self._controller.machine.using_spice,
                     max_mouse_rate=self._controller.metadata.domain_xml.max_mouse_rate)
             self._wind.connect('viewer-connect', self._connect)
@@ -131,7 +129,7 @@ class VMNetXApp(object):
             self._wind.connect('user-quit', self._shutdown)
             self._wind.connect('user-screenshot', self._screenshot)
             self._wind.show_all()
-            disk_monitor.stats['io_errors'].connect('stat-changed',
+            self._controller.disk_stats['io_errors'].connect('stat-changed',
                     self._io_error)
 
             # Start logging
@@ -156,8 +154,6 @@ class VMNetXApp(object):
             # Shut down
             if self._wind is not None:
                 self._wind.destroy()
-            if disk_monitor is not None:
-                disk_monitor.close()
             self._controller.shutdown()
             logging.shutdown()
     # pylint: enable=W0702

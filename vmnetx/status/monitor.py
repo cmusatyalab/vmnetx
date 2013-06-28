@@ -21,6 +21,7 @@ import gobject
 import io
 import os
 
+from ..controller import ChunkStateArray, Statistic
 from ..util import RangeConsolidator
 
 class _Monitor(gobject.GObject):
@@ -29,20 +30,11 @@ class _Monitor(gobject.GObject):
 gobject.type_register(_Monitor)
 
 
-class _StatMonitor(_Monitor):
-    STATS = ('bytes_read', 'bytes_written', 'chunk_dirties', 'chunk_fetches',
-            'io_errors')
-
-    __gsignals__ = {
-        'stat-changed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_STRING, gobject.TYPE_UINT64)),
-    }
-
-    def __init__(self, name, path):
+class StatMonitor(_Monitor):
+    def __init__(self, reporter, image_path, name):
         _Monitor.__init__(self)
-        self.name = name
-        self.value = None
-        self._path = path
+        self._reporter = reporter
+        self._path = os.path.join(image_path, 'stats', name)
         self._fh = None
         self._source = None
         self._read()
@@ -54,9 +46,8 @@ class _StatMonitor(_Monitor):
             # Stop accessing this stat
             return
         value = int(self._fh.readline().strip())
-        if value != self.value:
-            self.value = value
-            self.emit('stat-changed', self.name, self.value)
+        if value != self._reporter.value:
+            self._reporter.value = value
         self._source = glib.io_add_watch(self._fh, glib.IO_IN | glib.IO_ERR,
                 self._reread)
 
@@ -69,12 +60,7 @@ class _StatMonitor(_Monitor):
         if self._fh and not self._fh.closed:
             glib.source_remove(self._source)
             self._fh.close()
-
-    @classmethod
-    def open_all(cls, image_path):
-        return dict((name, cls(name, os.path.join(image_path, 'stats', name)))
-                for name in cls.STATS)
-gobject.type_register(_StatMonitor)
+gobject.type_register(StatMonitor)
 
 
 class _StreamMonitorBase(_Monitor):
@@ -150,35 +136,20 @@ gobject.type_register(_ChunkStreamMonitor)
 
 
 class ChunkMapMonitor(_Monitor):
-    INVALID = 0  # Beyond EOF.  Never stored in chunks array.
-    MISSING = 1
-    CACHED = 2
-    ACCESSED = 3
-    MODIFIED = 4
-    ACCESSED_MODIFIED = 5
-
     STREAMS = {
-        CACHED: 'chunks_cached',
-        ACCESSED: 'chunks_accessed',
-        MODIFIED: 'chunks_modified',
+        ChunkStateArray.CACHED: 'chunks_cached',
+        ChunkStateArray.ACCESSED: 'chunks_accessed',
+        ChunkStateArray.MODIFIED: 'chunks_modified',
     }
 
-    __gsignals__ = {
-        'chunk-state-changed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_UINT64, gobject.TYPE_UINT64)),
-        'image-resized': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_UINT64,)),
-    }
-
-    def __init__(self, image_path):
+    def __init__(self, reporter, image_path):
         _Monitor.__init__(self)
+        self._reporter = reporter
         self._monitors = []
 
-        chunks = _StatMonitor('chunks',
-                os.path.join(image_path, 'stats', 'chunks'))
-        chunks.connect('stat-changed', self._resize_image)
-        self._monitors.append(chunks)
-        self.chunks = [self.MISSING] * chunks.value
+        reporter = Statistic('chunks')
+        reporter.connect('stat-changed', self._resize_image)
+        self._monitors.append(StatMonitor(reporter, image_path, 'chunks'))
 
         for state, name in self.STREAMS.iteritems():
             m = _ChunkStreamMonitor(os.path.join(image_path, 'streams', name))
@@ -186,40 +157,11 @@ class ChunkMapMonitor(_Monitor):
             m.update()
             self._monitors.append(m)
 
-    def _ensure_size(self, chunks):
-        """Ensure the image is at least @chunks chunks long."""
-        current = len(self.chunks)
-        if chunks > current:
-            self.chunks.extend([self.MISSING] * (chunks - current))
-            self.emit('image-resized', chunks)
-            self.emit('chunk-state-changed', current, chunks - 1)
-
     def _resize_image(self, _monitor, _name, chunks):
-        current = len(self.chunks)
-        if chunks < current:
-            del self.chunks[chunks:]
-            self.emit('image-resized', chunks)
-            self.emit('chunk-state-changed', chunks, current - 1)
-        else:
-            self._ensure_size(chunks)
+        self._reporter.set_size(chunks)
 
     def _update_chunk(self, _monitor, first, last, state):
-        # We may be notified of a chunk beyond the current EOF before we
-        # are notified that the image has been resized.
-        self._ensure_size(last + 1)
-        def emit(first, last):
-            self.emit('chunk-state-changed', first, last)
-        with RangeConsolidator(emit) as c:
-            for chunk in xrange(first, last + 1):
-                cur_state = self.chunks[chunk]
-                if ((cur_state == self.ACCESSED and
-                        state == self.MODIFIED) or
-                        (cur_state == self.MODIFIED and
-                        state == self.ACCESSED)):
-                    state = self.ACCESSED_MODIFIED
-                if cur_state < state:
-                    self.chunks[chunk] = state
-                    c.emit(chunk)
+        self._reporter.update_chunks(state, first, last)
 
     def close(self):
         for m in self._monitors:
@@ -241,20 +183,6 @@ class _ImageMonitorBase(_Monitor):
     def close(self):
         raise NotImplementedError()
 gobject.type_register(_ImageMonitorBase)
-
-
-class ImageMonitor(_ImageMonitorBase):
-    def __init__(self, image_path):
-        _ImageMonitorBase.__init__(self, image_path)
-        self.chunk_map = ChunkMapMonitor(image_path)
-        self.stats = _StatMonitor.open_all(image_path)
-
-    def close(self):
-        self.chunk_map.close()
-        for s in self.stats.values():
-            s.close()
-        self.stats = {}
-gobject.type_register(ImageMonitor)
 
 
 class LoadProgressMonitor(_ImageMonitorBase):

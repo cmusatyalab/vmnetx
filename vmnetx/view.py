@@ -321,8 +321,8 @@ class VMWindow(gtk.Window):
         'user-quit': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
-    def __init__(self, name, disk_monitor, use_spice=True,
-            max_mouse_rate=None):
+    def __init__(self, name, disk_stats, disk_chunks, disk_chunk_size,
+            use_spice=True, max_mouse_rate=None):
         gtk.Window.__init__(self)
         self._agrp = VMActionGroup(self)
         for sig in 'user-restart', 'user-quit':
@@ -336,8 +336,8 @@ class VMWindow(gtk.Window):
         self.connect('destroy', self._destroy)
 
         self._log = LogWindow(name, self._agrp.get_action('show-log'))
-        self._activity = ActivityWindow(name, disk_monitor,
-                self._agrp.get_action('show-activity'))
+        self._activity = ActivityWindow(name, disk_stats, disk_chunks,
+                disk_chunk_size, self._agrp.get_action('show-activity'))
 
         box = gtk.VBox()
         self.add(box)
@@ -539,14 +539,14 @@ class LogWindow(gtk.Window):
 
 
 class ActivityWindow(gtk.Window):
-    def __init__(self, name, monitor, hide_action):
+    def __init__(self, name, stats, chunk_map, chunk_size, hide_action):
         gtk.Window.__init__(self)
         self.set_title('Activity: %s' % name)
         self.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_UTILITY)
         self.connect('delete-event',
                 lambda _wid, _ev: hide_action.activate() or True)
 
-        status = ImageStatusWidget(monitor)
+        status = ImageStatusWidget(stats, chunk_map, chunk_size)
         self.add(status)
         status.show_all()
 

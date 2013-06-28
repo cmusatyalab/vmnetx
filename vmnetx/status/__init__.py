@@ -21,19 +21,19 @@ import glib
 import gtk
 import os
 
-from .monitor import ImageMonitor, ChunkMapMonitor
+from ..controller import ChunkStateArray
 
 # pylint chokes on Gtk widgets, #112550
 # pylint: disable=R0924
 
 class ImageChunkWidget(gtk.DrawingArea):
     PATTERNS = {
-        ChunkMapMonitor.INVALID: cairo.SolidPattern(0, 0, 0),
-        ChunkMapMonitor.MISSING: cairo.SolidPattern(.35, .35, .35),
-        ChunkMapMonitor.CACHED: cairo.SolidPattern(.63, .63, .63),
-        ChunkMapMonitor.ACCESSED: cairo.SolidPattern(1, 1, 1),
-        ChunkMapMonitor.MODIFIED: cairo.SolidPattern(.45, 0, 0),
-        ChunkMapMonitor.ACCESSED_MODIFIED: cairo.SolidPattern(1, 0, 0),
+        ChunkStateArray.INVALID: cairo.SolidPattern(0, 0, 0),
+        ChunkStateArray.MISSING: cairo.SolidPattern(.35, .35, .35),
+        ChunkStateArray.CACHED: cairo.SolidPattern(.63, .63, .63),
+        ChunkStateArray.ACCESSED: cairo.SolidPattern(1, 1, 1),
+        ChunkStateArray.MODIFIED: cairo.SolidPattern(.45, 0, 0),
+        ChunkStateArray.ACCESSED_MODIFIED: cairo.SolidPattern(1, 0, 0),
     }
 
     TIP = """Red: Accessed and modified this session
@@ -42,9 +42,9 @@ Dark red: Modified this session
 Light gray: Fetched in previous session
 Dark gray: Not present"""
 
-    def __init__(self, image):
+    def __init__(self, chunk_map):
         gtk.DrawingArea.__init__(self)
-        self._map = image.chunk_map
+        self._map = chunk_map
         self._map_chunk_handler = None
         self._map_resize_handler = None
         self._width_history = [0, 0]
@@ -61,7 +61,7 @@ Dark gray: Not present"""
         """Return the number of rows where at least one pixel corresponds
         to a chunk."""
         row_width = self.allocation.width
-        return (len(self._map.chunks) + row_width - 1) // row_width
+        return (len(self._map) + row_width - 1) // row_width
     # pylint: enable=E1101
 
     def _realize(self, _widget):
@@ -95,14 +95,14 @@ Dark gray: Not present"""
         # This function is optimized; be careful when changing it.
         # Localize variables for performance (!!)
         patterns = self.PATTERNS
-        chunk_states = self._map.chunks
+        chunk_states = self._map
         chunks = len(chunk_states)
         area_x, area_y, area_height, area_width = (event.area.x,
                 event.area.y, event.area.height, event.area.width)
         row_width = self.allocation.width
         valid_rows = self.valid_rows
-        default_state = ChunkMapMonitor.MISSING
-        invalid_state = ChunkMapMonitor.INVALID
+        default_state = ChunkStateArray.MISSING
+        invalid_state = ChunkStateArray.INVALID
 
         cr = self.window.cairo_create()
         set_source = cr.set_source
@@ -162,11 +162,11 @@ Dark gray: Not present"""
 
 
 class ScrollingImageChunkWidget(gtk.ScrolledWindow):
-    def __init__(self, image):
+    def __init__(self, chunk_map):
         gtk.ScrolledWindow.__init__(self)
         self.set_border_width(2)
         self.set_policy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
-        self.add_with_viewport(ImageChunkWidget(image))
+        self.add_with_viewport(ImageChunkWidget(chunk_map))
         viewport = self.get_child()
         viewport.set_shadow_type(gtk.SHADOW_NONE)
 
@@ -174,10 +174,10 @@ class ScrollingImageChunkWidget(gtk.ScrolledWindow):
 class StatWidget(gtk.EventBox):
     ACTIVITY_FLAG = gtk.gdk.Color('#ff4040')
 
-    def __init__(self, image, stat_name, tooltip=None):
+    def __init__(self, stat, chunk_size=None, tooltip=None):
         gtk.EventBox.__init__(self)
-        self._image = image
-        self._stat = image.stats[stat_name]
+        self._chunk_size = chunk_size
+        self._stat = stat
         self._stat_handler = None
         self._label = gtk.Label('--')
         self._label.set_width_chars(7)
@@ -227,7 +227,7 @@ class MBStatWidget(StatWidget):
 
 class ChunkMBStatWidget(StatWidget):
     def _format(self, value):
-        return '%.1f' % (value * self._image.chunk_size / (1 << 20))
+        return '%.1f' % (value * self._chunk_size / (1 << 20))
 
 
 class ImageStatTableWidget(gtk.Table):
@@ -246,7 +246,7 @@ class ImageStatTableWidget(gtk.Table):
         )),
     )
 
-    def __init__(self, image):
+    def __init__(self, stats, chunk_size):
         gtk.Table.__init__(self, len(self.FIELDS), 3, True)
         self.set_border_width(2)
         for row, info in enumerate(self.FIELDS):
@@ -256,18 +256,18 @@ class ImageStatTableWidget(gtk.Table):
             self.attach(label, 0, 1, row, row + 1, xoptions=gtk.FILL)
             for col, info in enumerate(fields, 1):
                 name, cls, tooltip = info
-                field = cls(image, name, tooltip)
+                field = cls(stats[name], chunk_size, tooltip)
                 self.attach(field, col, col + 1, row, row + 1,
                         xoptions=gtk.FILL, xpadding=3, ypadding=2)
 
 
 class ImageStatusWidget(gtk.VBox):
-    def __init__(self, image):
+    def __init__(self, stats, chunk_map, chunk_size):
         gtk.VBox.__init__(self, spacing=5)
 
         # Stats table
         frame = gtk.Frame('Statistics')
-        frame.add(ImageStatTableWidget(image))
+        frame.add(ImageStatTableWidget(stats, chunk_size))
         self.pack_start(frame, expand=False)
 
         # Chunk bitmap
@@ -275,11 +275,11 @@ class ImageStatusWidget(gtk.VBox):
         vbox = gtk.VBox()
         label = gtk.Label()
         label.set_markup('<span size="small">Chunk size: %d KB</span>' %
-                (image.chunk_size / 1024))
+                (chunk_size / 1024))
         label.set_alignment(0, 0.5)
         label.set_padding(2, 2)
         vbox.pack_start(label, expand=False)
-        vbox.pack_start(ScrollingImageChunkWidget(image))
+        vbox.pack_start(ScrollingImageChunkWidget(chunk_map))
         frame.add(vbox)
         self.pack_start(frame)
 

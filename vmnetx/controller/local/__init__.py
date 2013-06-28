@@ -9,9 +9,10 @@ import sys
 import threading
 
 from ...execute import Machine, MachineMetadata
-from ...status.monitor import LineStreamMonitor, LoadProgressMonitor
+from ...status.monitor import (ChunkMapMonitor, LineStreamMonitor,
+        LoadProgressMonitor, StatMonitor)
 from ...util import ErrorBuffer
-from .. import AbstractController
+from .. import AbstractController, Statistic
 
 _log = logging.getLogger(__name__)
 
@@ -19,6 +20,8 @@ class LocalController(AbstractController):
     AUTHORIZER_NAME = 'org.olivearchive.VMNetX.Authorizer'
     AUTHORIZER_PATH = '/org/olivearchive/VMNetX/Authorizer'
     AUTHORIZER_IFACE = 'org.olivearchive.VMNetX.Authorizer'
+    STATS = ('bytes_read', 'bytes_written', 'chunk_dirties', 'chunk_fetches',
+            'io_errors')
 
     def __init__(self, package_ref, use_spice):
         AbstractController.__init__(self)
@@ -27,7 +30,7 @@ class LocalController(AbstractController):
         self.metadata = None
         self.machine = None
         self._startup_cancelled = False
-        self._log_monitor = None
+        self._monitors = []
         self._load_monitor = None
 
     # Should be called before we open any windows, since we may re-exec
@@ -44,9 +47,22 @@ class LocalController(AbstractController):
         self.machine = Machine(self.metadata, use_spice=self._use_spice)
         self.have_memory = self.machine.memory_path is not None
 
+        # Set chunk size
+        path = os.path.join(self.machine.disk_path, 'stats', 'chunk_size')
+        with open(path) as fh:
+            self.disk_chunk_size = int(fh.readline().strip())
+
         # Create monitors
-        self._log_monitor = LineStreamMonitor(self.machine.log_path)
-        self._log_monitor.connect('line-emitted', self._vmnetfs_log)
+        for name in self.STATS:
+            stat = Statistic(name)
+            self.disk_stats[name] = stat
+            self._monitors.append(StatMonitor(stat, self.machine.disk_path,
+                    name))
+        self._monitors.append(ChunkMapMonitor(self.disk_chunks,
+                self.machine.disk_path))
+        log_monitor = LineStreamMonitor(self.machine.log_path)
+        log_monitor.connect('line-emitted', self._vmnetfs_log)
+        self._monitors.append(log_monitor)
         if self.have_memory:
             self._load_monitor = LoadProgressMonitor(self.machine.memory_path)
             self._load_monitor.connect('progress', self._load_progress)
@@ -138,8 +154,8 @@ class LocalController(AbstractController):
         self.have_memory = False
 
     def shutdown(self):
-        if self._log_monitor is not None:
-            self._log_monitor.close()
+        for monitor in self._monitors:
+            monitor.close()
         self.stop_vm()
         if self.machine is not None:
             self.machine.close()
