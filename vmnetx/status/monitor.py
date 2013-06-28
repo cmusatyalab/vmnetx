@@ -21,6 +21,8 @@ import gobject
 import io
 import os
 
+from ..util import RangeConsolidator
+
 class _Monitor(gobject.GObject):
     def close(self):
         raise NotImplementedError()
@@ -132,29 +134,6 @@ class LineStreamMonitor(_StreamMonitorBase):
 gobject.type_register(LineStreamMonitor)
 
 
-class _RangeConsolidator(object):
-    def __init__(self, callback):
-        self._callback = callback
-        self._first = None
-        self._last = None
-
-    def __enter__(self):
-        return self
-
-    def emit(self, value):
-        if self._last == value - 1:
-            self._last = value
-        else:
-            if self._first is not None:
-                self._callback(self._first, self._last)
-            self._first = self._last = value
-
-    def __exit__(self, _exc_type, _exc_val, _exc_tb):
-        if self._first is not None:
-            self._callback(self._first, self._last)
-        return False
-
-
 class _ChunkStreamMonitor(_StreamMonitorBase):
     __gsignals__ = {
         'chunk-emitted': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
@@ -164,7 +143,7 @@ class _ChunkStreamMonitor(_StreamMonitorBase):
     def _handle_lines(self, lines):
         def emit_range(first, last):
             self.emit('chunk-emitted', first, last)
-        with _RangeConsolidator(emit_range) as c:
+        with RangeConsolidator(emit_range) as c:
             for line in lines:
                 c.emit(int(line))
 gobject.type_register(_ChunkStreamMonitor)
@@ -230,7 +209,7 @@ class ChunkMapMonitor(_Monitor):
         self._ensure_size(last + 1)
         def emit(first, last):
             self.emit('chunk-state-changed', first, last)
-        with _RangeConsolidator(emit) as c:
+        with RangeConsolidator(emit) as c:
             for chunk in xrange(first, last + 1):
                 cur_state = self.chunks[chunk]
                 if ((cur_state == self.ACCESSED and

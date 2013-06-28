@@ -42,6 +42,29 @@ class ErrorBuffer(gobject.GObject):
 gobject.type_register(ErrorBuffer)
 
 
+class RangeConsolidator(object):
+    def __init__(self, callback):
+        self._callback = callback
+        self._first = None
+        self._last = None
+
+    def __enter__(self):
+        return self
+
+    def emit(self, value):
+        if self._last == value - 1:
+            self._last = value
+        else:
+            if self._first is not None:
+                self._callback(self._first, self._last)
+            self._first = self._last = value
+
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
+        if self._first is not None:
+            self._callback(self._first, self._last)
+        return False
+
+
 def get_cache_dir():
     base = os.environ.get('XDG_CACHE_HOME')
     if not base:
