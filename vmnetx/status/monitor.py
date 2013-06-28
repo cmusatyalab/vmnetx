@@ -170,42 +170,33 @@ class ChunkMapMonitor(_Monitor):
 gobject.type_register(ChunkMapMonitor)
 
 
-class _ImageMonitorBase(_Monitor):
-    def __init__(self, image_path):
-        _Monitor.__init__(self)
-        self.chunk_size = self._read_stat(image_path, 'chunk_size')
-
-    def _read_stat(self, image_path, name):
-        path = os.path.join(image_path, 'stats', name)
-        with io.open(path) as fh:
-            return int(fh.readline().strip())
-
-    def close(self):
-        raise NotImplementedError()
-gobject.type_register(_ImageMonitorBase)
-
-
-class LoadProgressMonitor(_ImageMonitorBase):
+class LoadProgressMonitor(_Monitor):
     __gsignals__ = {
         'progress': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (gobject.TYPE_UINT64, gobject.TYPE_UINT64)),
     }
 
     def __init__(self, image_path):
-        _ImageMonitorBase.__init__(self, image_path)
+        _Monitor.__init__(self)
         self.chunks = self._read_stat(image_path, 'chunks')
+        self._chunk_size = self._read_stat(image_path, 'chunk_size')
         self._seen = 0
         self._stream = _ChunkStreamMonitor(os.path.join(image_path,
                 'streams', 'chunks_accessed'))
         self._stream.connect('chunk-emitted', self._progress)
+
+    def _read_stat(self, image_path, name):
+        path = os.path.join(image_path, 'stats', name)
+        with io.open(path) as fh:
+            return int(fh.readline().strip())
 
     def _progress(self, _monitor, first, last):
         # We don't keep a bitmap of previously-seen chunks, because we
         # assume that vmnetfs will never emit a chunk twice.  This is true
         # so long as the image is not resized.
         self._seen += last - first + 1
-        self.emit('progress', self._seen * self.chunk_size,
-                self.chunks * self.chunk_size)
+        self.emit('progress', self._seen * self._chunk_size,
+                self.chunks * self._chunk_size)
 
     def close(self):
         self._stream.close()
