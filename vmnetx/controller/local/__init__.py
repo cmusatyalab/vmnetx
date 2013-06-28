@@ -12,7 +12,7 @@ class LocalController(AbstractController):
         self._use_spice = use_spice
         self.metadata = None
         self.machine = None
-        self.startup_cancelled = False
+        self._startup_cancelled = False
 
     def initialize(self):
         # Authenticate and fetch metadata
@@ -35,14 +35,17 @@ class LocalController(AbstractController):
         try:
             self.machine.start_vm(not self.have_memory)
         except:
-            gobject.idle_add(self.emit, 'startup-failed', ErrorBuffer())
+            if self._startup_cancelled:
+                gobject.idle_add(self.emit, 'startup-cancelled')
+            else:
+                gobject.idle_add(self.emit, 'startup-failed', ErrorBuffer())
         else:
             gobject.idle_add(self.emit, 'startup-complete')
     # pylint: enable=W0702
 
     def startup_cancel(self):
-        if not self.startup_cancelled:
-            self.startup_cancelled = True
+        if not self._startup_cancelled:
+            self._startup_cancelled = True
             threading.Thread(name='vmnetx-startup-cancel',
                     target=self.machine.stop_vm).start()
 
