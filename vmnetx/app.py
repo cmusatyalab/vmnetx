@@ -16,18 +16,13 @@
 #
 
 from datetime import datetime
-import dbus
 import glib
 import gobject
-import grp
 import gtk
 import json
 import logging
 import os
-import pipes
-import pwd
 import signal
-import sys
 from tempfile import NamedTemporaryFile
 
 from vmnetx.controller.local import LocalController
@@ -69,9 +64,6 @@ class _UsernameCache(object):
 
 
 class VMNetXApp(object):
-    AUTHORIZER_NAME = 'org.olivearchive.VMNetX.Authorizer'
-    AUTHORIZER_PATH = '/org/olivearchive/VMNetX/Authorizer'
-    AUTHORIZER_IFACE = 'org.olivearchive.VMNetX.Authorizer'
     RESUME_CHECK_DELAY = 1000  # ms
 
     def __init__(self, package_ref):
@@ -99,9 +91,6 @@ class VMNetXApp(object):
             # Attempt to catch SIGTERM.  This is dubious, but not more so
             # than the default handling of SIGINT.
             signal.signal(signal.SIGTERM, self._signal)
-
-            # Verify authorization to mount a FUSE filesystem
-            self._ensure_permissions()
 
             # Fetch and parse metadata
             pw_wind = None
@@ -179,44 +168,6 @@ class VMNetXApp(object):
 
     def _signal(self, _signum, _frame):
         raise KeyboardInterrupt
-
-    def _ensure_permissions(self):
-        try:
-            obj = dbus.SystemBus().get_object(self.AUTHORIZER_NAME,
-                    self.AUTHORIZER_PATH)
-            # We would like an infinite timeout, but dbus-python won't allow
-            # it.  Pass the longest timeout dbus-python will accept.
-            groups = obj.EnableFUSEAccess(dbus_interface=self.AUTHORIZER_IFACE,
-                    timeout=2147483)
-        except dbus.exceptions.DBusException, e:
-            # dbus-python exception handling is problematic.
-            if 'Authorization failed' in str(e):
-                # The user knows this already; don't show a FatalErrorWindow.
-                sys.exit(1)
-            else:
-                # If we can't contact the authorizer (perhaps because D-Bus
-                # wasn't configured correctly), proceed as though we have
-                # sufficient permission, and possibly fail later.  This
-                # avoids unnecessary failures in the common case.
-                return
-
-        if groups:
-            # Make sure all of the named groups are in our supplementary
-            # group list, which will not be true if EnableFUSEAccess() just
-            # added us to those groups (or if it did so earlier in this
-            # login session).  We have to do this one group at a time, and
-            # then restore our primary group afterward.
-            def switch_group(group):
-                cmd = ' '.join(pipes.quote(a) for a in
-                        [sys.executable] + sys.argv)
-                os.execlp('sg', 'sg', group, '-c', cmd)
-            cur_gids = os.getgroups()
-            for group in groups:
-                if grp.getgrnam(group).gr_gid not in cur_gids:
-                    switch_group(group)
-            primary_gid = pwd.getpwuid(os.getuid()).pw_gid
-            if os.getgid() != primary_gid:
-                switch_group(grp.getgrgid(primary_gid).gr_name)
 
     def _startup_progress(self, _obj, count, total):
         if self._load_window is None:
