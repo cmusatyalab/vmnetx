@@ -1,5 +1,5 @@
 #
-# vmnetx.execute - Execution of a virtual machine
+# vmnetx.controller.local.execute - Execution of a VM with libvirt
 #
 # Copyright (C) 2011-2013 Carnegie Mellon University
 #
@@ -30,11 +30,11 @@ from urlparse import urlsplit, urlunsplit
 import uuid
 from wsgiref.handlers import format_date_time as format_rfc1123_date
 
-from vmnetx.domain import DomainXML
-from vmnetx.package import Package
-from vmnetx.reference import PackageReference, BadReferenceError
-from vmnetx.util import ensure_dir, get_cache_dir
-from vmnetx.vmnetfs import VMNetFS, NS as VMNETFS_NS
+from ...domain import DomainXML
+from ...package import Package
+from ...reference import PackageReference, BadReferenceError
+from ...util import ensure_dir, get_cache_dir
+from .vmnetfs import VMNetFS, NS as VMNETFS_NS
 
 class MachineExecutionError(Exception):
     pass

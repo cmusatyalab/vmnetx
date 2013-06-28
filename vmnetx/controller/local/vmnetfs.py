@@ -1,5 +1,5 @@
 #
-# vmnetx.vmnetfs - Wrapper for vmnetfs FUSE driver
+# vmnetx.controller.local.vmnetfs - Wrapper for vmnetfs FUSE driver
 #
 # Copyright (C) 2011-2012 Carnegie Mellon University
 #
@@ -19,18 +19,19 @@ from lxml import etree
 import os
 import subprocess
 
-from vmnetx.util import DetailException
+from ...util import DetailException
 
 # system.py is built at install time, so pylint may fail to import it.
 # Also avoid warning on variable name.
 # pylint: disable=F0401,C0103
 vmnetfs_path = ''
-from .system import vmnetfs_path
+from ...system import vmnetfs_path, __file__ as system_module_path
 # pylint: enable=F0401,C0103
 
 NS = 'http://olivearchive.org/xmlns/vmnetx/vmnetfs'
 NSP = '{' + NS + '}'
-SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'schema', 'vmnetfs.xsd')
+SCHEMA_PATH = os.path.join(os.path.dirname(system_module_path), 'schema',
+        'vmnetfs.xsd')
 
 # We want this to be a public attribute
 # pylint: disable=C0103

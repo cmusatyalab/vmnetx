@@ -8,9 +8,9 @@ import pwd
 import sys
 import threading
 
-from ...execute import Machine, MachineMetadata
 from ...util import ErrorBuffer
 from .. import AbstractController, Statistic
+from .execute import Machine, MachineMetadata
 from .monitor import (ChunkMapMonitor, LineStreamMonitor,
         LoadProgressMonitor, StatMonitor)
 

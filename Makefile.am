@@ -34,16 +34,16 @@ nobase_python_PYTHON = vmnetx/__init__.py \
 	vmnetx/app.py \
 	vmnetx/define.py \
 	vmnetx/domain.py \
-	vmnetx/execute.py \
 	vmnetx/generate.py \
 	vmnetx/package.py \
 	vmnetx/reference.py \
 	vmnetx/util.py \
 	vmnetx/view.py \
-	vmnetx/vmnetfs.py \
 	vmnetx/controller/__init__.py \
 	vmnetx/controller/local/__init__.py \
-	vmnetx/controller/local/monitor.py
+	vmnetx/controller/local/execute.py \
+	vmnetx/controller/local/monitor.py \
+	vmnetx/controller/local/vmnetfs.py
 nobase_nodist_python_PYTHON = vmnetx/system.py
 CLEANFILES = vmnetx/system.py
 EXTRA_DIST = vmnetx/system.py.in pylintrc vmnetx.te README.rst
