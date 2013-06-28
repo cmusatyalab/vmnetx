@@ -220,7 +220,7 @@ class VMNetXApp(object):
             _log.warning('Detected black screen; assuming bad memory image')
             self._warn_bad_memory()
             # Terminate the VM; the viewer-disconnect handler will restart it
-            self._controller.machine.stop_vm()
+            self._controller.stop_vm()
     # pylint: enable=W1401
 
     def _io_error(self, _monitor, _name, _value):
