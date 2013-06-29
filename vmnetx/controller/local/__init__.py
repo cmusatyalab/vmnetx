@@ -18,6 +18,7 @@
 import dbus
 import gobject
 import grp
+import libvirt
 import logging
 import os
 import pipes
@@ -32,6 +33,15 @@ from .monitor import (ChunkMapMonitor, LineStreamMonitor,
         LoadProgressMonitor, StatMonitor)
 
 _log = logging.getLogger(__name__)
+
+# Check libvirt version
+assert(libvirt.getVersion() >= 9008) # 0.9.8
+
+# Squash redundant reporting of libvirt errors to stderr.  This modifies
+# global state, since the Python bindings don't provide a way to do this
+# per-connection.
+libvirt.registerErrorHandler(lambda _ctx, _error: None, None)
+
 
 class LocalController(AbstractController):
     AUTHORIZER_NAME = 'org.olivearchive.VMNetX.Authorizer'
