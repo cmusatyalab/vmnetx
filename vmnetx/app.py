@@ -25,7 +25,7 @@ import os
 import signal
 from tempfile import NamedTemporaryFile
 
-from vmnetx.controller.local import LocalController
+from vmnetx.controller import Controller
 from vmnetx.package import NeedAuthentication
 from vmnetx.system import __version__
 from vmnetx.util import get_cache_dir
@@ -68,7 +68,8 @@ class VMNetXApp(object):
     def __init__(self, package_ref):
         gobject.threads_init()
         self._username_cache = _UsernameCache()
-        self._controller = LocalController(package_ref, have_spice_viewer)
+        self._controller = Controller.get_for_ref(package_ref,
+                have_spice_viewer)
         self._wind = None
         self._load_window = None
         self._io_failed = False

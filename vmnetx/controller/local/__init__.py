@@ -39,7 +39,6 @@ from wsgiref.handlers import format_date_time as format_rfc1123_date
 
 from ...domain import DomainXML
 from ...package import Package
-from ...reference import PackageReference, BadReferenceError
 from ...util import ErrorBuffer, ensure_dir, get_cache_dir
 from .. import Controller, MachineExecutionError, Statistic
 from .monitor import (ChunkMapMonitor, LineStreamMonitor,
@@ -153,9 +152,9 @@ class LocalController(Controller):
     STATS = ('bytes_read', 'bytes_written', 'chunk_dirties', 'chunk_fetches',
             'io_errors')
 
-    def __init__(self, package_ref, use_spice):
+    def __init__(self, url, use_spice):
         Controller.__init__(self)
-        self._package_ref = package_ref
+        self._url = url
         self._want_spice = use_spice
         self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
         self._package = None
@@ -169,27 +168,13 @@ class LocalController(Controller):
 
     # Should be called before we open any windows, since we may re-exec
     # the whole program if we need to update the group list.
-    # pylint doesn't understand named tuples
-    # pylint: disable=E1103
     def initialize(self):
         # Verify authorization to mount a FUSE filesystem
         self._ensure_permissions()
 
-        # Convert package_ref to package URL
-        url = self._package_ref
-        parsed = urlsplit(url)
-        if parsed.scheme == '':
-            # Local file path.  Try to parse the file as a package reference.
-            try:
-                url = PackageReference.parse(parsed.path).url
-            except BadReferenceError:
-                # Failed.  Assume it's a package.
-                url = urlunsplit(('file', '', os.path.abspath(parsed.path),
-                        '', ''))
-
         # Load package
-        package = Package(url, scheme=self.scheme, username=self.username,
-                password=self.password)
+        package = Package(self._url, scheme=self.scheme,
+                username=self.username, password=self.password)
 
         # Validate domain XML
         domain_xml = DomainXML(package.domain.data)
@@ -252,7 +237,6 @@ class LocalController(Controller):
         if self.have_memory:
             self._load_monitor = LoadProgressMonitor(memory_path)
             self._load_monitor.connect('progress', self._load_progress)
-    # pylint: enable=E1103
 
     def _ensure_permissions(self):
         try:

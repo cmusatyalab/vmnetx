@@ -18,7 +18,9 @@
 import base64
 import gobject
 import os
+from urlparse import urlsplit, urlunsplit
 
+from ..reference import PackageReference, BadReferenceError
 from ..util import ErrorBuffer, RangeConsolidator
 
 class MachineExecutionError(Exception):
@@ -55,6 +57,26 @@ class Controller(gobject.GObject):
         self.scheme = None
         self.username = None
         self.password = None
+
+    # pylint doesn't understand named tuples
+    # pylint: disable=E1103
+    @classmethod
+    def get_for_ref(cls, package_ref, use_spice):
+        # Convert package_ref to package URL
+        url = package_ref
+        parsed = urlsplit(url)
+        if parsed.scheme == '':
+            # Local file path.  Try to parse the file as a package reference.
+            try:
+                url = PackageReference.parse(parsed.path).url
+            except BadReferenceError:
+                # Failed.  Assume it's a package.
+                url = urlunsplit(('file', '', os.path.abspath(parsed.path),
+                        '', ''))
+
+        from .local import LocalController
+        return LocalController(url, use_spice)
+    # pylint: enable=E1103
 
     def initialize(self):
         raise NotImplementedError
