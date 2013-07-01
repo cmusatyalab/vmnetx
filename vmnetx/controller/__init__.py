@@ -25,7 +25,7 @@ class MachineExecutionError(Exception):
     pass
 
 
-class AbstractController(gobject.GObject):
+class Controller(gobject.GObject):
     __gsignals__ = {
         'startup-progress': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (gobject.TYPE_UINT64, gobject.TYPE_UINT64)),
@@ -67,7 +67,7 @@ class AbstractController(gobject.GObject):
 
     def shutdown(self):
         raise NotImplementedError
-gobject.type_register(AbstractController)
+gobject.type_register(Controller)
 
 
 class Statistic(gobject.GObject):

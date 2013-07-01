@@ -41,7 +41,7 @@ from ...domain import DomainXML
 from ...package import Package
 from ...reference import PackageReference, BadReferenceError
 from ...util import ErrorBuffer, ensure_dir, get_cache_dir
-from .. import AbstractController, MachineExecutionError, Statistic
+from .. import Controller, MachineExecutionError, Statistic
 from .monitor import (ChunkMapMonitor, LineStreamMonitor,
         LoadProgressMonitor, StatMonitor)
 from .vmnetfs import VMNetFS, NS as VMNETFS_NS
@@ -146,7 +146,7 @@ class _ReferencedObject(object):
     # pylint: enable=W0212
 
 
-class LocalController(AbstractController):
+class LocalController(Controller):
     AUTHORIZER_NAME = 'org.olivearchive.VMNetX.Authorizer'
     AUTHORIZER_PATH = '/org/olivearchive/VMNetX/Authorizer'
     AUTHORIZER_IFACE = 'org.olivearchive.VMNetX.Authorizer'
@@ -154,7 +154,7 @@ class LocalController(AbstractController):
             'io_errors')
 
     def __init__(self, package_ref, use_spice):
-        AbstractController.__init__(self)
+        Controller.__init__(self)
         self._package_ref = package_ref
         self._want_spice = use_spice
         self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
