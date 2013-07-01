@@ -15,26 +15,36 @@
 # for more details.
 #
 
+from calendar import timegm
 import dbus
 import gobject
 import grp
+# pylint doesn't understand hashlib.sha256
+# pylint: disable=E0611
+from hashlib import sha256
+# pylint: enable=E0611
+import json
 import libvirt
 import logging
+from lxml.builder import ElementMaker
 import os
 import pipes
 import pwd
 import subprocess
 import sys
 import threading
+from urlparse import urlsplit, urlunsplit
 import uuid
+from wsgiref.handlers import format_date_time as format_rfc1123_date
 
 from ...domain import DomainXML
-from ...util import ErrorBuffer
+from ...package import Package
+from ...reference import PackageReference, BadReferenceError
+from ...util import ErrorBuffer, ensure_dir, get_cache_dir
 from .. import AbstractController, MachineExecutionError, Statistic
-from .execute import MachineMetadata
 from .monitor import (ChunkMapMonitor, LineStreamMonitor,
         LoadProgressMonitor, StatMonitor)
-from .vmnetfs import VMNetFS
+from .vmnetfs import VMNetFS, NS as VMNETFS_NS
 
 _log = logging.getLogger(__name__)
 
@@ -45,6 +55,95 @@ assert(libvirt.getVersion() >= 9008) # 0.9.8
 # global state, since the Python bindings don't provide a way to do this
 # per-connection.
 libvirt.registerErrorHandler(lambda _ctx, _error: None, None)
+
+
+class _ReferencedObject(object):
+    # pylint doesn't understand named tuples
+    # pylint: disable=E1103
+    def __init__(self, label, info, username=None, password=None,
+            chunk_size=131072):
+        self.label = label
+        self.username = username
+        self.password = password
+        self.cookies = info.cookies
+        self.url = info.url
+        self.offset = info.offset
+        self.size = info.size
+        self.chunk_size = chunk_size
+        self.etag = info.etag
+        self.last_modified = info.last_modified
+
+        parsed_url = urlsplit(self.url)
+        self._cache_info = json.dumps({
+            # Exclude query string from cache path
+            'url': urlunsplit((parsed_url.scheme, parsed_url.netloc,
+                    parsed_url.path, '', '')),
+            'etag': self.etag,
+            'last-modified': self.last_modified.isoformat()
+                    if self.last_modified else None,
+        }, indent=2, sort_keys=True)
+        self._urlpath = os.path.join(get_cache_dir(), 'chunks',
+                sha256(self._cache_info).hexdigest())
+        # Hash collisions will allow cache poisoning!
+        self.cache = os.path.join(self._urlpath, label, str(chunk_size))
+    # pylint: enable=E1103
+
+    # We must access Cookie._rest to perform case-insensitive lookup of
+    # the HttpOnly attribute
+    # pylint: disable=W0212
+    @property
+    def vmnetfs_config(self):
+        # Write URL and validators into file for ease of debugging.
+        # Defer creation of cache directory until needed.
+        ensure_dir(self._urlpath)
+        info_file = os.path.join(self._urlpath, 'info')
+        if not os.path.exists(info_file):
+            with open(info_file, 'w') as fh:
+                fh.write(self._cache_info)
+
+        # Return XML image element
+        e = ElementMaker(namespace=VMNETFS_NS, nsmap={None: VMNETFS_NS})
+        origin = e.origin(
+            e.url(self.url),
+            e.offset(str(self.offset)),
+        )
+        if self.last_modified or self.etag:
+            validators = e.validators()
+            if self.last_modified:
+                validators.append(e('last-modified',
+                        str(timegm(self.last_modified.utctimetuple()))))
+            if self.etag:
+                validators.append(e.etag(self.etag))
+            origin.append(validators)
+        if self.username and self.password:
+            credentials = e.credentials(
+                e.username(self.username),
+                e.password(self.password),
+            )
+            origin.append(credentials)
+        if self.cookies:
+            cookies = e.cookies()
+            for cookie in self.cookies:
+                c = '%s=%s; Domain=%s; Path=%s' % (cookie.name, cookie.value,
+                        cookie.domain, cookie.path)
+                if cookie.expires:
+                    c += '; Expires=%s' % format_rfc1123_date(cookie.expires)
+                if cookie.secure:
+                    c += '; Secure'
+                if 'httponly' in [k.lower() for k in cookie._rest]:
+                    c += '; HttpOnly'
+                cookies.append(e.cookie(c))
+            origin.append(cookies)
+        return e.image(
+            e.name(self.label),
+            e.size(str(self.size)),
+            origin,
+            e.cache(
+                e.path(self.cache),
+                e('chunk-size', str(self.chunk_size)),
+            ),
+        )
+    # pylint: enable=W0212
 
 
 class LocalController(AbstractController):
@@ -58,8 +157,8 @@ class LocalController(AbstractController):
         AbstractController.__init__(self)
         self._package_ref = package_ref
         self._want_spice = use_spice
-        self._metadata = None
         self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
+        self._package = None
         self._memory_image_path = None
         self._fs = None
         self._conn = None
@@ -70,21 +169,48 @@ class LocalController(AbstractController):
 
     # Should be called before we open any windows, since we may re-exec
     # the whole program if we need to update the group list.
+    # pylint doesn't understand named tuples
+    # pylint: disable=E1103
     def initialize(self):
         # Verify authorization to mount a FUSE filesystem
         self._ensure_permissions()
 
-        # Authenticate and fetch metadata
-        self._metadata = MachineMetadata(self._package_ref, self.scheme,
-                self.username, self.password)
+        # Convert package_ref to package URL
+        url = self._package_ref
+        parsed = urlsplit(url)
+        if parsed.scheme == '':
+            # Local file path.  Try to parse the file as a package reference.
+            try:
+                url = PackageReference.parse(parsed.path).url
+            except BadReferenceError:
+                # Failed.  Assume it's a package.
+                url = urlunsplit(('file', '', os.path.abspath(parsed.path),
+                        '', ''))
+
+        # Load package
+        package = Package(url, scheme=self.scheme, username=self.username,
+                password=self.password)
+
+        # Validate domain XML
+        domain_xml = DomainXML(package.domain.data)
+
+        # Create vmnetfs config
+        e = ElementMaker(namespace=VMNETFS_NS, nsmap={None: VMNETFS_NS})
+        vmnetfs_config = e.config()
+        vmnetfs_config.append(_ReferencedObject('disk', package.disk,
+                username=self.username, password=self.password).vmnetfs_config)
+        if package.memory:
+            vmnetfs_config.append(_ReferencedObject('memory', package.memory,
+                    username=self.username,
+                    password=self.password).vmnetfs_config)
 
         # Start vmnetfs
-        self._fs = VMNetFS(self._metadata.vmnetfs_config)
+        self._fs = VMNetFS(vmnetfs_config)
         self._fs.start()
         log_path = os.path.join(self._fs.mountpoint, 'log')
         disk_path = os.path.join(self._fs.mountpoint, 'disk')
         disk_image_path = os.path.join(disk_path, 'image')
-        if self._metadata.package.memory:
+        if package.memory:
             memory_path = os.path.join(self._fs.mountpoint, 'memory')
             self._memory_image_path = os.path.join(memory_path, 'image')
         else:
@@ -94,20 +220,20 @@ class LocalController(AbstractController):
         self._conn = libvirt.open('qemu:///session')
 
         # Get emulator path
-        emulator = self._metadata.domain_xml.detect_emulator(self._conn)
+        emulator = domain_xml.detect_emulator(self._conn)
 
         # Detect SPICE support
         self.use_spice = self._want_spice and self._spice_is_usable(emulator)
 
         # Get execution domain XML
-        self._domain_xml = self._metadata.domain_xml.get_for_execution(
-                self._domain_name, emulator, disk_image_path,
-                self.viewer_password, use_spice=self.use_spice).xml
+        self._domain_xml = domain_xml.get_for_execution(self._domain_name,
+                emulator, disk_image_path, self.viewer_password,
+                use_spice=self.use_spice).xml
 
         # Set configuration
-        self.vm_name = self._metadata.package.name
+        self.vm_name = package.name
         self.have_memory = memory_path is not None
-        self.max_mouse_rate = self._metadata.domain_xml.max_mouse_rate
+        self.max_mouse_rate = domain_xml.max_mouse_rate
 
         # Set chunk size
         path = os.path.join(disk_path, 'stats', 'chunk_size')
@@ -126,6 +252,7 @@ class LocalController(AbstractController):
         if self.have_memory:
             self._load_monitor = LoadProgressMonitor(memory_path)
             self._load_monitor.connect('progress', self._load_progress)
+    # pylint: enable=E1103
 
     def _ensure_permissions(self):
         try:
