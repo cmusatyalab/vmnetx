@@ -23,14 +23,18 @@ import logging
 import os
 import pipes
 import pwd
+import subprocess
 import sys
 import threading
+import uuid
 
+from ...domain import DomainXML
 from ...util import ErrorBuffer
-from .. import AbstractController, Statistic
-from .execute import Machine, MachineMetadata
+from .. import AbstractController, MachineExecutionError, Statistic
+from .execute import MachineMetadata
 from .monitor import (ChunkMapMonitor, LineStreamMonitor,
         LoadProgressMonitor, StatMonitor)
+from .vmnetfs import VMNetFS
 
 _log = logging.getLogger(__name__)
 
@@ -55,7 +59,11 @@ class LocalController(AbstractController):
         self._package_ref = package_ref
         self._want_spice = use_spice
         self._metadata = None
-        self._machine = None
+        self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
+        self._memory_image_path = None
+        self._fs = None
+        self._conn = None
+        self._domain_xml = None
         self._startup_cancelled = False
         self._monitors = []
         self._load_monitor = None
@@ -71,17 +79,38 @@ class LocalController(AbstractController):
                 self.username, self.password)
 
         # Start vmnetfs
-        self._machine = Machine(self._metadata, use_spice=self._want_spice)
+        self._fs = VMNetFS(self._metadata.vmnetfs_config)
+        self._fs.start()
+        log_path = os.path.join(self._fs.mountpoint, 'log')
+        disk_path = os.path.join(self._fs.mountpoint, 'disk')
+        disk_image_path = os.path.join(disk_path, 'image')
+        if self._metadata.package.memory:
+            memory_path = os.path.join(self._fs.mountpoint, 'memory')
+            self._memory_image_path = os.path.join(memory_path, 'image')
+        else:
+            memory_path = self._memory_image_path = None
 
-        # Load configuration
-        self.vm_name = self._machine.name
-        self.have_memory = self._machine.memory_path is not None
-        self.use_spice = self._machine.use_spice
-        self.viewer_password = self._machine.viewer_password
+        # Set up libvirt connection
+        self._conn = libvirt.open('qemu:///session')
+
+        # Get emulator path
+        emulator = self._metadata.domain_xml.detect_emulator(self._conn)
+
+        # Detect SPICE support
+        self.use_spice = self._want_spice and self._spice_is_usable(emulator)
+
+        # Get execution domain XML
+        self._domain_xml = self._metadata.domain_xml.get_for_execution(
+                self._domain_name, emulator, disk_image_path,
+                self.viewer_password, use_spice=self.use_spice).xml
+
+        # Set configuration
+        self.vm_name = self._metadata.package.name
+        self.have_memory = memory_path is not None
         self.max_mouse_rate = self._metadata.domain_xml.max_mouse_rate
 
         # Set chunk size
-        path = os.path.join(self._machine.disk_path, 'stats', 'chunk_size')
+        path = os.path.join(disk_path, 'stats', 'chunk_size')
         with open(path) as fh:
             self.disk_chunk_size = int(fh.readline().strip())
 
@@ -89,15 +118,13 @@ class LocalController(AbstractController):
         for name in self.STATS:
             stat = Statistic(name)
             self.disk_stats[name] = stat
-            self._monitors.append(StatMonitor(stat, self._machine.disk_path,
-                    name))
-        self._monitors.append(ChunkMapMonitor(self.disk_chunks,
-                self._machine.disk_path))
-        log_monitor = LineStreamMonitor(self._machine.log_path)
+            self._monitors.append(StatMonitor(stat, disk_path, name))
+        self._monitors.append(ChunkMapMonitor(self.disk_chunks, disk_path))
+        log_monitor = LineStreamMonitor(log_path)
         log_monitor.connect('line-emitted', self._vmnetfs_log)
         self._monitors.append(log_monitor)
         if self.have_memory:
-            self._load_monitor = LoadProgressMonitor(self._machine.memory_path)
+            self._load_monitor = LoadProgressMonitor(memory_path)
             self._load_monitor.connect('progress', self._load_progress)
 
     def _ensure_permissions(self):
@@ -138,6 +165,18 @@ class LocalController(AbstractController):
             if os.getgid() != primary_gid:
                 switch_group(grp.getgrgid(primary_gid).gr_name)
 
+    def _spice_is_usable(self, emulator):
+        '''Determine whether emulator supports SPICE.'''
+        proc = subprocess.Popen([emulator, '-spice', 'foo'],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                close_fds=True)
+        out, err = proc.communicate()
+        out += err
+        if 'invalid option' in out or 'spice is not supported' in out:
+            # qemu is too old to support SPICE, or SPICE is not compiled in
+            return False
+        return True
+
     def _vmnetfs_log(self, _monitor, line):
         _log.warning('%s', line)
 
@@ -153,7 +192,26 @@ class LocalController(AbstractController):
         try:
             have_memory = self.have_memory
             try:
-                self._machine.start_vm(not have_memory)
+                if have_memory:
+                    # Does not return domain handle
+                    # Does not allow autodestroy
+                    self._conn.restoreFlags(self._memory_image_path,
+                            self._domain_xml,
+                            libvirt.VIR_DOMAIN_SAVE_RUNNING)
+                    domain = self._conn.lookupByName(self._domain_name)
+                else:
+                    domain = self._conn.createXML(self._domain_xml,
+                            libvirt.VIR_DOMAIN_START_AUTODESTROY)
+
+                # Get viewer socket address
+                domain_xml = DomainXML(domain.XMLDesc(0),
+                        validate=DomainXML.VALIDATE_NONE, safe=False)
+                self.viewer_address = (
+                    domain_xml.viewer_host or '127.0.0.1',
+                    domain_xml.viewer_port
+                )
+            except libvirt.libvirtError, e:
+                raise MachineExecutionError(str(e))
             finally:
                 if have_memory:
                     gobject.idle_add(self._load_monitor.close)
@@ -168,7 +226,6 @@ class LocalController(AbstractController):
             else:
                 gobject.idle_add(self.emit, 'startup-failed', ErrorBuffer())
         else:
-            self.viewer_address = self._machine.viewer_listen_address
             gobject.idle_add(self.emit, 'startup-complete')
     # pylint: enable=W0702
 
@@ -183,14 +240,23 @@ class LocalController(AbstractController):
                     target=self._machine.stop_vm).start()
 
     def stop_vm(self):
-        if self._machine is not None:
-            self._machine.stop_vm()
+        if self._conn is not None:
+            try:
+                self._conn.lookupByName(self._domain_name).destroy()
+            except libvirt.libvirtError:
+                # Assume that the VM did not exist or was already dying
+                pass
+            self.viewer_address = None
         self.have_memory = False
 
     def shutdown(self):
         for monitor in self._monitors:
             monitor.close()
         self.stop_vm()
-        if self._machine is not None:
-            self._machine.close()
+        # Close libvirt connection
+        if self._conn is not None:
+            self._conn.close()
+        # Terminate vmnetfs
+        if self._fs is not None:
+            self._fs.terminate()
 gobject.type_register(LocalController)

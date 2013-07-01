@@ -15,30 +15,22 @@
 # for more details.
 #
 
-import base64
 from calendar import timegm
 import json
 # pylint doesn't understand hashlib.sha256
 # pylint: disable=E0611
 from hashlib import sha256
 # pylint: enable=E0611
-import libvirt
 from lxml.builder import ElementMaker
 import os
-import subprocess
 from urlparse import urlsplit, urlunsplit
-import uuid
 from wsgiref.handlers import format_date_time as format_rfc1123_date
 
 from ...domain import DomainXML
 from ...package import Package
 from ...reference import PackageReference, BadReferenceError
 from ...util import ensure_dir, get_cache_dir
-from .vmnetfs import VMNetFS, NS as VMNETFS_NS
-
-class MachineExecutionError(Exception):
-    pass
-
+from .vmnetfs import NS as VMNETFS_NS
 
 class _ReferencedObject(object):
     # pylint doesn't understand named tuples
@@ -163,86 +155,3 @@ class MachineMetadata(object):
                     self.package.memory, username=username,
                     password=password).vmnetfs_config)
     # pylint: enable=E1103
-
-
-class Machine(object):
-    def __init__(self, metadata, use_spice=True):
-        self.name = metadata.package.name
-        self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
-        self.viewer_listen_address = None
-        self.viewer_password = base64.urlsafe_b64encode(os.urandom(6))
-
-        # Start vmnetfs
-        self._fs = VMNetFS(metadata.vmnetfs_config)
-        self._fs.start()
-        self.log_path = os.path.join(self._fs.mountpoint, 'log')
-        self.disk_path = os.path.join(self._fs.mountpoint, 'disk')
-        disk_image_path = os.path.join(self.disk_path, 'image')
-        if metadata.package.memory:
-            self.memory_path = os.path.join(self._fs.mountpoint, 'memory')
-            self._memory_image_path = os.path.join(self.memory_path, 'image')
-        else:
-            self.memory_path = self._memory_image_path = None
-
-        # Set up libvirt connection
-        self._conn = libvirt.open('qemu:///session')
-
-        # Get emulator path
-        emulator = metadata.domain_xml.detect_emulator(self._conn)
-
-        # Detect SPICE support.
-        self.use_spice = use_spice and self._spice_is_usable(emulator)
-
-        # Get execution domain XML
-        self._domain_xml = metadata.domain_xml.get_for_execution(
-                self._domain_name, emulator, disk_image_path,
-                self.viewer_password, use_spice=self.use_spice).xml
-
-    def _spice_is_usable(self, emulator):
-        '''Determine whether emulator supports SPICE.'''
-        proc = subprocess.Popen([emulator, '-spice', 'foo'],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                close_fds=True)
-        out, err = proc.communicate()
-        out += err
-        if 'invalid option' in out or 'spice is not supported' in out:
-            # qemu is too old to support SPICE, or SPICE is not compiled in
-            return False
-        return True
-
-    def start_vm(self, cold=False):
-        try:
-            if not cold and self._memory_image_path is not None:
-                # Does not return domain handle
-                # Does not allow autodestroy
-                self._conn.restoreFlags(self._memory_image_path,
-                        self._domain_xml, libvirt.VIR_DOMAIN_SAVE_RUNNING)
-                domain = self._conn.lookupByName(self._domain_name)
-            else:
-                domain = self._conn.createXML(self._domain_xml,
-                        libvirt.VIR_DOMAIN_START_AUTODESTROY)
-
-            # Get viewer socket address
-            domain_xml = DomainXML(domain.XMLDesc(0),
-                    validate=DomainXML.VALIDATE_NONE, safe=False)
-            self.viewer_listen_address = (
-                domain_xml.viewer_host or '127.0.0.1',
-                domain_xml.viewer_port
-            )
-        except libvirt.libvirtError, e:
-            raise MachineExecutionError(str(e))
-
-    def stop_vm(self):
-        try:
-            self._conn.lookupByName(self._domain_name).destroy()
-        except libvirt.libvirtError:
-            # Assume that the VM did not exist or was already dying
-            pass
-        self.viewer_listen_address = None
-
-    def close(self):
-        # Close libvirt connection
-        self._conn.close()
-
-        # Terminate vmnetfs
-        self._fs.terminate()

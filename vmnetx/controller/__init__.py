@@ -15,9 +15,15 @@
 # for more details.
 #
 
+import base64
 import gobject
+import os
 
 from ..util import ErrorBuffer, RangeConsolidator
+
+class MachineExecutionError(Exception):
+    pass
+
 
 class AbstractController(gobject.GObject):
     __gsignals__ = {
@@ -39,7 +45,7 @@ class AbstractController(gobject.GObject):
         self.have_memory = None
         self.use_spice = True
         self.viewer_address = None
-        self.viewer_password = None
+        self.viewer_password = base64.urlsafe_b64encode(os.urandom(6))
         self.max_mouse_rate = None
         self.disk_chunk_size = None
         self.disk_chunks = ChunkStateArray()
