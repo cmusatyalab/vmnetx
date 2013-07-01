@@ -20,8 +20,8 @@ import libvirt
 import os
 import subprocess
 
-from vmnetx.domain import DomainXML, DomainXMLError
-from vmnetx.util import DetailException
+from .domain import DomainXML, DomainXMLError
+from .util import DetailException
 
 class MachineDefinitionError(DetailException):
     pass

@@ -19,7 +19,7 @@ from lxml import etree
 from lxml.builder import ElementMaker
 import os
 
-from vmnetx.util import DetailException
+from .util import DetailException
 
 
 NS = 'http://olivearchive.org/xmlns/vmnetx/reference'

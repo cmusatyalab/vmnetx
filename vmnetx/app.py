@@ -25,11 +25,11 @@ import os
 import signal
 from tempfile import NamedTemporaryFile
 
-from vmnetx.controller import Controller
-from vmnetx.package import NeedAuthentication
-from vmnetx.system import __version__
-from vmnetx.util import get_cache_dir
-from vmnetx.view import (VMWindow, LoadProgressWindow, PasswordWindow,
+from .controller import Controller
+from .package import NeedAuthentication
+from .system import __version__
+from .util import get_cache_dir
+from .view import (VMWindow, LoadProgressWindow, PasswordWindow,
         SaveMediaWindow, ErrorWindow, FatalErrorWindow, IgnorableErrorWindow,
         have_spice_viewer)
 

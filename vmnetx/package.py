@@ -28,8 +28,8 @@ import struct
 from urlparse import urlsplit
 import zipfile
 
-from vmnetx.system import __version__
-from vmnetx.util import DetailException
+from .system import __version__
+from .util import DetailException
 
 NS = 'http://olivearchive.org/xmlns/vmnetx/package'
 NSP = '{' + NS + '}'

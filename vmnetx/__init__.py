@@ -15,4 +15,4 @@
 # for more details.
 #
 
-from vmnetx.system import __version__
+from .system import __version__

@@ -23,7 +23,7 @@ import subprocess
 from tempfile import NamedTemporaryFile
 import uuid
 
-from vmnetx.util import DetailException
+from .util import DetailException
 
 # vmnetx-specific metadata extensions
 NS = 'http://olivearchive.org/xmlns/vmnetx/domain-metadata'

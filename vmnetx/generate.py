@@ -23,9 +23,9 @@ import sys
 from tempfile import NamedTemporaryFile
 from urlparse import urlunsplit
 
-from vmnetx.domain import DomainXML, DomainXMLError
-from vmnetx.package import Package
-from vmnetx.util import DetailException
+from .domain import DomainXML, DomainXMLError
+from .package import Package
+from .util import DetailException
 
 class MachineGenerationError(DetailException):
     pass
