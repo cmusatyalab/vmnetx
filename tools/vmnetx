@@ -20,7 +20,7 @@ from optparse import OptionParser
 import sys
 
 import vmnetx
-from vmnetx.app import VMNetXApp
+from vmnetx.ui import VMNetXUI
 
 USAGE = 'Usage: %prog [options] {reference-path|package-url|package-path}'
 VERSION = '%prog ' + vmnetx.__version__
@@ -32,5 +32,5 @@ if len(args) != 1:
     parser.error('Incorrect mandatory argument')
 package_ref = args[0]
 
-app = VMNetXApp(package_ref)
+app = VMNetXUI(package_ref)
 app.run()

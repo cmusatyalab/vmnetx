@@ -1,5 +1,5 @@
 #
-# vmnetx.view - vmnetx GUI
+# vmnetx.ui.view - vmnetx UI widgets
 #
 # Copyright (C) 2008-2013 Carnegie Mellon University
 #
@@ -24,7 +24,8 @@ import gtkvnc
 import logging
 import pango
 
-from .controller import ChunkStateArray
+from ..controller import ChunkStateArray
+from ..util import ErrorBuffer
 
 # have_spice_viewer is a variable, not a constant
 # pylint: disable=C0103
@@ -34,8 +35,6 @@ try:
 except ImportError:
     have_spice_viewer = False
 # pylint: enable=C0103
-
-from .util import ErrorBuffer
 
 # pylint chokes on Gtk widgets, #112550
 # pylint: disable=R0924

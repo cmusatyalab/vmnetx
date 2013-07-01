@@ -1,5 +1,5 @@
 #
-# vmnetx.app - VMNetX GUI application
+# vmnetx.ui - VMNetX UI application
 #
 # Copyright (C) 2012-2013 Carnegie Mellon University
 #
@@ -25,10 +25,10 @@ import os
 import signal
 from tempfile import NamedTemporaryFile
 
-from .controller import Controller
-from .package import NeedAuthentication
-from .system import __version__
-from .util import get_cache_dir
+from ..controller import Controller
+from ..package import NeedAuthentication
+from ..system import __version__
+from ..util import get_cache_dir
 from .view import (VMWindow, LoadProgressWindow, PasswordWindow,
         SaveMediaWindow, ErrorWindow, FatalErrorWindow, IgnorableErrorWindow,
         have_spice_viewer)
@@ -62,7 +62,7 @@ class _UsernameCache(object):
         os.rename(fh.name, self._path)
 
 
-class VMNetXApp(object):
+class VMNetXUI(object):
     RESUME_CHECK_DELAY = 1000  # ms
 
     def __init__(self, package_ref):
