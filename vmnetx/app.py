@@ -69,8 +69,6 @@ class VMNetXApp(object):
         gobject.threads_init()
         self._username_cache = _UsernameCache()
         self._controller = LocalController(package_ref, have_spice_viewer)
-        self._package_ref = package_ref
-        self._machine = None
         self._wind = None
         self._load_window = None
         self._io_failed = False
