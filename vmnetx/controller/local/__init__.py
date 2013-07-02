@@ -208,6 +208,9 @@ class LocalController(Controller):
 
         # Set up libvirt connection
         self._conn = libvirt.open('qemu:///session')
+        self._conn.domainEventRegisterAny(None,
+                libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE, self._lifecycle_event,
+                None)
 
         # Get emulator path
         emulator = domain_xml.detect_emulator(self._conn)
@@ -357,6 +360,11 @@ class LocalController(Controller):
             self._startup_cancelled = True
             threading.Thread(name='vmnetx-startup-cancel',
                     target=self._machine.stop_vm).start()
+
+    def _lifecycle_event(self, _conn, domain, event, _detail, _data):
+        if domain.name() == self._domain_name:
+            if event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
+                self.emit('vm-stopped')
 
     def stop_vm(self):
         if self._conn is not None:

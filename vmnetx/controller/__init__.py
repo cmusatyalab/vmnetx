@@ -36,6 +36,7 @@ class Controller(gobject.GObject):
                 gobject.TYPE_NONE, ()),
         'startup-failed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (ErrorBuffer,)),
+        'vm-stopped': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
     def __init__(self):
