@@ -84,6 +84,9 @@ class Controller(gobject.GObject):
     def start_vm(self):
         raise NotImplementedError
 
+    def startup_cancel(self):
+        raise NotImplementedError
+
     def stop_vm(self):
         raise NotImplementedError
 
