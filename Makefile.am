@@ -40,6 +40,7 @@ nobase_python_PYTHON = vmnetx/__init__.py \
 	vmnetx/controller/__init__.py \
 	vmnetx/controller/local/__init__.py \
 	vmnetx/controller/local/monitor.py \
+	vmnetx/controller/local/virtevent.py \
 	vmnetx/controller/local/vmnetfs.py \
 	vmnetx/ui/__init__.py \
 	vmnetx/ui/view.py

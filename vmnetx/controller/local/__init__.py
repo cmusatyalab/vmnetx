@@ -44,6 +44,7 @@ from ...util import ErrorBuffer, ensure_dir, get_cache_dir
 from .. import Controller, MachineExecutionError, Statistic
 from .monitor import (ChunkMapMonitor, LineStreamMonitor,
         LoadProgressMonitor, StatMonitor)
+from .virtevent import LibvirtEventImpl
 from .vmnetfs import VMNetFS, NS as VMNETFS_NS
 
 _log = logging.getLogger(__name__)
@@ -55,6 +56,9 @@ assert(libvirt.getVersion() >= 9008) # 0.9.8
 # global state, since the Python bindings don't provide a way to do this
 # per-connection.
 libvirt.registerErrorHandler(lambda _ctx, _error: None, None)
+
+# Enable libvirt event reporting.  Also modifies global state.
+LibvirtEventImpl().register()
 
 
 class _ReferencedObject(object):
