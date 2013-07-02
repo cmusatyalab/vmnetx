@@ -15,6 +15,7 @@
 # for more details.
 #
 
+import base64
 from calendar import timegm
 import dbus
 import gobject
@@ -209,6 +210,9 @@ class LocalController(Controller):
 
         # Detect SPICE support
         self.use_spice = self._want_spice and self._spice_is_usable(emulator)
+        # VNC limits passwords to 8 characters
+        self.viewer_password = base64.urlsafe_b64encode(os.urandom(
+                15 if self.use_spice else 6))
 
         # Get execution domain XML
         self._domain_xml = domain_xml.get_for_execution(self._domain_name,
