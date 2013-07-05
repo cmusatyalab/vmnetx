@@ -80,6 +80,7 @@ class VMNetXUI(object):
         self._controller.connect('startup-rejected-memory',
                 self._startup_rejected_memory)
         self._controller.connect('startup-failed', self._startup_error)
+        self._controller.connect('vm-stopped', self._vm_stopped)
 
     # We intentionally catch all exceptions
     # pylint: disable=W0702
@@ -123,7 +124,6 @@ class VMNetXUI(object):
                     use_spice=self._controller.use_spice,
                     max_mouse_rate=self._controller.max_mouse_rate)
             self._wind.connect('viewer-connect', self._connect)
-            self._wind.connect('viewer-disconnect', self._restart)
             self._wind.connect('user-restart', self._user_restart)
             self._wind.connect('user-quit', self._shutdown)
             self._wind.connect('user-screenshot', self._screenshot)
@@ -177,6 +177,7 @@ class VMNetXUI(object):
             self._load_window = None
 
     def _startup_done(self, _obj):
+        self._wind.set_vm_running(True)
         self._wind.connect_viewer(self._controller.viewer_address,
                 self._controller.viewer_password)
         self._destroy_load_window()
@@ -218,7 +219,7 @@ class VMNetXUI(object):
         if img.get_pixels() == black:
             _log.warning('Detected black screen; assuming bad memory image')
             self._warn_bad_memory()
-            # Terminate the VM; the viewer-disconnect handler will restart it
+            # Terminate the VM; the vm-stopped handler will restart it
             self._controller.stop_vm()
     # pylint: enable=W1401
 
@@ -238,11 +239,11 @@ class VMNetXUI(object):
                 self._shutdown()
 
     def _user_restart(self, _obj):
-        # Just terminate the VM; the viewer-disconnect handler will restart it
+        # Just terminate the VM; the vm-stopped handler will restart it
         self._controller.stop_vm()
 
-    def _restart(self, _obj):
-        self._controller.stop_vm()
+    def _vm_stopped(self, _obj):
+        self._wind.set_vm_running(False)
         self._controller.start_vm()
 
     def _shutdown(self, _obj=None):

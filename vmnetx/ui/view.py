@@ -369,6 +369,9 @@ class VMWindow(gtk.Window):
         self._statusbar = StatusBarWidget(self._viewer)
         box.pack_end(self._statusbar, expand=False)
 
+    def set_vm_running(self, running):
+        self._agrp.set_vm_running(running)
+
     def connect_viewer(self, address, password):
         self._viewer.connect_viewer(address, password)
 
@@ -391,11 +394,11 @@ class VMWindow(gtk.Window):
         return self._viewer.get_pixbuf()
 
     def _viewer_connected(self, _obj):
-        self._agrp.set_vm_running(True)
+        self._agrp.set_viewer_connected(True)
         self.emit('viewer-connect')
 
     def _viewer_disconnected(self, _obj):
-        self._agrp.set_vm_running(False)
+        self._agrp.set_viewer_connected(False)
         self.emit('viewer-disconnect')
 
     def _viewer_resized(self, _wid, width, height):
@@ -451,10 +454,15 @@ class VMActionGroup(gtk.ActionGroup):
                     'Show log', self._show_log),
         ), user_data=parent)
         self.set_vm_running(False)
+        self.set_viewer_connected(False)
 
     def set_vm_running(self, running):
-        for name in 'screenshot', 'restart':
+        for name in ('restart',):
             self.get_action(name).set_sensitive(running)
+
+    def set_viewer_connected(self, connected):
+        for name in ('screenshot',):
+            self.get_action(name).set_sensitive(connected)
 
     def _confirm(self, parent, signal, message):
         dlg = gtk.MessageDialog(parent=parent,
