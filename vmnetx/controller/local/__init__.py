@@ -359,7 +359,7 @@ class LocalController(Controller):
         if not self._startup_cancelled:
             self._startup_cancelled = True
             threading.Thread(name='vmnetx-startup-cancel',
-                    target=self._machine.stop_vm).start()
+                    target=self.stop_vm).start()
 
     def _lifecycle_event(self, _conn, domain, event, _detail, _data):
         if domain.name() == self._domain_name:
