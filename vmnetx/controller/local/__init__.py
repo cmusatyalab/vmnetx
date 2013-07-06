@@ -18,6 +18,8 @@
 import base64
 from calendar import timegm
 import dbus
+import errno
+import glib
 import gobject
 import grp
 # pylint doesn't understand hashlib.sha256
@@ -31,6 +33,7 @@ from lxml.builder import ElementMaker
 import os
 import pipes
 import pwd
+import socket
 import subprocess
 import sys
 import threading
@@ -168,6 +171,7 @@ class LocalController(Controller):
         self._conn = None
         self._domain_xml = None
         self._startup_cancelled = False
+        self._viewer_address = None
         self._monitors = []
         self._load_monitor = None
 
@@ -328,7 +332,7 @@ class LocalController(Controller):
                 # Get viewer socket address
                 domain_xml = DomainXML(domain.XMLDesc(0),
                         validate=DomainXML.VALIDATE_NONE, safe=False)
-                self.viewer_address = (
+                self._viewer_address = (
                     domain_xml.viewer_host or '127.0.0.1',
                     domain_xml.viewer_port
                 )
@@ -361,6 +365,40 @@ class LocalController(Controller):
             threading.Thread(name='vmnetx-startup-cancel',
                     target=self.stop_vm).start()
 
+    def connect_viewer(self, data):
+        if self._viewer_address is None:
+            self.emit('viewer-connection-failed', 'No viewer address', data)
+            return
+        try:
+            sock = socket.socket()
+            sock.setblocking(0)
+            sock.connect(self._viewer_address)
+        except socket.error, e:
+            if e.errno == errno.EINPROGRESS:
+                glib.io_add_watch(sock, glib.IO_OUT,
+                        self._viewer_connection_ready, data)
+            else:
+                self.emit('viewer-connection-failed', str(e), data)
+                sock.close()
+        else:
+            sock.setblocking(1)
+            self.emit('viewer-connection-open', os.dup(sock.fileno()), data)
+            sock.close()
+
+    def _viewer_connection_ready(self, sock, cond, data):
+        if not (cond & glib.IO_OUT):
+            return True
+        # Get error code
+        err = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+        if err:
+            self.emit('viewer-connection-failed', os.strerror(err), data)
+        else:
+            sock.setblocking(1)
+            self.emit('viewer-connection-open', os.dup(sock.fileno()),
+                    data)
+        sock.close()
+        return False
+
     def _lifecycle_event(self, _conn, domain, event, _detail, _data):
         if domain.name() == self._domain_name:
             if event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
@@ -373,7 +411,7 @@ class LocalController(Controller):
             except libvirt.libvirtError:
                 # Assume that the VM did not exist or was already dying
                 pass
-            self.viewer_address = None
+            self._viewer_address = None
         self.have_memory = False
 
     def shutdown(self):

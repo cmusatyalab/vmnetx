@@ -36,6 +36,10 @@ class Controller(gobject.GObject):
                 gobject.TYPE_NONE, ()),
         'startup-failed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (ErrorBuffer,)),
+        'viewer-connection-open': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (gobject.TYPE_INT, gobject.TYPE_OBJECT)),
+        'viewer-connection-failed': (gobject.SIGNAL_RUN_LAST,
+                gobject.TYPE_NONE, (gobject.TYPE_STRING, gobject.TYPE_OBJECT)),
         'vm-stopped': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
@@ -46,7 +50,6 @@ class Controller(gobject.GObject):
         self.vm_name = None
         self.have_memory = None
         self.use_spice = True
-        self.viewer_address = None
         self.viewer_password = None
         self.max_mouse_rate = None
         self.disk_chunk_size = None
@@ -85,6 +88,13 @@ class Controller(gobject.GObject):
         raise NotImplementedError
 
     def startup_cancel(self):
+        raise NotImplementedError
+
+    def connect_viewer(self, data):
+        '''Create a new connection for the VNC/SPICE viewer without blocking.
+        Emit viewer-connection-open (passing the fd and provided data) when
+        ready or viewer-connection-failed (passing an error string and the
+        provided data) on failure.'''
         raise NotImplementedError
 
     def stop_vm(self):

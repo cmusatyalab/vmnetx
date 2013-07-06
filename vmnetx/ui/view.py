@@ -41,6 +41,8 @@ except ImportError:
 
 class _ViewerWidget(gtk.EventBox):
     __gsignals__ = {
+        'viewer-get-fd': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (gobject.TYPE_OBJECT,)),
         'viewer-connect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'viewer-disconnect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'viewer-resize': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
@@ -66,7 +68,13 @@ class _ViewerWidget(gtk.EventBox):
         else:
             self._motion_interval = None
 
-    def connect_viewer(self, address, password):
+    def connect_viewer(self, password):
+        '''Start a connection.  Emits viewer-get-fd one or more times; call
+        set_fd() with the provided token and the resulting fd.'''
+        raise NotImplementedError
+
+    def set_fd(self, data, fd):
+        '''Pass fd=None if the connection attempt failed.'''
         raise NotImplementedError
 
     def get_pixbuf(self):
@@ -150,10 +158,15 @@ class VNCWidget(_ViewerWidget):
         setattr(self, what + '_grabbed', whether)
         self.emit('viewer-%s-grab' % what, whether)
 
-    def connect_viewer(self, address, password):
-        host, port = address
+    def connect_viewer(self, password):
         self._vnc.set_credential(gtkvnc.CREDENTIAL_PASSWORD, password)
-        self._vnc.open_host(host, str(port))
+        self.emit('viewer-get-fd', None)
+
+    def set_fd(self, _data, fd):
+        if fd is None:
+            self.emit('viewer-disconnect')
+        else:
+            self._vnc.open_fd(fd)
 
     def get_pixbuf(self):
         return self._vnc.get_pixbuf()
@@ -186,12 +199,9 @@ class SpiceWidget(_ViewerWidget):
         self._placeholder.set_property('can-focus', True)
         self.add(self._placeholder)
 
-    def connect_viewer(self, address, password):
+    def connect_viewer(self, password):
         assert self._session is None
-        host, port = address
         self._session = SpiceClientGtk.Session()
-        self._session.set_property('host', host)
-        self._session.set_property('port', str(port))
         self._session.set_property('password', password)
         self._session.set_property('enable-usbredir', False)
         # Ensure clipboard sharing is disabled
@@ -205,9 +215,10 @@ class SpiceWidget(_ViewerWidget):
             pass
         self._session.connect_object('channel-new', self._new_channel,
                 self._session)
-        self._session.connect()
+        self._session.open_fd(-1)
 
     def _new_channel(self, _session, channel):
+        channel.connect_object('open-fd', self._request_fd, channel)
         channel.connect_object('channel-event', self._channel_event, channel)
         type = SpiceClientGtk.spice_channel_type_to_string(
                 channel.get_property('channel-type'))
@@ -225,6 +236,15 @@ class SpiceWidget(_ViewerWidget):
             self._aspect.add(self._display)
             self._aspect.show_all()
             self.emit('viewer-connect')
+
+    def _request_fd(self, chan, _with_tls):
+        self.emit('viewer-get-fd', chan)
+
+    def set_fd(self, data, fd):
+        if fd is None:
+            self._disconnect()
+        else:
+            data.open_fd(fd)
 
     def _channel_event(self, _channel, event):
         if event in self._error_events:
@@ -314,6 +334,8 @@ class VMWindow(gtk.Window):
     SCREEN_SIZE_FUDGE = (-100, -100)
 
     __gsignals__ = {
+        'viewer-get-fd': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (gobject.TYPE_OBJECT,)),
         'viewer-connect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'viewer-disconnect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'user-screenshot': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
@@ -357,6 +379,7 @@ class VMWindow(gtk.Window):
             self._viewer = SpiceWidget(max_mouse_rate)
         else:
             self._viewer = VNCWidget(max_mouse_rate)
+        self._viewer.connect('viewer-get-fd', self._viewer_get_fd)
         self._viewer.connect('viewer-resize', self._viewer_resized)
         self._viewer.connect('viewer-connect', self._viewer_connected)
         self._viewer.connect('viewer-disconnect', self._viewer_disconnected)
@@ -372,8 +395,11 @@ class VMWindow(gtk.Window):
     def set_vm_running(self, running):
         self._agrp.set_vm_running(running)
 
-    def connect_viewer(self, address, password):
-        self._viewer.connect_viewer(address, password)
+    def connect_viewer(self, password):
+        self._viewer.connect_viewer(password)
+
+    def set_viewer_fd(self, data, fd):
+        self._viewer.set_fd(data, fd)
 
     def show_activity(self, enabled):
         if enabled:
@@ -392,6 +418,9 @@ class VMWindow(gtk.Window):
 
     def take_screenshot(self):
         return self._viewer.get_pixbuf()
+
+    def _viewer_get_fd(self, _obj, data):
+        self.emit('viewer-get-fd', data)
 
     def _viewer_connected(self, _obj):
         self._agrp.set_viewer_connected(True)

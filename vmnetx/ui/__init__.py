@@ -80,6 +80,10 @@ class VMNetXUI(object):
         self._controller.connect('startup-rejected-memory',
                 self._startup_rejected_memory)
         self._controller.connect('startup-failed', self._startup_error)
+        self._controller.connect('viewer-connection-open',
+                self._viewer_have_fd)
+        self._controller.connect('viewer-connection-failed',
+                self._viewer_fd_failed)
         self._controller.connect('vm-stopped', self._vm_stopped)
 
     # We intentionally catch all exceptions
@@ -123,6 +127,7 @@ class VMNetXUI(object):
                     disk_chunk_size=self._controller.disk_chunk_size,
                     use_spice=self._controller.use_spice,
                     max_mouse_rate=self._controller.max_mouse_rate)
+            self._wind.connect('viewer-get-fd', self._viewer_get_fd)
             self._wind.connect('viewer-connect', self._connect)
             self._wind.connect('user-restart', self._user_restart)
             self._wind.connect('user-quit', self._shutdown)
@@ -178,8 +183,7 @@ class VMNetXUI(object):
 
     def _startup_done(self, _obj):
         self._wind.set_vm_running(True)
-        self._wind.connect_viewer(self._controller.viewer_address,
-                self._controller.viewer_password)
+        self._wind.connect_viewer(self._controller.viewer_password)
         self._destroy_load_window()
 
     def _startup_cancelled(self, _obj):
@@ -199,6 +203,16 @@ class VMNetXUI(object):
     def _warn_bad_memory(self):
         self._wind.add_warning('dialog-warning',
                 'The memory image could not be loaded.')
+
+    def _viewer_get_fd(self, _obj, data):
+        self._controller.connect_viewer(data)
+
+    def _viewer_have_fd(self, _obj, fd, data):
+        self._wind.set_viewer_fd(data, fd)
+
+    def _viewer_fd_failed(self, _obj, error, data):
+        _log.warning('Viewer connection failed: %s', error)
+        self._wind.set_viewer_fd(data, None)
 
     def _connect(self, _obj):
         glib.timeout_add(self.RESUME_CHECK_DELAY,
