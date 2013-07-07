@@ -80,10 +80,6 @@ class VMNetXUI(object):
         self._controller.connect('startup-rejected-memory',
                 self._startup_rejected_memory)
         self._controller.connect('startup-failed', self._startup_error)
-        self._controller.connect('viewer-connection-open',
-                self._viewer_have_fd)
-        self._controller.connect('viewer-connection-failed',
-                self._viewer_fd_failed)
         self._controller.connect('vm-stopped', self._vm_stopped)
 
     # We intentionally catch all exceptions
@@ -206,14 +202,14 @@ class VMNetXUI(object):
                 'The memory image could not be loaded.')
 
     def _viewer_get_fd(self, _obj, data):
-        self._controller.connect_viewer(data)
-
-    def _viewer_have_fd(self, _obj, fd, data):
-        self._wind.set_viewer_fd(data, fd)
-
-    def _viewer_fd_failed(self, _obj, error, data):
-        _log.warning('Viewer connection failed: %s', error)
-        self._wind.set_viewer_fd(data, None)
+        def done(fd=None, error=None):
+            assert error is not None or fd is not None
+            if error is not None:
+                _log.warning('Viewer connection failed: %s', error)
+                self._wind.set_viewer_fd(data, None)
+            else:
+                self._wind.set_viewer_fd(data, fd)
+        self._controller.connect_viewer(done)
 
     def _connect(self, _obj):
         glib.timeout_add(self.RESUME_CHECK_DELAY,

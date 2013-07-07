@@ -362,18 +362,11 @@ class LocalController(Controller):
             threading.Thread(name='vmnetx-startup-cancel',
                     target=self.stop_vm).start()
 
-    def connect_viewer(self, data):
-        def done(fd=None, error=None):
-            assert error is not None or fd is not None
-            if error is not None:
-                self.emit('viewer-connection-failed', error, data)
-            else:
-                self.emit('viewer-connection-open', fd, data)
-
+    def connect_viewer(self, callback):
         if self._viewer_address is None:
-            done(error='No viewer address')
+            callback(error='No viewer address')
             return
-        self._connect_socket(self._viewer_address, done)
+        self._connect_socket(self._viewer_address, callback)
 
     def _lifecycle_event(self, _conn, domain, event, _detail, _data):
         if domain.name() == self._domain_name:
