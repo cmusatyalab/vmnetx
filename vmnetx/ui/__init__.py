@@ -114,7 +114,7 @@ class VMNetXUI(object):
                     self._controller.scheme = e.scheme
                     self._controller.username = pw_wind.username
                     self._controller.password = pw_wind.password
-                    self._username_cache.put(e.host, e.realm, username)
+                    self._username_cache.put(e.host, e.realm, pw_wind.username)
                 else:
                     if pw_wind is not None:
                         pw_wind.destroy()
