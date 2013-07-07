@@ -133,8 +133,9 @@ class VMNetXUI(object):
             self._wind.connect('user-quit', self._shutdown)
             self._wind.connect('user-screenshot', self._screenshot)
             self._wind.show_all()
-            self._controller.disk_stats['io_errors'].connect('stat-changed',
-                    self._io_error)
+            io_errors = self._controller.disk_stats.get('io_errors')
+            if io_errors is not None:
+                io_errors.connect('stat-changed', self._io_error)
 
             # Start logging
             logging.getLogger().setLevel(logging.INFO)
