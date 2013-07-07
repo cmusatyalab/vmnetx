@@ -359,8 +359,12 @@ class VMWindow(gtk.Window):
         self.connect('destroy', self._destroy)
 
         self._log = LogWindow(name, self._agrp.get_action('show-log'))
-        self._activity = ActivityWindow(name, disk_stats, disk_chunks,
-                disk_chunk_size, self._agrp.get_action('show-activity'))
+        if disk_stats and disk_chunks and disk_chunk_size:
+            self._activity = ActivityWindow(name, disk_stats, disk_chunks,
+                    disk_chunk_size, self._agrp.get_action('show-activity'))
+            self._agrp.set_statistics_available(True)
+        else:
+            self._activity = None
 
         box = gtk.VBox()
         self.add(box)
@@ -402,6 +406,8 @@ class VMWindow(gtk.Window):
         self._viewer.set_fd(data, fd)
 
     def show_activity(self, enabled):
+        if self._activity is None:
+            return
         if enabled:
             self._activity.show()
         else:
@@ -452,7 +458,8 @@ class VMWindow(gtk.Window):
 
     def _destroy(self, _wid):
         self._log.destroy()
-        self._activity.destroy()
+        if self._activity is not None:
+            self._activity.destroy()
 gobject.type_register(VMWindow)
 
 
@@ -484,6 +491,7 @@ class VMActionGroup(gtk.ActionGroup):
         ), user_data=parent)
         self.set_vm_running(False)
         self.set_viewer_connected(False)
+        self.set_statistics_available(False)
 
     def set_vm_running(self, running):
         for name in ('restart',):
@@ -492,6 +500,10 @@ class VMActionGroup(gtk.ActionGroup):
     def set_viewer_connected(self, connected):
         for name in ('screenshot',):
             self.get_action(name).set_sensitive(connected)
+
+    def set_statistics_available(self, available):
+        for name in ('show-activity',):
+            self.get_action(name).set_sensitive(available)
 
     def _confirm(self, parent, signal, message):
         dlg = gtk.MessageDialog(parent=parent,
