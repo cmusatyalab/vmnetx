@@ -15,8 +15,11 @@
 # for more details.
 #
 
+import errno
+import glib
 import gobject
 import os
+import socket
 from urlparse import urlsplit, urlunsplit
 
 from ..reference import PackageReference, BadReferenceError
@@ -102,6 +105,36 @@ class Controller(gobject.GObject):
 
     def shutdown(self):
         raise NotImplementedError
+
+    @staticmethod
+    def _connect_socket(address, callback):
+        def ready(sock, cond):
+            if not (cond & glib.IO_OUT):
+                return True
+            # Get error code
+            err = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+            if err:
+                callback(error=os.strerror(err))
+            else:
+                sock.setblocking(1)
+                callback(fd=os.dup(sock.fileno()))
+            sock.close()
+            return False
+
+        try:
+            sock = socket.socket()
+            sock.setblocking(0)
+            sock.connect(address)
+        except socket.error, e:
+            if e.errno == errno.EINPROGRESS:
+                glib.io_add_watch(sock, glib.IO_OUT, ready)
+            else:
+                callback(error=str(e))
+                sock.close()
+        else:
+            sock.setblocking(1)
+            callback(fd=os.dup(sock.fileno()))
+            sock.close()
 gobject.type_register(Controller)
 
 

@@ -18,8 +18,6 @@
 import base64
 from calendar import timegm
 import dbus
-import errno
-import glib
 import gobject
 import grp
 # pylint doesn't understand hashlib.sha256
@@ -33,7 +31,6 @@ from lxml.builder import ElementMaker
 import os
 import pipes
 import pwd
-import socket
 import subprocess
 import sys
 import threading
@@ -366,38 +363,17 @@ class LocalController(Controller):
                     target=self.stop_vm).start()
 
     def connect_viewer(self, data):
-        if self._viewer_address is None:
-            self.emit('viewer-connection-failed', 'No viewer address', data)
-            return
-        try:
-            sock = socket.socket()
-            sock.setblocking(0)
-            sock.connect(self._viewer_address)
-        except socket.error, e:
-            if e.errno == errno.EINPROGRESS:
-                glib.io_add_watch(sock, glib.IO_OUT,
-                        self._viewer_connection_ready, data)
+        def done(fd=None, error=None):
+            assert error is not None or fd is not None
+            if error is not None:
+                self.emit('viewer-connection-failed', error, data)
             else:
-                self.emit('viewer-connection-failed', str(e), data)
-                sock.close()
-        else:
-            sock.setblocking(1)
-            self.emit('viewer-connection-open', os.dup(sock.fileno()), data)
-            sock.close()
+                self.emit('viewer-connection-open', fd, data)
 
-    def _viewer_connection_ready(self, sock, cond, data):
-        if not (cond & glib.IO_OUT):
-            return True
-        # Get error code
-        err = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
-        if err:
-            self.emit('viewer-connection-failed', os.strerror(err), data)
-        else:
-            sock.setblocking(1)
-            self.emit('viewer-connection-open', os.dup(sock.fileno()),
-                    data)
-        sock.close()
-        return False
+        if self._viewer_address is None:
+            done(error='No viewer address')
+            return
+        self._connect_socket(self._viewer_address, done)
 
     def _lifecycle_event(self, _conn, domain, event, _detail, _data):
         if domain.name() == self._domain_name:
