@@ -41,7 +41,7 @@ from wsgiref.handlers import format_date_time as format_rfc1123_date
 from ...domain import DomainXML
 from ...package import Package
 from ...util import ErrorBuffer, ensure_dir, get_cache_dir
-from .. import Controller, MachineExecutionError, Statistic
+from .. import Controller, MachineExecutionError, MachineStateError, Statistic
 from .monitor import (ChunkMapMonitor, LineStreamMonitor,
         LoadProgressMonitor, StatMonitor)
 from .virtevent import LibvirtEventImpl
@@ -167,7 +167,6 @@ class LocalController(Controller):
         self._fs = None
         self._conn = None
         self._domain_xml = None
-        self._startup_cancelled = False
         self._viewer_address = None
         self._monitors = []
         self._load_monitor = None
@@ -303,7 +302,9 @@ class LocalController(Controller):
     def _vmnetfs_log(self, _monitor, line):
         _log.warning('%s', line)
 
+    @Controller._ensure_state(Controller.STATE_STOPPED)
     def start_vm(self):
+        self.state = self.STATE_STARTING
         if self.have_memory:
             self.emit('startup-progress', 0, self._load_monitor.chunks)
         threading.Thread(name='vmnetx-startup', target=self._startup).start()
@@ -339,7 +340,7 @@ class LocalController(Controller):
                 if have_memory:
                     gobject.idle_add(self._load_monitor.close)
         except:
-            if self._startup_cancelled:
+            if self.state == self.STATE_STOPPING:
                 gobject.idle_add(self.emit, 'startup-cancelled')
             elif self.have_memory:
                 self.have_memory = False
@@ -347,34 +348,39 @@ class LocalController(Controller):
                 # Retry without memory image
                 self._startup()
             else:
+                self.state = self.STATE_STOPPED
                 gobject.idle_add(self.emit, 'startup-failed', ErrorBuffer())
         else:
+            self.state = self.STATE_RUNNING
             gobject.idle_add(self.emit, 'startup-complete')
     # pylint: enable=W0702
 
     def _load_progress(self, _obj, count, total):
-        if self.have_memory and not self._startup_cancelled:
+        if self.have_memory and self.state == self.STATE_STARTING:
             self.emit('startup-progress', count, total)
 
     def startup_cancel(self):
-        if not self._startup_cancelled:
-            self._startup_cancelled = True
+        if self.state == self.STATE_STARTING:
+            self.state = self.STATE_STOPPING
             threading.Thread(name='vmnetx-startup-cancel',
                     target=self.stop_vm).start()
+        elif self.state != self.STATE_STOPPING:
+            raise MachineStateError('Machine in inappropriate state')
 
+    @Controller._ensure_state(Controller.STATE_RUNNING)
     def connect_viewer(self, callback):
-        if self._viewer_address is None:
-            callback(error='No viewer address')
-            return
         self._connect_socket(self._viewer_address, callback)
 
     def _lifecycle_event(self, _conn, domain, event, _detail, _data):
         if domain.name() == self._domain_name:
             if event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
+                self.state = self.STATE_STOPPED
                 self.emit('vm-stopped')
 
     def stop_vm(self):
-        if self._conn is not None:
+        if self._conn is not None and (self.state == self.STATE_STARTING or
+                self.state == self.STATE_RUNNING):
+            self.state = Controller.STATE_STOPPING
             try:
                 self._conn.lookupByName(self._domain_name).destroy()
             except libvirt.libvirtError:

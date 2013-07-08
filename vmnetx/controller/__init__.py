@@ -15,6 +15,7 @@
 # for more details.
 #
 
+from functools import wraps
 import errno
 import glib
 import gobject
@@ -26,6 +27,10 @@ from ..reference import PackageReference, BadReferenceError
 from ..util import ErrorBuffer, RangeConsolidator
 
 class MachineExecutionError(Exception):
+    pass
+
+
+class MachineStateError(Exception):
     pass
 
 
@@ -42,11 +47,17 @@ class Controller(gobject.GObject):
         'vm-stopped': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
+    STATE_STOPPED = 0
+    STATE_STARTING = 1
+    STATE_RUNNING = 2
+    STATE_STOPPING = 3
+
     def __init__(self):
         gobject.GObject.__init__(self)
 
         # Publicly readable
         self.vm_name = None
+        self.state = self.STATE_STOPPED
         self.have_memory = None
         self.use_spice = True
         self.viewer_password = None
@@ -130,6 +141,17 @@ class Controller(gobject.GObject):
             sock.setblocking(1)
             callback(fd=os.dup(sock.fileno()))
             sock.close()
+
+    @staticmethod
+    def _ensure_state(state):
+        def decorator(func):
+            @wraps(func)
+            def wrapper(self, *args, **kwargs):
+                if self.state != state:
+                    raise MachineStateError('Machine in inappropriate state')
+                return func(self, *args, **kwargs)
+            return wrapper
+        return decorator
 gobject.type_register(Controller)
 
 
