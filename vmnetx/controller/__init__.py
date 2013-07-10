@@ -102,8 +102,8 @@ class Controller(gobject.GObject):
 
     def connect_viewer(self, callback):
         '''Create a new connection for the VNC/SPICE viewer without blocking.
-        When done, call callback(fd=fd) on success or callback(error=string)
-        on error.'''
+        When done, call callback(sock=sock) on success or
+        callback(error=string) on error.'''
         raise NotImplementedError
 
     def stop_vm(self):
@@ -121,10 +121,10 @@ class Controller(gobject.GObject):
             err = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
             if err:
                 callback(error=os.strerror(err))
+                sock.close()
             else:
                 sock.setblocking(1)
-                callback(fd=os.dup(sock.fileno()))
-            sock.close()
+                callback(sock=sock)
             return False
 
         try:
@@ -139,8 +139,7 @@ class Controller(gobject.GObject):
                 sock.close()
         else:
             sock.setblocking(1)
-            callback(fd=os.dup(sock.fileno()))
-            sock.close()
+            callback(sock=sock)
 
     @staticmethod
     def _ensure_state(state):

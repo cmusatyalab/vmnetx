@@ -202,13 +202,14 @@ class VMNetXUI(object):
                 'The memory image could not be loaded.')
 
     def _viewer_get_fd(self, _obj, data):
-        def done(fd=None, error=None):
-            assert error is not None or fd is not None
+        def done(sock=None, error=None):
+            assert error is not None or sock is not None
             if error is not None:
                 _log.warning('Viewer connection failed: %s', error)
                 self._wind.set_viewer_fd(data, None)
             else:
-                self._wind.set_viewer_fd(data, fd)
+                self._wind.set_viewer_fd(data, os.dup(sock.fileno()))
+                sock.close()
         self._controller.connect_viewer(done)
 
     def _connect(self, _obj):
