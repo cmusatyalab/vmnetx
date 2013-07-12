@@ -29,16 +29,20 @@ class DetailException(Exception):
 
 
 class ErrorBuffer(gobject.GObject):
-    def __init__(self):
+    def __init__(self, message=None):
         gobject.GObject.__init__(self)
         exception = sys.exc_info()[1]
-        detail = getattr(exception, 'detail', None)
-        tb = traceback.format_exc()
-        self.exception = str(exception)
-        if detail:
-            self.detail = detail + '\n\n' + tb
+        if exception is not None:
+            self.exception = str(exception)
+            tb = traceback.format_exc()
+            detail = getattr(exception, 'detail', None)
+            if detail:
+                self.detail = detail + '\n\n' + tb
+            else:
+                self.detail = tb
         else:
-            self.detail = tb
+            self.exception = message
+            self.detail = ''
 gobject.type_register(ErrorBuffer)
 
 
