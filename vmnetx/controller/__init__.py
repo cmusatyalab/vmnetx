@@ -168,6 +168,28 @@ class Controller(gobject.GObject):
 gobject.type_register(Controller)
 
 
+# pylint thinks Controller is only subclassed once.  Perhaps it's being
+# confused by conditional imports?
+class _DummyControllerSubclass(Controller):
+    def initialize(self):
+        raise ValueError
+
+    def start_vm(self):
+        raise ValueError
+
+    def startup_cancel(self):
+        raise ValueError
+
+    def connect_viewer(self, _callback):
+        raise ValueError
+
+    def stop_vm(self):
+        raise ValueError
+
+    def shutdown(self):
+        raise ValueError
+
+
 class Statistic(gobject.GObject):
     __gsignals__ = {
         'stat-changed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
