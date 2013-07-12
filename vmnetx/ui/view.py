@@ -262,12 +262,12 @@ class SpiceWidget(_ViewerWidget):
 
     def _destroy_display(self):
         if self._display is not None:
-            self._aspect.remove(self._display)
             self._display.destroy()
             self._display = None
-            self.remove(self._aspect)
-            self.add(self._placeholder)
-            self._placeholder.show()
+            if self.get_children():
+                self.remove(self._aspect)
+                self.add(self._placeholder)
+                self._placeholder.show()
 
     def _disconnect(self):
         if self._session is not None:
