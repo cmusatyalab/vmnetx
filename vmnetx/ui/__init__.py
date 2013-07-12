@@ -79,7 +79,8 @@ class VMNetXUI(object):
         self._controller.connect('startup-cancelled', self._startup_cancelled)
         self._controller.connect('startup-rejected-memory',
                 self._startup_rejected_memory)
-        self._controller.connect('startup-failed', self._startup_error)
+        self._controller.connect('startup-failed', self._fatal_error)
+        self._controller.connect('fatal-error', self._fatal_error)
         self._controller.connect('vm-stopped', self._vm_stopped)
 
     # We intentionally catch all exceptions
@@ -191,7 +192,7 @@ class VMNetXUI(object):
         self._destroy_load_window()
         self._warn_bad_memory()
 
-    def _startup_error(self, _obj, error):
+    def _fatal_error(self, _obj, error):
         ew = FatalErrorWindow(self._wind, error)
         ew.run()
         ew.destroy()
