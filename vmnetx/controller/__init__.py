@@ -77,7 +77,7 @@ class Controller(gobject.GObject):
     # pylint: disable=E1103
     @classmethod
     def get_for_ref(cls, package_ref, use_spice):
-        # Convert package_ref to package URL
+        # Convert package_ref to URL
         url = package_ref
         parsed = urlsplit(url)
         if parsed.scheme == '':
@@ -89,8 +89,20 @@ class Controller(gobject.GObject):
                 url = urlunsplit(('file', '', os.path.abspath(parsed.path),
                         '', ''))
 
-        from .local import LocalController
-        return LocalController(url, use_spice)
+        # Return correct controller
+        parsed = urlsplit(url)
+        try:
+            if parsed.scheme == 'vmnetx':
+                category = 'Remote'
+                from .remote import RemoteController
+                return RemoteController(url, use_spice)
+            else:
+                category = 'Local'
+                from .local import LocalController
+                return LocalController(url, use_spice)
+        except ImportError:
+            raise MachineExecutionError(('%s execution of virtual machines ' +
+                    'is not supported on this system') % category)
     # pylint: enable=E1103
 
     def initialize(self):

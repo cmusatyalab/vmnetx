@@ -1,0 +1,75 @@
+#!/usr/bin/env python
+#
+# vmnetx-server - Export VMNetX VMs via remote network protocol
+#
+# Copyright (C) 2012-2013 Carnegie Mellon University
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of version 2 of the GNU General Public License as published
+# by the Free Software Foundation.  A copy of the GNU General Public License
+# should have been distributed along with this program in the file
+# COPYING.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# for more details.
+#
+
+from getpass import getpass
+import gtk
+import logging
+from optparse import OptionParser
+import sys
+
+import vmnetx
+from vmnetx.package import NeedAuthentication
+from vmnetx.server import VMNetXServer
+
+USAGE = 'Usage: %prog [options] {reference-path|package-url|package-path}'
+VERSION = '%prog ' + vmnetx.__version__
+DESCRIPTION = 'Export VMNetX VMs via remote network protocol.'
+
+parser = OptionParser(usage=USAGE, version=VERSION, description=DESCRIPTION)
+parser.add_option('-d', '--debug', dest='debug', action='store_true',
+        help='Enable debug messages')
+parser.add_option('-l', '--listen', dest='host',
+        help='Address to listen on', metavar='ADDRESS')
+parser.add_option('-p', '--port', dest='port', type='int',
+        help='Port to listen on', metavar='PORT')
+parser.add_option('-u', '--username', dest='username',
+        help='Username on remote server', metavar='USERNAME')
+
+opts, args = parser.parse_args()
+if len(args) != 1:
+    parser.error('Incorrect mandatory argument')
+package_ref = args[0]
+
+if opts.debug:
+    loglevel = logging.DEBUG
+else:
+    loglevel = logging.INFO
+logging.basicConfig(level=loglevel)
+
+username = opts.username
+scheme = password = None
+while True:
+    try:
+        server = VMNetXServer(package_ref, host=opts.host, port=opts.port,
+                scheme=scheme, username=username, password=password)
+    except NeedAuthentication, e:
+        scheme = e.scheme
+        print 'Host: %s' % e.host
+        print 'Realm: %s' % e.realm
+        if username is None:
+            username = raw_input('Username: ')
+        else:
+            print 'Username: %s' % username
+        password = getpass()
+        continue
+    break
+print 'URL: %s' % server.url
+try:
+    gtk.main()
+finally:
+    server.shutdown()

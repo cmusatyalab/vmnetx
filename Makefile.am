@@ -9,6 +9,7 @@ AM_LDFLAGS = -pthread $(libcurl_LIBS) $(glib_LIBS) $(gthread_LIBS) \
 	$(fuse_LIBS) $(libxml2_LIBS)
 
 dist_bin_SCRIPTS = tools/vmnetx \
+	tools/vmnetx-server \
 	tools/vmnetx-generate
 
 pkglibexec_PROGRAMS = vmnetfs/vmnetfs
@@ -35,6 +36,7 @@ nobase_python_PYTHON = vmnetx/__init__.py \
 	vmnetx/domain.py \
 	vmnetx/generate.py \
 	vmnetx/package.py \
+	vmnetx/protocol.py \
 	vmnetx/reference.py \
 	vmnetx/util.py \
 	vmnetx/controller/__init__.py \
@@ -42,6 +44,8 @@ nobase_python_PYTHON = vmnetx/__init__.py \
 	vmnetx/controller/local/monitor.py \
 	vmnetx/controller/local/virtevent.py \
 	vmnetx/controller/local/vmnetfs.py \
+	vmnetx/controller/remote.py \
+	vmnetx/server/__init__.py \
 	vmnetx/ui/__init__.py \
 	vmnetx/ui/view.py
 nobase_nodist_python_PYTHON = vmnetx/system.py
