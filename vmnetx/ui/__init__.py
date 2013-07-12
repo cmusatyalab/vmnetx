@@ -67,21 +67,12 @@ class VMNetXUI(object):
 
     def __init__(self, package_ref):
         gobject.threads_init()
+        self._package_ref = package_ref
         self._username_cache = _UsernameCache()
-        self._controller = Controller.get_for_ref(package_ref,
-                have_spice_viewer)
+        self._controller = None
         self._wind = None
         self._load_window = None
         self._io_failed = False
-
-        self._controller.connect('startup-progress', self._startup_progress)
-        self._controller.connect('startup-complete', self._startup_done)
-        self._controller.connect('startup-cancelled', self._startup_cancelled)
-        self._controller.connect('startup-rejected-memory',
-                self._startup_rejected_memory)
-        self._controller.connect('startup-failed', self._fatal_error)
-        self._controller.connect('fatal-error', self._fatal_error)
-        self._controller.connect('vm-stopped', self._vm_stopped)
 
     # We intentionally catch all exceptions
     # pylint: disable=W0702
@@ -90,6 +81,20 @@ class VMNetXUI(object):
             # Attempt to catch SIGTERM.  This is dubious, but not more so
             # than the default handling of SIGINT.
             signal.signal(signal.SIGTERM, self._signal)
+
+            # Create controller
+            self._controller = Controller.get_for_ref(self._package_ref,
+                    have_spice_viewer)
+            self._controller.connect('startup-progress',
+                    self._startup_progress)
+            self._controller.connect('startup-complete', self._startup_done)
+            self._controller.connect('startup-cancelled',
+                    self._startup_cancelled)
+            self._controller.connect('startup-rejected-memory',
+                    self._startup_rejected_memory)
+            self._controller.connect('startup-failed', self._fatal_error)
+            self._controller.connect('fatal-error', self._fatal_error)
+            self._controller.connect('vm-stopped', self._vm_stopped)
 
             # Fetch and parse metadata
             pw_wind = None
@@ -156,7 +161,8 @@ class VMNetXUI(object):
             # Shut down
             if self._wind is not None:
                 self._wind.destroy()
-            self._controller.shutdown()
+            if self._controller is not None:
+                self._controller.shutdown()
             logging.shutdown()
     # pylint: enable=W0702
 
