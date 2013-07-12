@@ -1068,21 +1068,22 @@ class FatalErrorWindow(gtk.MessageDialog):
         if error is None:
             error = ErrorBuffer()
         self.format_secondary_text(error.exception)
-
         content = self.get_content_area()
-        expander = gtk.Expander('Details')
-        content.pack_start(expander)
 
-        view = gtk.TextView()
-        view.get_buffer().set_text(error.detail)
-        view.set_editable(False)
-        scroller = gtk.ScrolledWindow()
-        view.set_scroll_adjustments(scroller.get_hadjustment(),
-                scroller.get_vadjustment())
-        scroller.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-        scroller.add(view)
-        scroller.set_size_request(600, 150)
-        expander.add(scroller)
+        if error.detail:
+            expander = gtk.Expander('Details')
+            content.pack_start(expander)
+
+            view = gtk.TextView()
+            view.get_buffer().set_text(error.detail)
+            view.set_editable(False)
+            scroller = gtk.ScrolledWindow()
+            view.set_scroll_adjustments(scroller.get_hadjustment(),
+                    scroller.get_vadjustment())
+            scroller.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+            scroller.add(view)
+            scroller.set_size_request(600, 150)
+            expander.add(scroller)
 
         # RHEL 6 doesn't have MessageDialog.get_widget_for_response()
         self.get_action_area().get_children()[0].grab_focus()
