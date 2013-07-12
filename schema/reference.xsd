@@ -24,26 +24,26 @@ for more details.
 
   <xsd:element name="reference" type="ReferenceSpec">
     <xsd:annotation><xsd:documentation>
-      A reference to a remote VMNetX virtual machine image.
+      A reference to a remote VMNetX virtual machine.
     </xsd:documentation></xsd:annotation>
   </xsd:element>
 
   <xsd:complexType name="ReferenceSpec">
     <xsd:all>
-      <xsd:element name="url" type="httpURL">
+      <xsd:element name="url" type="allowedURL">
         <xsd:annotation><xsd:documentation>
-          The URL of the virtual machine image.
+          The URL of the virtual machine package or thin client server.
         </xsd:documentation></xsd:annotation>
       </xsd:element>
     </xsd:all>
   </xsd:complexType>
 
-  <xsd:simpleType name="httpURL">
+  <xsd:simpleType name="allowedURL">
     <xsd:annotation><xsd:documentation>
-      An absolute HTTP or HTTPS URL.
+      An absolute HTTP, HTTPS, or vmnetx URL.
     </xsd:documentation></xsd:annotation>
     <xsd:restriction base="xsd:anyURI">
-      <xsd:pattern value="https?://.+"/>
+      <xsd:pattern value="(https?|vmnetx)://.+"/>
     </xsd:restriction>
   </xsd:simpleType>
 </xsd:schema>
