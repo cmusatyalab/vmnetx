@@ -15,8 +15,8 @@
 # for more details.
 #
 
-from functools import wraps
 import errno
+from functools import wraps
 import glib
 import gobject
 import os
