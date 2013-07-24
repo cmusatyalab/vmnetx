@@ -288,7 +288,7 @@ gobject.type_register(SpiceWidget)
 
 
 class StatusBarWidget(gtk.HBox):
-    def __init__(self, viewer):
+    def __init__(self, viewer, is_remote=False):
         gtk.HBox.__init__(self, spacing=3)
         self._theme = gtk.icon_theme_get_default()
 
@@ -310,6 +310,10 @@ class StatusBarWidget(gtk.HBox):
 
         keyboard_icon = add_icon('input-keyboard', viewer.keyboard_grabbed)
         mouse_icon = add_icon('input-mouse', viewer.mouse_grabbed)
+        if is_remote:
+            add_icon('network-idle', True)
+        else:
+            add_icon('computer', True)
         viewer.connect('viewer-keyboard-grab', self._grabbed, keyboard_icon)
         viewer.connect('viewer-mouse-grab', self._grabbed, mouse_icon)
 
@@ -345,7 +349,7 @@ class VMWindow(gtk.Window):
     }
 
     def __init__(self, name, disk_stats, disk_chunks, disk_chunk_size,
-            use_spice=True, max_mouse_rate=None):
+            use_spice=True, max_mouse_rate=None, is_remote=False):
         gtk.Window.__init__(self)
         self._agrp = VMActionGroup(self)
         for sig in 'user-restart', 'user-quit':
@@ -393,7 +397,7 @@ class VMWindow(gtk.Window):
                 min_height=h, max_height=h)
         self._viewer.grab_focus()
 
-        self._statusbar = StatusBarWidget(self._viewer)
+        self._statusbar = StatusBarWidget(self._viewer, is_remote)
         box.pack_end(self._statusbar, expand=False)
 
     def set_vm_running(self, running):

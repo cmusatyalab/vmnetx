@@ -128,7 +128,8 @@ class VMNetXUI(object):
                     disk_chunks=self._controller.disk_chunks,
                     disk_chunk_size=self._controller.disk_chunk_size,
                     use_spice=self._controller.use_spice,
-                    max_mouse_rate=self._controller.max_mouse_rate)
+                    max_mouse_rate=self._controller.max_mouse_rate,
+                    is_remote=self._controller.is_remote)
             self._wind.connect('viewer-get-fd', self._viewer_get_fd)
             self._wind.connect('viewer-connect', self._connect)
             self._wind.connect('user-restart', self._user_restart)

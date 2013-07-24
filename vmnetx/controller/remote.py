@@ -114,6 +114,7 @@ class RemoteController(Controller):
         if not use_spice:
             raise MachineExecutionError(
                     'Remote VM access requires SPICE support')
+        self.is_remote = True
 
         parsed = urlsplit(url)
         if parsed.scheme != 'vmnetx':
