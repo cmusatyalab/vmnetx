@@ -16,10 +16,13 @@
 # for more details.
 #
 
+import fcntl
 from getpass import getpass
 import glib
 import logging
 from optparse import OptionParser
+import os
+import signal
 import sys
 
 import vmnetx
@@ -29,6 +32,36 @@ from vmnetx.server import VMNetXServer
 USAGE = 'Usage: %prog [options] {reference-path|package-url|package-path}'
 VERSION = '%prog ' + vmnetx.__version__
 DESCRIPTION = 'Export VMNetX VMs via remote network protocol.'
+
+# self-pipe trick for shutting down correctly from signals
+def shutdown(source, _cond):
+    try:
+        source.read(1)
+    except IOError, e:
+        if e.errno == errno.EAGAIN:
+            return True
+        _log.exception("Received unexpected error: shutting down")
+    loop.quit()
+    return False
+
+
+def setup_signals():
+    fd_rd, fd_wr = os.pipe()
+    fcntl.fcntl(fd_rd, fcntl.F_SETFL,
+            fcntl.fcntl(fd_rd, fcntl.F_GETFL) | os.O_NONBLOCK)
+    fcntl.fcntl(fd_wr, fcntl.F_SETFL,
+            fcntl.fcntl(fd_wr, fcntl.F_GETFL) | os.O_NONBLOCK)
+
+    rd = os.fdopen(fd_rd, 'r')
+    wr = os.fdopen(fd_wr, 'w', 0)
+
+    glib.io_add_watch(rd, glib.IO_IN, shutdown)
+
+    def sig_handler(sig, _frame):
+        wr.write('x')
+    signal.signal(signal.SIGTERM, sig_handler)
+    signal.signal(signal.SIGINT, sig_handler)
+
 
 parser = OptionParser(usage=USAGE, version=VERSION, description=DESCRIPTION)
 parser.add_option('-d', '--debug', dest='debug', action='store_true',
@@ -44,6 +77,8 @@ opts, args = parser.parse_args()
 if len(args) != 1:
     parser.error('Incorrect mandatory argument')
 package_ref = args[0]
+
+setup_signals()
 
 if opts.debug:
     loglevel = logging.DEBUG
