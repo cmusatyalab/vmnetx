@@ -178,10 +178,14 @@ class _QemuWatchdog(object):
         # Find qemu and the compressor if we haven't already found it.
         if self._qemu_pid is None:
             pids = [int(p) for p in os.listdir('/proc') if p.isdigit()]
+            uid = os.getuid()
 
             # Look for qemu
             for pid in pids:
                 try:
+                    # Check process owner
+                    if os.stat('/proc/%d' % pid).st_uid != uid:
+                        continue
                     # Check process name.  We can't check against the
                     # emulator from the domain XML, because it turns out that
                     # that could be a shell script.
@@ -215,6 +219,9 @@ class _QemuWatchdog(object):
             # Now look for compressor communicating with the emulator
             for pid in pids:
                 try:
+                    # Check process owner
+                    if os.stat('/proc/%d' % pid).st_uid != uid:
+                        continue
                     # Check process name
                     exe = os.readlink('/proc/%d/exe' % pid)
                     if exe.split('/')[-1] not in self.COMPRESSORS:
