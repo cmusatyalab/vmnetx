@@ -31,6 +31,7 @@ from lxml.builder import ElementMaker
 import os
 import pipes
 import pwd
+import signal
 import subprocess
 import sys
 import threading
@@ -148,6 +149,110 @@ class _ReferencedObject(object):
             ),
         )
     # pylint: enable=W0212
+
+
+class _QemuWatchdog(object):
+    # Watch to see if qemu dies at startup, and if so, kill the compressor
+    # processing its save file.
+    # Workaround for <https://bugzilla.redhat.com/show_bug.cgi?id=982816>.
+
+    INTERVAL = 100 # ms
+    COMPRESSORS = ('gzip', 'bzip2', 'xz', 'lzop')
+
+    def __init__(self, name):
+        # Called from vmnetx-startup thread.
+        self._name = name
+        self._stop = False
+        self._qemu_exe = None
+        self._qemu_pid = None
+        self._compressor_exe = None
+        self._compressor_pid = None
+        gobject.timeout_add(self.INTERVAL, self._timer)
+
+    def _timer(self):
+        # Called from UI thread.
+        # First see if we should terminate.
+        if self._stop:
+            return False
+
+        # Find qemu and the compressor if we haven't already found it.
+        if self._qemu_pid is None:
+            pids = [int(p) for p in os.listdir('/proc') if p.isdigit()]
+
+            # Look for qemu
+            for pid in pids:
+                try:
+                    # Check process name.  We can't check against the
+                    # emulator from the domain XML, because it turns out that
+                    # that could be a shell script.
+                    exe = os.readlink('/proc/%d/exe' % pid)
+                    if 'qemu' not in exe and 'kvm' not in exe:
+                        continue
+                    # Read argv
+                    with open('/proc/%d/cmdline' % pid) as fh:
+                        args = fh.read().split('\x00')
+                    # Check VM name
+                    if args[args.index('-name') + 1] != self._name:
+                        continue
+                    # Get compressor fd
+                    fd = args[args.index('-incoming') + 1]
+                    fd = int(fd.replace('fd:', ''))
+                    # Get kernel identifier for compressor fd
+                    compress_ident = os.readlink('/proc/%d/fd/%d' % (pid, fd))
+                    if not compress_ident.startswith('pipe:'):
+                        continue
+                    # All set.
+                    self._qemu_exe = exe
+                    self._qemu_pid = pid
+                    break
+                except (IOError, OSError, IndexError, ValueError):
+                    continue
+            else:
+                # Couldn't find emulator; it may not have started yet.
+                # Try again later.
+                return True
+
+            # Now look for compressor communicating with the emulator
+            for pid in pids:
+                try:
+                    # Check process name
+                    exe = os.readlink('/proc/%d/exe' % pid)
+                    if exe.split('/')[-1] not in self.COMPRESSORS:
+                        continue
+                    # Check kernel identifier for stdout
+                    if os.readlink('/proc/%d/fd/1' % pid) != compress_ident:
+                        continue
+                    # All set.
+                    self._compressor_exe = exe
+                    self._compressor_pid = pid
+                    break
+                except OSError:
+                    continue
+            else:
+                # Couldn't find compressor.  Either the compressor has
+                # already exited, or this is an uncompressed memory image.
+                # Conclude that we have nothing to do.
+                return False
+
+        # If qemu still exists, try again later.
+        try:
+            if os.readlink('/proc/%d/exe' % self._qemu_pid) == self._qemu_exe:
+                return True
+        except OSError:
+            pass
+
+        # qemu exited.  Kill compressor.
+        try:
+            if (os.readlink('/proc/%d/exe' % self._compressor_pid) ==
+                    self._compressor_exe):
+                os.kill(self._compressor_pid, signal.SIGTERM)
+        except OSError:
+            pass
+        return False
+
+    def stop(self):
+        # Called from vmnetx-startup thread.
+        self._stop = True
 
 
 class LocalController(Controller):
@@ -317,11 +422,15 @@ class LocalController(Controller):
             have_memory = self.have_memory
             try:
                 if have_memory:
-                    # Does not return domain handle
-                    # Does not allow autodestroy
-                    self._conn.restoreFlags(self._memory_image_path,
-                            self._domain_xml,
-                            libvirt.VIR_DOMAIN_SAVE_RUNNING)
+                    watchdog = _QemuWatchdog(self._domain_name)
+                    try:
+                        # Does not return domain handle
+                        # Does not allow autodestroy
+                        self._conn.restoreFlags(self._memory_image_path,
+                                self._domain_xml,
+                                libvirt.VIR_DOMAIN_SAVE_RUNNING)
+                    finally:
+                        watchdog.stop()
                     domain = self._conn.lookupByName(self._domain_name)
                 else:
                     domain = self._conn.createXML(self._domain_xml,
