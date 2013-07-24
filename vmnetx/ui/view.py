@@ -189,7 +189,9 @@ class SpiceWidget(_ViewerWidget):
         self._session = None
         self._gtk_session = None
         self._audio = None
+        self._display_channel = None
         self._display = None
+        self._display_showing = False
         self._error_events = set([getattr(SpiceClientGtk, e)
                 for e in self._ERROR_EVENTS])
 
@@ -223,9 +225,12 @@ class SpiceWidget(_ViewerWidget):
         type = SpiceClientGtk.spice_channel_type_to_string(
                 channel.get_property('channel-type'))
         if type == 'display':
+            # Create the display but don't show it until configured by
+            # the server
+            channel.connect_object('display-primary-create',
+                    self._display_create, channel)
             self._destroy_display()
-            self.remove(self._placeholder)
-            self.add(self._aspect)
+            self._display_channel = channel
             self._display = SpiceClientGtk.Display(self._session,
                     channel.get_property('channel-id'))
             # Default was False in spice-gtk < 0.14
@@ -233,6 +238,14 @@ class SpiceWidget(_ViewerWidget):
             self._display.connect('size-request', self._size_request)
             self._display.connect('keyboard-grab', self._grab, 'keyboard')
             self._display.connect('mouse-grab', self._grab, 'mouse')
+
+    def _display_create(self, channel, _format, _width, _height, _stride,
+            _shmid, _imgdata):
+        if channel is self._display_channel and not self._display_showing:
+            # Display is now configured; show it
+            self._display_showing = True
+            self.remove(self._placeholder)
+            self.add(self._aspect)
             self._aspect.add(self._display)
             self._aspect.show_all()
             self.emit('viewer-connect')
@@ -264,14 +277,16 @@ class SpiceWidget(_ViewerWidget):
         if self._display is not None:
             self._display.destroy()
             self._display = None
-            if self.get_children():
+            if self.get_children() and self._display_showing:
                 self.remove(self._aspect)
                 self.add(self._placeholder)
                 self._placeholder.show()
+            self._display_showing = False
 
     def _disconnect(self):
         if self._session is not None:
             self._destroy_display()
+            self._display_channel = None
             self._session.disconnect()
             self._audio = None
             self._gtk_session = None
