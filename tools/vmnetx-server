@@ -23,15 +23,54 @@ import logging
 from optparse import OptionParser
 import os
 import signal
+import socket
 import sys
+import yaml
 
 import vmnetx
 from vmnetx.package import NeedAuthentication
 from vmnetx.server import VMNetXServer
 
-USAGE = 'Usage: %prog [options] {reference-path|package-url|package-path}'
+USAGE = 'Usage: %prog [options] config-file'
 VERSION = '%prog ' + vmnetx.__version__
 DESCRIPTION = 'Export VMNetX VMs via remote network protocol.'
+
+DEFAULT_PORT = 18923
+DEFAULT_GC_INTERVAL = 1000 * 5  # milliseconds
+DEFAULT_TOKEN_TIMEOUT = 60 * 5  # seconds
+
+
+def parse_config(path):
+    with open(path, 'r') as stream:
+        config = yaml.load(stream)
+    options = {}
+
+    options['package_ref'] = config.get('package_ref')
+    if options['package_ref'] is None:
+        raise ValueError('Missing package reference')
+
+    options['username'] = config.get('username')
+    options['password'] = config.get('password')
+
+    options['host'] = config.get('host')
+    if options['host'] is None:
+        options['host'] = socket.gethostbyname(socket.gethostname())
+
+    options['port'] = config.get('port', DEFAULT_PORT)
+    if not isinstance(options['port'], int):
+        raise ValueError("Invalid port setting")
+
+    options['gc_interval'] = config.get('gc_interval', DEFAULT_GC_INTERVAL)
+    if not isinstance(options['gc_interval'], int):
+        raise ValueError("Invalid GC timeout")
+
+    options['token_timeout'] = config.get('token_timeout',
+            DEFAULT_TOKEN_TIMEOUT)
+    if not isinstance(options['token_timeout'], int):
+        raise ValueError("Invalid token timeout")
+
+    return options
+
 
 # self-pipe trick for shutting down correctly from signals
 def shutdown(source, _cond):
@@ -66,17 +105,11 @@ def setup_signals():
 parser = OptionParser(usage=USAGE, version=VERSION, description=DESCRIPTION)
 parser.add_option('-d', '--debug', dest='debug', action='store_true',
         help='Enable debug messages')
-parser.add_option('-l', '--listen', dest='host',
-        help='Address to listen on', metavar='ADDRESS')
-parser.add_option('-p', '--port', dest='port', type='int',
-        help='Port to listen on', metavar='PORT')
-parser.add_option('-u', '--username', dest='username',
-        help='Username on remote server', metavar='USERNAME')
 
 opts, args = parser.parse_args()
 if len(args) != 1:
     parser.error('Incorrect mandatory argument')
-package_ref = args[0]
+config_path = args[0]
 
 setup_signals()
 
@@ -86,25 +119,15 @@ else:
     loglevel = logging.INFO
 logging.basicConfig(level=loglevel)
 
-username = opts.username
-scheme = password = None
-while True:
-    try:
-        server = VMNetXServer(package_ref, host=opts.host, port=opts.port,
-                scheme=scheme, username=username, password=password)
-    except NeedAuthentication, e:
-        scheme = e.scheme
-        print 'Host: %s' % e.host
-        print 'Realm: %s' % e.realm
-        if username is None:
-            username = raw_input('Username: ')
-        else:
-            print 'Username: %s' % username
-        password = getpass()
-        continue
-    break
+options = parse_config(config_path)
+username = options.pop('username')
+password = options.pop('password')
+try:
+    server = VMNetXServer(**options)
+except NeedAuthentication, e:
+    server = VMNetXServer(scheme=e.scheme, username=username,
+            password=password, **options)
 print 'URL: %s' % server.url
-
 loop = glib.MainLoop()
 try:
     loop.run()

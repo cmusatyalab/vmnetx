@@ -156,7 +156,7 @@ class VMNetXServer(object):
     DEFAULT_PORT = 18923
 
     def __init__(self, package_ref, host=None, port=None, scheme=None,
-            username=None, password=None):
+            username=None, password=None, **_kwargs):
         gobject.threads_init()
 
         hostname = host
