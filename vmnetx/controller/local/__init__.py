@@ -361,6 +361,9 @@ class LocalController(Controller):
             self._load_monitor = LoadProgressMonitor(memory_path)
             self._load_monitor.connect('progress', self._load_progress)
 
+        # Kick off state machine after main loop starts
+        gobject.idle_add(self.emit, 'vm-stopped')
+
     def _ensure_permissions(self):
         try:
             obj = dbus.SystemBus().get_object(self.AUTHORIZER_NAME,

@@ -149,9 +149,6 @@ class VMNetXUI(object):
                     'available' if have_spice_viewer else 'unavailable',
                     'enabled' if self._controller.use_spice else 'disabled')
 
-            # Load memory image
-            self._controller.start_vm()
-
             # Run main loop
             gtk.main()
         except (KeyboardInterrupt, SystemExit):

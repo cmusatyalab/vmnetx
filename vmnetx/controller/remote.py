@@ -181,6 +181,12 @@ class RemoteController(Controller):
 
             self._connect_socket(self._address, connected)
 
+        # Connected.  Kick off state machine when main loop starts.
+        if self.state == self.STATE_STOPPED:
+            gobject.idle_add(self.emit, 'vm-stopped')
+        elif self.state == self.STATE_RUNNING:
+            gobject.idle_add(self.emit, 'startup-complete')
+
     def _startup_progress(self, _endp, fraction):
         self.emit('startup-progress', int(fraction * 10000), 10000)
 
