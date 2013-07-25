@@ -219,7 +219,10 @@ class SpiceWidget(_ViewerWidget):
                 self._session)
         self._session.open_fd(-1)
 
-    def _new_channel(self, _session, channel):
+    def _new_channel(self, session, channel):
+        if session != self._session:
+            # Stale channel; ignore
+            return
         channel.connect_object('open-fd', self._request_fd, channel)
         channel.connect_object('channel-event', self._channel_event, channel)
         type = SpiceClientGtk.spice_channel_type_to_string(
@@ -259,7 +262,15 @@ class SpiceWidget(_ViewerWidget):
         else:
             data.open_fd(fd)
 
-    def _channel_event(self, _channel, event):
+    def _channel_event(self, channel, event):
+        try:
+            if channel.get_property('spice-session') != self._session:
+                # Stale channel; ignore
+                return
+        except TypeError:
+            # Channel is invalid because the session was closed while the
+            # event was sitting in the queue.
+            return
         if event in self._error_events:
             self._disconnect()
 
