@@ -53,6 +53,8 @@ class _ViewerWidget(gtk.EventBox):
                 (gobject.TYPE_BOOLEAN,)),
     }
 
+    BACKOFF_TIMES = (1000, 2000, 5000, 10000)  # ms
+
     def __init__(self, max_mouse_rate=None):
         gtk.EventBox.__init__(self)
         # Must be updated by subclasses
@@ -60,6 +62,13 @@ class _ViewerWidget(gtk.EventBox):
         self.mouse_grabbed = False
 
         self.connect('grab-focus', self._grab_focus)
+
+        # Reconnection handling
+        self._backoff_index = 0
+        self._backoff_timer = None
+        self._password = None
+        self.connect('viewer-connect', self._connected)
+        self.connect('viewer-disconnect', self._disconnected)
 
         self._last_motion_time = 0
         if max_mouse_rate is not None:
@@ -71,6 +80,37 @@ class _ViewerWidget(gtk.EventBox):
     def connect_viewer(self, password):
         '''Start a connection.  Emits viewer-get-fd one or more times; call
         set_fd() with the provided token and the resulting fd.'''
+        if self._backoff_timer is not None:
+            gobject.source_remove(self._backoff_timer)
+            self._backoff_timer = None
+        self._backoff_index = 0
+        self._password = password
+        self._connect_viewer(password)
+
+    def _connect_timer(self):
+        self._connect_viewer(self._password)
+        self._backoff_timer = None
+        return False
+
+    def _connected(self, _obj):
+        # We have a successful connection.  If it later fails, the first
+        # retry should be immediate.
+        self._backoff_index = None
+
+    def _disconnected(self, _obj):
+        if self._backoff_timer is not None:
+            return
+        if self._backoff_index is None:
+            timeout = 0
+            self._backoff_index = 0
+        else:
+            timeout = self.BACKOFF_TIMES[self._backoff_index]
+            self._backoff_index = min(self._backoff_index + 1,
+                    len(self.BACKOFF_TIMES) - 1)
+        self._backoff_timer = gobject.timeout_add(timeout,
+                self._connect_timer)
+
+    def _connect_viewer(self, password):
         raise NotImplementedError
 
     def set_fd(self, data, fd):
@@ -158,7 +198,7 @@ class VNCWidget(_ViewerWidget):
         setattr(self, what + '_grabbed', whether)
         self.emit('viewer-%s-grab' % what, whether)
 
-    def connect_viewer(self, password):
+    def _connect_viewer(self, password):
         self._vnc.set_credential(gtkvnc.CREDENTIAL_PASSWORD, password)
         self.emit('viewer-get-fd', None)
 
@@ -201,7 +241,7 @@ class SpiceWidget(_ViewerWidget):
         self._placeholder.set_property('can-focus', True)
         self.add(self._placeholder)
 
-    def connect_viewer(self, password):
+    def _connect_viewer(self, password):
         assert self._session is None
         self._session = SpiceClientGtk.Session()
         self._session.set_property('password', password)
