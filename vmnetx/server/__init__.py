@@ -171,6 +171,7 @@ class VMNetXServer(object):
         self._controller = Controller.get_for_ref(package_ref, use_spice=True)
         if not isinstance(self._controller, LocalController):
             raise ValueError('Refusing to re-export remote VM!')
+        self._controller.setup_environment()
         self._controller.scheme = scheme
         self._controller.username = username
         self._controller.password = password

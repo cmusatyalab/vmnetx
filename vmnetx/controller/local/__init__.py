@@ -156,6 +156,7 @@ class LocalController(Controller):
     AUTHORIZER_IFACE = 'org.olivearchive.VMNetX.Authorizer'
     STATS = ('bytes_read', 'bytes_written', 'chunk_dirties', 'chunk_fetches',
             'io_errors')
+    _environment_ready = False
 
     def __init__(self, url, use_spice):
         Controller.__init__(self)
@@ -174,8 +175,8 @@ class LocalController(Controller):
     # Should be called before we open any windows, since we may re-exec
     # the whole program if we need to update the group list.
     def initialize(self):
-        # Verify authorization to mount a FUSE filesystem
-        self._ensure_permissions()
+        if not self._environment_ready:
+            raise ValueError('setup_environment has not been called')
 
         # Load package
         package = Package(self._url, scheme=self.scheme,
@@ -249,13 +250,14 @@ class LocalController(Controller):
             self._load_monitor = LoadProgressMonitor(memory_path)
             self._load_monitor.connect('progress', self._load_progress)
 
-    def _ensure_permissions(self):
+    @classmethod
+    def setup_environment(cls):
         try:
-            obj = dbus.SystemBus().get_object(self.AUTHORIZER_NAME,
-                    self.AUTHORIZER_PATH)
+            obj = dbus.SystemBus().get_object(cls.AUTHORIZER_NAME,
+                    cls.AUTHORIZER_PATH)
             # We would like an infinite timeout, but dbus-python won't allow
             # it.  Pass the longest timeout dbus-python will accept.
-            groups = obj.EnableFUSEAccess(dbus_interface=self.AUTHORIZER_IFACE,
+            groups = obj.EnableFUSEAccess(dbus_interface=cls.AUTHORIZER_IFACE,
                     timeout=2147483)
         except dbus.exceptions.DBusException, e:
             # dbus-python exception handling is problematic.
@@ -267,6 +269,7 @@ class LocalController(Controller):
                 # wasn't configured correctly), proceed as though we have
                 # sufficient permission, and possibly fail later.  This
                 # avoids unnecessary failures in the common case.
+                cls._environment_ready = True
                 return
 
         if groups:
@@ -286,6 +289,8 @@ class LocalController(Controller):
             primary_gid = pwd.getpwuid(os.getuid()).pw_gid
             if os.getgid() != primary_gid:
                 switch_group(grp.getgrgid(primary_gid).gr_name)
+
+        cls._environment_ready = True
 
     def _spice_is_usable(self, emulator):
         '''Determine whether emulator supports SPICE.'''

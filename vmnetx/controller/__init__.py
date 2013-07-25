@@ -108,6 +108,10 @@ class Controller(gobject.GObject):
     def initialize(self):
         raise NotImplementedError
 
+    @classmethod
+    def setup_environment(cls):
+        pass
+
     def start_vm(self):
         raise NotImplementedError
 

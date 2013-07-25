@@ -85,6 +85,7 @@ class VMNetXUI(object):
             # Create controller
             self._controller = Controller.get_for_ref(self._package_ref,
                     have_spice_viewer)
+            self._controller.setup_environment()
             self._controller.connect('startup-progress',
                     self._startup_progress)
             self._controller.connect('startup-complete', self._startup_done)
