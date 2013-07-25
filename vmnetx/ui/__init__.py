@@ -73,6 +73,7 @@ class VMNetXUI(object):
         self._wind = None
         self._load_window = None
         self._io_failed = False
+        self._bad_memory = False
 
     # We intentionally catch all exceptions
     # pylint: disable=W0702
@@ -206,8 +207,10 @@ class VMNetXUI(object):
         self._shutdown()
 
     def _warn_bad_memory(self):
-        self._wind.add_warning('dialog-warning',
-                'The memory image could not be loaded.')
+        if not self._bad_memory:
+            self._bad_memory = True
+            self._wind.add_warning('dialog-warning',
+                    'The memory image could not be loaded.')
 
     def _viewer_get_fd(self, _obj, data):
         def done(sock=None, error=None):
