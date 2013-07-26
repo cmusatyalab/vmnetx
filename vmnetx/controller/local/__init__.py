@@ -275,6 +275,7 @@ class LocalController(Controller):
         self._want_spice = use_spice
         self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
         self._package = None
+        self._have_memory = False
         self._memory_image_path = None
         self._fs = None
         self._conn = None
@@ -340,7 +341,7 @@ class LocalController(Controller):
 
         # Set configuration
         self.vm_name = package.name
-        self.have_memory = memory_path is not None
+        self._have_memory = memory_path is not None
         self.max_mouse_rate = domain_xml.max_mouse_rate
 
         # Set chunk size
@@ -357,7 +358,7 @@ class LocalController(Controller):
         log_monitor = LineStreamMonitor(log_path)
         log_monitor.connect('line-emitted', self._vmnetfs_log)
         self._monitors.append(log_monitor)
-        if self.have_memory:
+        if self._have_memory:
             self._load_monitor = LoadProgressMonitor(memory_path)
             self._load_monitor.connect('progress', self._load_progress)
 
@@ -420,7 +421,7 @@ class LocalController(Controller):
     @Controller._ensure_state(Controller.STATE_STOPPED)
     def start_vm(self):
         self.state = self.STATE_STARTING
-        if self.have_memory:
+        if self._have_memory:
             self.emit('startup-progress', 0, self._load_monitor.chunks)
         threading.Thread(name='vmnetx-startup', target=self._startup).start()
 
@@ -429,7 +430,7 @@ class LocalController(Controller):
     def _startup(self):
         # Thread function.
         try:
-            have_memory = self.have_memory
+            have_memory = self._have_memory
             try:
                 if have_memory:
                     watchdog = _QemuWatchdog(self._domain_name)
@@ -461,8 +462,8 @@ class LocalController(Controller):
         except:
             if self.state == self.STATE_STOPPING:
                 gobject.idle_add(self.emit, 'startup-cancelled')
-            elif self.have_memory:
-                self.have_memory = False
+            elif have_memory:
+                self._have_memory = False
                 gobject.idle_add(self.emit, 'startup-rejected-memory')
                 # Retry without memory image
                 self._startup()
@@ -475,7 +476,7 @@ class LocalController(Controller):
     # pylint: enable=W0702
 
     def _load_progress(self, _obj, count, total):
-        if self.have_memory and self.state == self.STATE_STARTING:
+        if self._have_memory and self.state == self.STATE_STARTING:
             self.emit('startup-progress', count, total)
 
     def startup_cancel(self):
@@ -506,7 +507,7 @@ class LocalController(Controller):
                 # Assume that the VM did not exist or was already dying
                 pass
             self._viewer_address = None
-        self.have_memory = False
+        self._have_memory = False
 
     def shutdown(self):
         for monitor in self._monitors:
