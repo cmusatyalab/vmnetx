@@ -345,8 +345,8 @@ class ServerEndpoint(_Endpoint):
     def send_startup_progress(self, fraction):
         self._transmit('startup-progress', fraction=fraction)
 
-    def send_startup_complete(self):
-        self._transmit('startup-complete')
+    def send_startup_complete(self, check_display):
+        self._transmit('startup-complete', check_display=check_display)
 
     def send_startup_cancelled(self):
         self._transmit('startup-cancelled')
@@ -377,7 +377,8 @@ class ClientEndpoint(_Endpoint):
         'attaching-viewer': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'startup-progress': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (gobject.TYPE_DOUBLE,)),
-        'startup-complete': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'startup-complete': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (gobject.TYPE_BOOLEAN,)),
         'startup-cancelled': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'startup-rejected-memory': (gobject.SIGNAL_RUN_LAST,
                 gobject.TYPE_NONE, ()),
@@ -417,7 +418,7 @@ class ClientEndpoint(_Endpoint):
 
             elif mtype == 'startup-complete':
                 self._need_dispatch_state(self.STATE_RUNNING)
-                self.emit('startup-complete')
+                self.emit('startup-complete', msg['check_display'])
 
             elif mtype == 'startup-cancelled':
                 self._need_dispatch_state(self.STATE_RUNNING)

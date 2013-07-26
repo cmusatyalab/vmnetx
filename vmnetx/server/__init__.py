@@ -135,8 +135,8 @@ class _ServerConnection(gobject.GObject):
     def _ctrl_startup_progress(self, _obj, count, total):
         self._endp.send_startup_progress(count / total)
 
-    def _ctrl_startup_complete(self, _obj):
-        self._endp.send_startup_complete()
+    def _ctrl_startup_complete(self, _obj, check_display):
+        self._endp.send_startup_complete(check_display)
 
     def _ctrl_startup_cancelled(self, _obj):
         self._endp.send_startup_cancelled()

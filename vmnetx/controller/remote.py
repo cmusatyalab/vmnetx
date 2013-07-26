@@ -185,14 +185,14 @@ class RemoteController(Controller):
         if self.state == self.STATE_STOPPED:
             gobject.idle_add(self.emit, 'vm-stopped')
         elif self.state == self.STATE_RUNNING:
-            gobject.idle_add(self.emit, 'startup-complete')
+            gobject.idle_add(self.emit, 'startup-complete', False)
 
     def _startup_progress(self, _endp, fraction):
         self.emit('startup-progress', int(fraction * 10000), 10000)
 
-    def _startup_complete(self, _endp):
+    def _startup_complete(self, _endp, check_display):
         self.state = self.STATE_RUNNING
-        self.emit('startup-complete')
+        self.emit('startup-complete', check_display)
 
     def _startup_cancelled(self, _endp):
         self.state = self.STATE_STOPPED

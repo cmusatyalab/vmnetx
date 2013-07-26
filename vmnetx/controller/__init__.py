@@ -38,7 +38,8 @@ class Controller(gobject.GObject):
     __gsignals__ = {
         'startup-progress': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (gobject.TYPE_UINT64, gobject.TYPE_UINT64)),
-        'startup-complete': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'startup-complete': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (gobject.TYPE_BOOLEAN,)),
         'startup-cancelled': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'startup-rejected-memory': (gobject.SIGNAL_RUN_LAST,
                 gobject.TYPE_NONE, ()),

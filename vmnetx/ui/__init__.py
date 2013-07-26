@@ -73,6 +73,7 @@ class VMNetXUI(object):
         self._wind = None
         self._load_window = None
         self._io_failed = False
+        self._check_display = False
         self._bad_memory = False
 
     # We intentionally catch all exceptions
@@ -184,7 +185,8 @@ class VMNetXUI(object):
             self._load_window.destroy()
             self._load_window = None
 
-    def _startup_done(self, _obj):
+    def _startup_done(self, _obj, check_display):
+        self._check_display = check_display
         self._wind.set_vm_running(True)
         self._wind.connect_viewer(self._controller.viewer_password)
         self._destroy_load_window()
@@ -221,16 +223,16 @@ class VMNetXUI(object):
         self._controller.connect_viewer(done)
 
     def _connect(self, _obj):
-        glib.timeout_add(self.RESUME_CHECK_DELAY,
-                self._startup_check_screenshot)
+        if self._check_display:
+            self._check_display = False
+            glib.timeout_add(self.RESUME_CHECK_DELAY,
+                    self._startup_check_screenshot)
 
     # pylint doesn't like '\0'
     # pylint: disable=W1401
     def _startup_check_screenshot(self):
         # If qemu doesn't like a memory image, it may sit and spin rather
         # than failing properly.  Recover from this case.
-        if not self._controller.have_memory:
-            return
         img = self._wind.take_screenshot()
         if img is None:
             return
