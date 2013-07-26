@@ -215,7 +215,6 @@ class VMNetXUI(object):
         def done(sock=None, error=None):
             assert error is not None or sock is not None
             if error is not None:
-                _log.warning('Viewer connection failed: %s', error)
                 self._wind.set_viewer_fd(data, None)
             else:
                 self._wind.set_viewer_fd(data, os.dup(sock.fileno()))
