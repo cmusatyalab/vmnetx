@@ -229,8 +229,10 @@ class RemoteController(Controller):
         elif self.state != self.STATE_STOPPING:
             raise MachineStateError('Machine in inappropriate state')
 
-    @Controller._ensure_state(Controller.STATE_RUNNING)
     def connect_viewer(self, callback):
+        if self.state != self.STATE_RUNNING:
+            callback(error='Machine in inappropriate state')
+            return
         def connected(sock=None, error=None):
             assert sock is not None or error is not None
             if error is not None:
