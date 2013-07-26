@@ -295,7 +295,12 @@ class SpiceWidget(_ViewerWidget):
             self.emit('viewer-connect')
 
     def _request_fd(self, chan, _with_tls):
-        self.emit('viewer-get-fd', chan)
+        try:
+            self.emit('viewer-get-fd', chan)
+        except TypeError:
+            # Channel is invalid because the session was closed while the
+            # event was sitting in the queue.
+            pass
 
     def set_fd(self, data, fd):
         if fd is None:
