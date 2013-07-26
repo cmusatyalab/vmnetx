@@ -199,6 +199,7 @@ class VNCWidget(_ViewerWidget):
         self.emit('viewer-%s-grab' % what, whether)
 
     def _connect_viewer(self, password):
+        self._vnc.close()
         self._vnc.set_credential(gtkvnc.CREDENTIAL_PASSWORD, password)
         self.emit('viewer-get-fd', None)
 
@@ -242,7 +243,7 @@ class SpiceWidget(_ViewerWidget):
         self.add(self._placeholder)
 
     def _connect_viewer(self, password):
-        assert self._session is None
+        self._disconnect()
         self._session = SpiceClientGtk.Session()
         self._session.set_property('password', password)
         self._session.set_property('enable-usbredir', False)
