@@ -107,6 +107,10 @@ class _TemporaryMainLoop(object):
 class RemoteController(Controller):
     DEFAULT_PORT = 18923
 
+    PHASE_INIT = 0
+    PHASE_RUN = 1
+    PHASE_STOP = 2
+
     # pylint is confused by named tuples
     # pylint: disable=E1103
     def __init__(self, url, use_spice):
@@ -122,27 +126,39 @@ class RemoteController(Controller):
         self._address = (parsed.hostname, parsed.port or self.DEFAULT_PORT)
         self.viewer_password = parsed.path.lstrip('/')
 
+        # Main loop for initialize() and shutdown()
+        self._loop = None
+
+        self._phase = self.PHASE_INIT
         self._endp = None
         self._handlers = []
-        self._closed = False
     # pylint: enable=E1103
 
     def initialize(self):
-        handlers = []
-        with _TemporaryMainLoop() as loop:
-            def auth_ok(_endp, state, name):
-                self.state = (
-                        self.STATE_STARTING if state == 'starting' else
-                        self.STATE_RUNNING if state == 'running' else
-                        self.STATE_STOPPING if state == 'stopping' else
-                        self.STATE_STOPPED)
-                self.vm_name = name
-                self._endp.start_pinging()
-                # Rebind signal handlers
-                for handler in handlers:
-                    self._endp.disconnect(handler)
+        assert self._phase == self.PHASE_INIT
+        with _TemporaryMainLoop() as self._loop:
+            self._connect_socket(self._address, self._connected)
+
+        # Connected
+        self._loop = None
+        self._phase = self.PHASE_RUN
+        # Kick off state machine when main loop starts.
+        if self.state == self.STATE_STOPPED:
+            gobject.idle_add(self.emit, 'vm-stopped')
+        elif self.state == self.STATE_RUNNING:
+            gobject.idle_add(self.emit, 'startup-complete', False)
+
+    def _connected(self, sock=None, error=None):
+        assert sock is not None or error is not None
+        if self._phase == self.PHASE_INIT:
+            if error is not None:
+                self._loop.fail(error)
+            else:
+                self._endp = ClientEndpoint(sock)
                 def connect(signal, handler):
                     self._handlers.append(self._endp.connect(signal, handler))
+                connect('auth-ok', self._auth_ok)
+                connect('auth-failed', self._auth_failed)
                 connect('startup-progress', self._startup_progress)
                 connect('startup-complete', self._startup_complete)
                 connect('startup-cancelled', self._startup_cancelled)
@@ -152,71 +168,73 @@ class RemoteController(Controller):
                 connect('vm-stopped', self._vm_stopped)
                 connect('error', self._error)
                 connect('close', self._shutdown)
-                loop.quit()
+                self._endp.send_authenticate(self.viewer_password)
 
-            def auth_failed(_endp, error):
-                loop.fail(error)
-                self._endp.shutdown()
+    def _auth_failed(self, _endp, error):
+        if self._phase == self.PHASE_INIT:
+            self._loop.fail(error)
+            self._endp.shutdown()
 
-            def conn_error(_endp, message):
-                loop.fail('Protocol error: %s' % message)
-                self._endp.shutdown()
-
-            def shutdown(_endp):
-                self._closed = True
-                loop.fail('Control connection closed')
-
-            def connected(sock=None, error=None):
-                assert sock is not None or error is not None
-                if error is not None:
-                    loop.fail(error)
-                else:
-                    self._endp = ClientEndpoint(sock)
-                    def connect(signal, handler):
-                        handlers.append(self._endp.connect(signal, handler))
-                    connect('auth-ok', auth_ok)
-                    connect('auth-failed', auth_failed)
-                    connect('error', conn_error)
-                    connect('close', shutdown)
-                    self._endp.send_authenticate(self.viewer_password)
-
-            self._connect_socket(self._address, connected)
-
-        # Connected.  Kick off state machine when main loop starts.
-        if self.state == self.STATE_STOPPED:
-            gobject.idle_add(self.emit, 'vm-stopped')
-        elif self.state == self.STATE_RUNNING:
-            gobject.idle_add(self.emit, 'startup-complete', False)
+    def _auth_ok(self, _endp, state, name):
+        if self._phase == self.PHASE_INIT:
+            self.state = (
+                    self.STATE_STARTING if state == 'starting' else
+                    self.STATE_RUNNING if state == 'running' else
+                    self.STATE_STOPPING if state == 'stopping' else
+                    self.STATE_STOPPED)
+            self.vm_name = name
+            self._endp.start_pinging()
+            self._loop.quit()
 
     def _startup_progress(self, _endp, fraction):
-        self.emit('startup-progress', int(fraction * 10000), 10000)
+        if self._phase == self.PHASE_RUN:
+            self.emit('startup-progress', int(fraction * 10000), 10000)
 
     def _startup_complete(self, _endp, check_display):
-        self.state = self.STATE_RUNNING
-        self.emit('startup-complete', check_display)
+        if self._phase == self.PHASE_RUN:
+            self.state = self.STATE_RUNNING
+            self.emit('startup-complete', check_display)
 
     def _startup_cancelled(self, _endp):
-        self.state = self.STATE_STOPPED
-        self.emit('startup-cancelled')
+        if self._phase == self.PHASE_RUN:
+            self.state = self.STATE_STOPPED
+            self.emit('startup-cancelled')
 
     def _startup_rejected_memory(self, _endp):
-        self.emit('startup-rejected-memory')
+        if self._phase == self.PHASE_RUN:
+            self.emit('startup-rejected-memory')
 
     def _startup_failed(self, _endp, message):
-        self.state = self.STATE_STOPPED
-        self.emit('startup-failed', ErrorBuffer(message))
+        if self._phase == self.PHASE_RUN:
+            self.state = self.STATE_STOPPED
+            self.emit('startup-failed', ErrorBuffer(message))
 
     def _vm_stopped(self, _endp):
-        self.state = self.STATE_STOPPED
-        self.emit('vm-stopped')
+        if self._phase == self.PHASE_RUN:
+            self.state = self.STATE_STOPPED
+            self.emit('vm-stopped')
 
     def _error(self, _endp, message):
-        self.emit('fatal-error', ErrorBuffer('Protocol error: %s' % message))
-        self._endp.shutdown()
+        if self._phase == self.PHASE_INIT:
+            self._loop.fail('Protocol error: %s' % message)
+            self._endp.shutdown()
+        elif self._phase == self.PHASE_RUN:
+            self.emit('fatal-error',
+                    ErrorBuffer('Protocol error: %s' % message))
+            self._endp.shutdown()
 
     def _shutdown(self, _endp):
-        self.emit('fatal-error', ErrorBuffer('Control connection closed'))
-        self._closed = True
+        for handler in self._handlers:
+            self._endp.disconnect(handler)
+        self._handlers = []
+        self._endp = None
+
+        if self._phase == self.PHASE_INIT:
+            self._loop.fail('Control connection closed')
+        elif self._phase == self.PHASE_RUN:
+            self.emit('fatal-error', ErrorBuffer('Control connection closed'))
+        elif self._phase == self.PHASE_STOP:
+            self._loop.quit()
 
     @Controller._ensure_state(Controller.STATE_STOPPED)
     def start_vm(self):
@@ -248,19 +266,10 @@ class RemoteController(Controller):
             self._endp.send_stop_vm()
 
     def shutdown(self):
-        if self._endp is None:
-            return
-
-        # Rebind handlers
-        for handler in self._handlers:
-            self._endp.disconnect(handler)
-        self._handlers = []
-
-        if not self._closed:
-            with _TemporaryMainLoop() as loop:
-                def shutdown(_endp):
-                    loop.quit()
-                self._endp.connect('close', shutdown)
+        if self._endp is not None:
+            self._phase = self.PHASE_STOP
+            with _TemporaryMainLoop() as self._loop:
                 self.stop_vm()
                 self._endp.shutdown()
+            self._loop = None
 gobject.type_register(RemoteController)
