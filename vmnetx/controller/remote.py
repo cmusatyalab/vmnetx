@@ -236,17 +236,30 @@ class RemoteController(Controller):
         elif self._phase == self.PHASE_STOP:
             self._loop.quit()
 
+    def _want_state(self, wanted):
+        # Only handle transitions for which we can usefully issue a command.
+        # Other transitions will be handled by the UI after a subsequent
+        # event.
+        if wanted == self.STATE_RUNNING:
+            if self.state == self.STATE_STOPPED:
+                self.state = self.STATE_STARTING
+                self._endp.send_start_vm()
+
+        elif wanted == self.STATE_STOPPED:
+            if self.state == self.STATE_STARTING:
+                self.state = self.STATE_STOPPING
+                self._endp.send_startup_cancel()
+
+            elif self.state == self.STATE_RUNNING:
+                self.state = self.STATE_STOPPING
+                self._endp.send_stop_vm()
+
     @Controller._ensure_state(Controller.STATE_STOPPED)
     def start_vm(self):
-        self.state = self.STATE_STARTING
-        self._endp.send_start_vm()
+        self._want_state(self.STATE_RUNNING)
 
     def startup_cancel(self):
-        if self.state == self.STATE_STARTING:
-            self.state = self.STATE_STOPPING
-            self._endp.send_startup_cancel()
-        elif self.state != self.STATE_STOPPING:
-            raise MachineStateError('Machine in inappropriate state')
+        self._want_state(self.STATE_STOPPED)
 
     def connect_viewer(self, callback):
         if self.state != self.STATE_RUNNING:
@@ -261,9 +274,7 @@ class RemoteController(Controller):
         self._connect_socket(self._address, connected)
 
     def stop_vm(self):
-        if (self.state == self.STATE_STARTING or
-                self.state == self.STATE_RUNNING):
-            self._endp.send_stop_vm()
+        self._want_state(self.STATE_STOPPED)
 
     def shutdown(self):
         if self._endp is not None:
