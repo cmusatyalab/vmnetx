@@ -191,8 +191,9 @@ class DomainXML(object):
         # Remove metadata element
         self._remove_metadata(tree)
 
-        # Ensure machine name is unique
+        # Ensure machine name and UUID are unique
         self._xpath_one(tree, '/domain/name').text = name
+        self._xpath_one(tree, '/domain/uuid').text = str(uuid.uuid4())
 
         # Update path to emulator
         self._xpath_one(tree, '/domain/devices/emulator').text = emulator
