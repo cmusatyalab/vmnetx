@@ -461,6 +461,7 @@ class LocalController(Controller):
                     gobject.idle_add(self._load_monitor.close)
         except:
             if self.state == self.STATE_STOPPING:
+                self.state = self.STATE_STOPPED
                 gobject.idle_add(self.emit, 'startup-cancelled')
             elif have_memory:
                 self._have_memory = False
