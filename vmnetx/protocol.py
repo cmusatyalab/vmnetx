@@ -326,6 +326,10 @@ class ServerEndpoint(_Endpoint):
                 self._need_auth()
                 self.emit('stop-vm')
 
+            elif mtype == 'ping':
+                self._need_auth()
+                self._transmit('pong')
+
             else:
                 _Endpoint._dispatch(self, mtype, msg)
 
@@ -362,6 +366,39 @@ class ServerEndpoint(_Endpoint):
 gobject.type_register(ServerEndpoint)
 
 
+class _Pinger(object):
+    def __init__(self, endp, interval, count):
+        self._endp = endp
+        self._ping_count = count
+        self._ping_pending = 0
+        self._source = glib.timeout_add_seconds(interval, self._timer)
+        self._signal = endp.connect('pong', self._pong)
+
+    def _timer(self):
+        if self._ping_pending < self._ping_count:
+            try:
+                self._endp.send_ping()
+                self._ping_pending += 1
+                return True
+            except IOError:
+                # Connection failed
+                self.stop()
+                return False
+        else:
+            self.stop()
+            self._endp.shutdown()
+            return False
+
+    def _pong(self, _obj):
+        self._ping_pending = 0
+
+    def stop(self):
+        if self._source is not None:
+            glib.source_remove(self._source)
+            self._endp.disconnect(self._signal)
+            self._source = self._signal = None
+
+
 class ClientEndpoint(_Endpoint):
     STATE_UNAUTHENTICATED = 0
     STATE_AUTHENTICATING = 1
@@ -385,11 +422,18 @@ class ClientEndpoint(_Endpoint):
         'startup-failed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (gobject.TYPE_STRING,)),
         'vm-stopped': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'pong': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
     def __init__(self, sock):
         _Endpoint.__init__(self, sock)
         self._state = self.STATE_UNAUTHENTICATED
+        self._pinger = None
+
+    def start_pinging(self, interval=10, count=3):
+        if self._pinger is not None:
+            self._pinger.stop()
+        self._pinger = _Pinger(self, interval, count)
 
     def _need_dispatch_state(self, state):
         if self._state != state:
@@ -440,6 +484,9 @@ class ClientEndpoint(_Endpoint):
                 self._need_dispatch_state(self.STATE_RUNNING)
                 self.emit('vm-stopped')
 
+            elif mtype == 'pong':
+                self.emit('pong')
+
             else:
                 _Endpoint._dispatch(self, mtype, msg)
 
@@ -483,4 +530,8 @@ class ClientEndpoint(_Endpoint):
     @_need_send_state(STATE_RUNNING)
     def send_stop_vm(self):
         self._transmit('stop-vm')
+
+    @_need_send_state(STATE_RUNNING)
+    def send_ping(self):
+        self._transmit('ping')
 gobject.type_register(ClientEndpoint)

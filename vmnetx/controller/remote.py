@@ -137,6 +137,7 @@ class RemoteController(Controller):
                         self.STATE_STOPPING if state == 'stopping' else
                         self.STATE_STOPPED)
                 self.vm_name = name
+                self._endp.start_pinging()
                 # Rebind signal handlers
                 for handler in handlers:
                     self._endp.disconnect(handler)
