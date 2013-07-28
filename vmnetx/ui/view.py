@@ -25,7 +25,7 @@ import logging
 import pango
 
 from ..controller import ChunkStateArray
-from ..util import ErrorBuffer
+from ..util import ErrorBuffer, BackoffTimer
 
 # have_spice_viewer is a variable, not a constant
 # pylint: disable=C0103
@@ -63,10 +63,9 @@ class _ViewerWidget(gtk.EventBox):
 
         self.connect('grab-focus', self._grab_focus)
 
-        # Reconnection handling
-        self._backoff_index = 0
-        self._backoff_timer = None
         self._password = None
+        self._backoff = BackoffTimer()
+        self._backoff.connect('attempt', self._attempt_connection)
         self.connect('viewer-connect', self._connected)
         self.connect('viewer-disconnect', self._disconnected)
 
@@ -80,35 +79,18 @@ class _ViewerWidget(gtk.EventBox):
     def connect_viewer(self, password):
         '''Start a connection.  Emits viewer-get-fd one or more times; call
         set_fd() with the provided token and the resulting fd.'''
-        if self._backoff_timer is not None:
-            gobject.source_remove(self._backoff_timer)
-            self._backoff_timer = None
-        self._backoff_index = 0
         self._password = password
-        self._connect_viewer(password)
+        self._backoff.reset()
+        self._backoff.attempt()
 
-    def _connect_timer(self):
+    def _attempt_connection(self, _backoff):
         self._connect_viewer(self._password)
-        self._backoff_timer = None
-        return False
 
     def _connected(self, _obj):
-        # We have a successful connection.  If it later fails, the first
-        # retry should be immediate.
-        self._backoff_index = None
+        self._backoff.reset()
 
     def _disconnected(self, _obj):
-        if self._backoff_timer is not None:
-            return
-        if self._backoff_index is None:
-            timeout = 0
-            self._backoff_index = 0
-        else:
-            timeout = self.BACKOFF_TIMES[self._backoff_index]
-            self._backoff_index = min(self._backoff_index + 1,
-                    len(self.BACKOFF_TIMES) - 1)
-        self._backoff_timer = gobject.timeout_add(timeout,
-                self._connect_timer)
+        self._backoff.attempt()
 
     def _connect_viewer(self, password):
         raise NotImplementedError

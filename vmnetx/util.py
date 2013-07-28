@@ -69,6 +69,47 @@ class RangeConsolidator(object):
         return False
 
 
+class BackoffTimer(gobject.GObject):
+    __gsignals__ = {
+        'attempt': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+    }
+
+    def __init__(self, schedule=(1000, 2000, 5000, 10000)):
+        # schedule is in ms
+        gobject.GObject.__init__(self)
+        self._schedule = schedule
+        self._schedule_index = None
+        self._timer = None
+
+    def attempt(self):
+        '''Trigger a connection attempt, either immediately or after a
+        delay.'''
+        if self._timer is not None:
+            return
+        if self._schedule_index is None:
+            self._schedule_index = 0
+            self._timer = gobject.idle_add(self._attempt)
+        else:
+            timeout = self._schedule[self._schedule_index]
+            self._schedule_index = min(self._schedule_index + 1,
+                    len(self._schedule) - 1)
+            self._timer = gobject.timeout_add(timeout, self._attempt)
+
+    def _attempt(self):
+        self._timer = None
+        self.emit('attempt')
+        return False
+
+    def reset(self):
+        '''Reset timer, because a connection succeeded or because we have
+        an explicit connection request.'''
+        self._schedule_index = None
+        if self._timer is not None:
+            gobject.source_remove(self._timer)
+            self._timer = None
+gobject.type_register(BackoffTimer)
+
+
 def get_cache_dir():
     base = os.environ.get('XDG_CACHE_HOME')
     if not base:
