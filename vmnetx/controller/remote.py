@@ -197,7 +197,6 @@ class RemoteController(Controller):
     def _auth_ok(self, _endp, state, name):
         if self._phase == self.PHASE_STOP:
             return
-        old_state = self.state
         self.state = (self.STATE_STARTING if state == 'starting' else
                 self.STATE_RUNNING if state == 'running' else
                 self.STATE_STOPPING if state == 'stopping' else
@@ -208,8 +207,7 @@ class RemoteController(Controller):
             self._loop.quit()
         elif self._phase == self.PHASE_RUN:
             self.emit('network-reconnect')
-            if old_state != self.state:
-                self._notify_stable_state()
+            self._notify_stable_state()
 
     def _startup_progress(self, _endp, fraction):
         if self._phase == self.PHASE_RUN:
