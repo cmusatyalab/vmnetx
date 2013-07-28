@@ -254,6 +254,7 @@ class VMNetXUI(object):
             self._network_warning = self._wind.add_warning('network-error',
                     'The network is unavailable.')
             self._wind.disconnect_viewer()
+            self._wind.set_vm_running(False)
 
     def _network_reconnect(self, _obj):
         if self._network_warning is not None:
