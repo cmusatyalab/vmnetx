@@ -207,6 +207,7 @@ class RemoteController(Controller):
             self.vm_name = name
             self._loop.quit()
         elif self._phase == self.PHASE_RUN:
+            self.emit('network-reconnect')
             if old_state != self.state:
                 self._notify_stable_state()
 
@@ -256,6 +257,7 @@ class RemoteController(Controller):
         if self._phase == self.PHASE_INIT:
             self._loop.fail('Control connection closed')
         elif self._phase == self.PHASE_RUN:
+            self.emit('network-disconnect')
             self._backoff.attempt()
         elif self._phase == self.PHASE_STOP:
             self._loop.quit()

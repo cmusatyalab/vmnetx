@@ -384,6 +384,10 @@ class StatusBarWidget(gtk.HBox):
         image.set_tooltip_markup(message)
         self._warnings.pack_start(image)
         image.show()
+        return image
+
+    def remove_warning(self, warning):
+        self._warnings.remove(warning)
 
 
 class VMWindow(gtk.Window):
@@ -478,7 +482,10 @@ class VMWindow(gtk.Window):
             self._log.hide()
 
     def add_warning(self, icon, message):
-        self._statusbar.add_warning(icon, message)
+        return self._statusbar.add_warning(icon, message)
+
+    def remove_warning(self, warning):
+        self._statusbar.remove_warning(warning)
 
     def take_screenshot(self):
         return self._viewer.get_pixbuf()

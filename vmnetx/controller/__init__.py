@@ -46,6 +46,8 @@ class Controller(gobject.GObject):
         'startup-failed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (ErrorBuffer,)),
         'vm-stopped': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'network-disconnect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'network-reconnect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'fatal-error': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (ErrorBuffer,)),
     }

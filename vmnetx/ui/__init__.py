@@ -72,6 +72,7 @@ class VMNetXUI(object):
         self._controller = None
         self._wind = None
         self._load_window = None
+        self._network_warning = None
         self._io_failed = False
         self._check_display = False
         self._bad_memory = False
@@ -97,6 +98,10 @@ class VMNetXUI(object):
             self._controller.connect('startup-failed', self._fatal_error)
             self._controller.connect('fatal-error', self._fatal_error)
             self._controller.connect('vm-stopped', self._vm_stopped)
+            self._controller.connect('network-disconnect',
+                    self._network_disconnect)
+            self._controller.connect('network-reconnect',
+                    self._network_reconnect)
 
             # Fetch and parse metadata
             pw_wind = None
@@ -243,6 +248,16 @@ class VMNetXUI(object):
             # Terminate the VM; the vm-stopped handler will restart it
             self._controller.stop_vm()
     # pylint: enable=W1401
+
+    def _network_disconnect(self, _obj):
+        if self._network_warning is None:
+            self._network_warning = self._wind.add_warning('network-error',
+                    'The network is unavailable.')
+
+    def _network_reconnect(self, _obj):
+        if self._network_warning is not None:
+            self._wind.remove_warning(self._network_warning)
+            self._network_warning = None
 
     def _io_error(self, _monitor, _name, _value):
         if not self._io_failed:
