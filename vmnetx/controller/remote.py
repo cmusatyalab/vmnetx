@@ -21,7 +21,7 @@ import logging
 import socket
 from urlparse import urlsplit
 
-from . import Controller, MachineExecutionError, MachineStateError
+from . import Controller, MachineExecutionError
 from ..protocol import ClientEndpoint, EndpointStateError
 from ..util import ErrorBuffer, BackoffTimer
 
