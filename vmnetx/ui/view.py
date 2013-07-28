@@ -64,6 +64,7 @@ class _ViewerWidget(gtk.EventBox):
         self.connect('grab-focus', self._grab_focus)
 
         self._password = None
+        self._want_reconnect = False
         self._backoff = BackoffTimer()
         self._backoff.connect('attempt', self._attempt_connection)
         self.connect('viewer-connect', self._connected)
@@ -80,6 +81,7 @@ class _ViewerWidget(gtk.EventBox):
         '''Start a connection.  Emits viewer-get-fd one or more times; call
         set_fd() with the provided token and the resulting fd.'''
         self._password = password
+        self._want_reconnect = True
         self._backoff.reset()
         self._backoff.attempt()
 
@@ -90,13 +92,22 @@ class _ViewerWidget(gtk.EventBox):
         self._backoff.reset()
 
     def _disconnected(self, _obj):
-        self._backoff.attempt()
+        if self._want_reconnect:
+            self._backoff.attempt()
 
     def _connect_viewer(self, password):
         raise NotImplementedError
 
     def set_fd(self, data, fd):
         '''Pass fd=None if the connection attempt failed.'''
+        raise NotImplementedError
+
+    def disconnect_viewer(self):
+        self._want_reconnect = False
+        self._backoff.reset()
+        self._disconnect_viewer()
+
+    def _disconnect_viewer(self):
         raise NotImplementedError
 
     def get_pixbuf(self):
@@ -181,7 +192,7 @@ class VNCWidget(_ViewerWidget):
         self.emit('viewer-%s-grab' % what, whether)
 
     def _connect_viewer(self, password):
-        self._vnc.close()
+        self._disconnect_viewer()
         self._vnc.set_credential(gtkvnc.CREDENTIAL_PASSWORD, password)
         self.emit('viewer-get-fd', None)
 
@@ -190,6 +201,9 @@ class VNCWidget(_ViewerWidget):
             self.emit('viewer-disconnect')
         else:
             self._vnc.open_fd(fd)
+
+    def _disconnect_viewer(self):
+        self._vnc.close()
 
     def get_pixbuf(self):
         return self._vnc.get_pixbuf()
@@ -225,7 +239,7 @@ class SpiceWidget(_ViewerWidget):
         self.add(self._placeholder)
 
     def _connect_viewer(self, password):
-        self._disconnect()
+        self._disconnect_viewer()
         self._session = SpiceClientGtk.Session()
         self._session.set_property('password', password)
         self._session.set_property('enable-usbredir', False)
@@ -286,7 +300,7 @@ class SpiceWidget(_ViewerWidget):
 
     def set_fd(self, data, fd):
         if fd is None:
-            self._disconnect()
+            self._disconnect_viewer()
         else:
             data.open_fd(fd)
 
@@ -300,7 +314,7 @@ class SpiceWidget(_ViewerWidget):
             # event was sitting in the queue.
             return
         if event in self._error_events:
-            self._disconnect()
+            self._disconnect_viewer()
 
     def _size_request(self, _wid, _req):
         if self._display is not None:
@@ -322,7 +336,7 @@ class SpiceWidget(_ViewerWidget):
                 self._placeholder.show()
             self._display_showing = False
 
-    def _disconnect(self):
+    def _disconnect_viewer(self):
         if self._session is not None:
             self._destroy_display()
             self._display_channel = None
@@ -466,6 +480,9 @@ class VMWindow(gtk.Window):
 
     def set_viewer_fd(self, data, fd):
         self._viewer.set_fd(data, fd)
+
+    def disconnect_viewer(self):
+        self._viewer.disconnect_viewer()
 
     def show_activity(self, enabled):
         if self._activity is None:
