@@ -434,7 +434,7 @@ class ClientEndpoint(_Endpoint):
         self._state = self.STATE_UNAUTHENTICATED
         self._pinger = None
 
-    def start_pinging(self, interval=10, count=3):
+    def start_pinging(self, interval=3, count=3):
         if self._pinger is not None:
             self._pinger.stop()
         self._pinger = _Pinger(self, interval, count)
