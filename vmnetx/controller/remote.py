@@ -22,8 +22,8 @@ import socket
 from urlparse import urlsplit
 
 from . import Controller, MachineExecutionError, MachineStateError
-from ..protocol import ClientEndpoint
-from ..util import ErrorBuffer
+from ..protocol import ClientEndpoint, EndpointStateError
+from ..util import ErrorBuffer, BackoffTimer
 
 _log = logging.getLogger(__name__)
 
@@ -132,59 +132,83 @@ class RemoteController(Controller):
         self._phase = self.PHASE_INIT
         self._endp = None
         self._handlers = []
+        self._backoff = BackoffTimer()
+        self._backoff.connect('attempt', self._attempt_connection)
     # pylint: enable=E1103
 
     def initialize(self):
         assert self._phase == self.PHASE_INIT
         with _TemporaryMainLoop() as self._loop:
-            self._connect_socket(self._address, self._connected)
+            # A failed attempt will terminate the main loop, so this will
+            # only try once
+            self._backoff.attempt()
 
         # Connected
         self._loop = None
         self._phase = self.PHASE_RUN
         # Kick off state machine when main loop starts.
+        self._notify_stable_state()
+
+    def _notify_stable_state(self):
         if self.state == self.STATE_STOPPED:
             gobject.idle_add(self.emit, 'vm-stopped')
         elif self.state == self.STATE_RUNNING:
             gobject.idle_add(self.emit, 'startup-complete', False)
 
+    def _attempt_connection(self, _backoff):
+        self._connect_socket(self._address, self._connected)
+
     def _connected(self, sock=None, error=None):
         assert sock is not None or error is not None
-        if self._phase == self.PHASE_INIT:
-            if error is not None:
+        if self._phase == self.PHASE_STOP:
+            return
+        if error is not None:
+            if self._phase == self.PHASE_INIT:
                 self._loop.fail(error)
             else:
-                self._endp = ClientEndpoint(sock)
-                def connect(signal, handler):
-                    self._handlers.append(self._endp.connect(signal, handler))
-                connect('auth-ok', self._auth_ok)
-                connect('auth-failed', self._auth_failed)
-                connect('startup-progress', self._startup_progress)
-                connect('startup-complete', self._startup_complete)
-                connect('startup-cancelled', self._startup_cancelled)
-                connect('startup-rejected-memory',
-                        self._startup_rejected_memory)
-                connect('startup-failed', self._startup_failed)
-                connect('vm-stopped', self._vm_stopped)
-                connect('error', self._error)
-                connect('close', self._shutdown)
-                self._endp.send_authenticate(self.viewer_password)
+                self._backoff.attempt()
+        else:
+            self._backoff.reset()
+            self._endp = ClientEndpoint(sock)
+            def connect(signal, handler):
+                self._handlers.append(self._endp.connect(signal, handler))
+            connect('auth-ok', self._auth_ok)
+            connect('auth-failed', self._auth_failed)
+            connect('startup-progress', self._startup_progress)
+            connect('startup-complete', self._startup_complete)
+            connect('startup-cancelled', self._startup_cancelled)
+            connect('startup-rejected-memory',
+                    self._startup_rejected_memory)
+            connect('startup-failed', self._startup_failed)
+            connect('vm-stopped', self._vm_stopped)
+            connect('error', self._error)
+            connect('close', self._shutdown)
+            self._endp.send_authenticate(self.viewer_password)
 
     def _auth_failed(self, _endp, error):
         if self._phase == self.PHASE_INIT:
             self._loop.fail(error)
             self._endp.shutdown()
+        elif self._phase == self.PHASE_RUN:
+            self.emit('fatal-error',
+                    ErrorBuffer('Reauthentication failed: %s' % error))
+            self._endp.shutdown()
 
     def _auth_ok(self, _endp, state, name):
+        if self._phase == self.PHASE_STOP:
+            return
+        old_state = self.state
+        self.state = (self.STATE_STARTING if state == 'starting' else
+                self.STATE_RUNNING if state == 'running' else
+                self.STATE_STOPPING if state == 'stopping' else
+                self.STATE_STOPPED)
+        self._endp.start_pinging()
         if self._phase == self.PHASE_INIT:
-            self.state = (
-                    self.STATE_STARTING if state == 'starting' else
-                    self.STATE_RUNNING if state == 'running' else
-                    self.STATE_STOPPING if state == 'stopping' else
-                    self.STATE_STOPPED)
             self.vm_name = name
-            self._endp.start_pinging()
             self._loop.quit()
+        elif self._phase == self.PHASE_RUN:
+            if old_state != self.state:
+                self._notify_stable_state()
 
     def _startup_progress(self, _endp, fraction):
         if self._phase == self.PHASE_RUN:
@@ -232,27 +256,34 @@ class RemoteController(Controller):
         if self._phase == self.PHASE_INIT:
             self._loop.fail('Control connection closed')
         elif self._phase == self.PHASE_RUN:
-            self.emit('fatal-error', ErrorBuffer('Control connection closed'))
+            self._backoff.attempt()
         elif self._phase == self.PHASE_STOP:
             self._loop.quit()
 
     def _want_state(self, wanted):
-        # Only handle transitions for which we can usefully issue a command.
-        # Other transitions will be handled by the UI after a subsequent
-        # event.
-        if wanted == self.STATE_RUNNING:
-            if self.state == self.STATE_STOPPED:
-                self.state = self.STATE_STARTING
-                self._endp.send_start_vm()
+        if self._endp is None:
+            return
 
-        elif wanted == self.STATE_STOPPED:
-            if self.state == self.STATE_STARTING:
-                self.state = self.STATE_STOPPING
-                self._endp.send_startup_cancel()
+        try:
+            # Only handle transitions for which we can usefully issue a
+            # command.  Other transitions will be handled by the UI after a
+            # subsequent event.
+            if wanted == self.STATE_RUNNING:
+                if self.state == self.STATE_STOPPED:
+                    self.state = self.STATE_STARTING
+                    self._endp.send_start_vm()
 
-            elif self.state == self.STATE_RUNNING:
-                self.state = self.STATE_STOPPING
-                self._endp.send_stop_vm()
+            elif wanted == self.STATE_STOPPED:
+                if self.state == self.STATE_STARTING:
+                    self.state = self.STATE_STOPPING
+                    self._endp.send_startup_cancel()
+
+                elif self.state == self.STATE_RUNNING:
+                    self.state = self.STATE_STOPPING
+                    self._endp.send_stop_vm()
+        except (EndpointStateError, IOError):
+            # Can't send messages right now; drop on floor
+            pass
 
     @Controller._ensure_state(Controller.STATE_STOPPED)
     def start_vm(self):

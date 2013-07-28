@@ -31,6 +31,10 @@ class _MessageError(Exception):
     pass
 
 
+class EndpointStateError(ValueError):
+    pass
+
+
 class _AsyncSocket(gobject.GObject):
     DEFAULT_RECV_BUF = 65536
 
@@ -502,7 +506,7 @@ class ClientEndpoint(_Endpoint):
             @wraps(func)
             def wrapper(self, *args, **kwargs):
                 if self._state != state:
-                    raise ValueError('Sending client message from ' +
+                    raise EndpointStateError('Sending client message from ' +
                             'invalid state')
                 return func(self, *args, **kwargs)
             return wrapper
