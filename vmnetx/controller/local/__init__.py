@@ -366,6 +366,10 @@ class LocalController(Controller):
         gobject.idle_add(self.emit, 'vm-stopped')
 
     def _ensure_permissions(self):
+        if os.geteuid() == 0:
+            raise MachineExecutionError(
+                    'Will not execute virtual machines as root')
+
         try:
             obj = dbus.SystemBus().get_object(self.AUTHORIZER_NAME,
                     self.AUTHORIZER_PATH)
