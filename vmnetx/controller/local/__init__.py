@@ -158,7 +158,8 @@ class LocalController(Controller):
             'io_errors')
     _environment_ready = False
 
-    def __init__(self, url=None, package=None, use_spice=True):
+    def __init__(self, url=None, package=None,
+            use_spice=True, viewer_password=None):
         Controller.__init__(self)
         self._url = url
         self._want_spice = use_spice
@@ -171,6 +172,7 @@ class LocalController(Controller):
         self._viewer_address = None
         self._monitors = []
         self._load_monitor = None
+        self.viewer_password = viewer_password
 
     # Should be called before we open any windows, since we may re-exec
     # the whole program if we need to update the group list.
@@ -221,9 +223,12 @@ class LocalController(Controller):
 
         # Detect SPICE support
         self.use_spice = self._want_spice and self._spice_is_usable(emulator)
-        # VNC limits passwords to 8 characters
-        self.viewer_password = base64.urlsafe_b64encode(os.urandom(
-                15 if self.use_spice else 6))
+
+        # Create new viewer password if none existed
+        if self.viewer_password is None:
+            # VNC limits passwords to 8 characters
+            self.viewer_password = base64.urlsafe_b64encode(os.urandom(
+                    15 if self.use_spice else 6))
 
         # Get execution domain XML
         self._domain_xml = domain_xml.get_for_execution(self._domain_name,
