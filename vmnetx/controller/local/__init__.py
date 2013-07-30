@@ -158,7 +158,7 @@ class LocalController(Controller):
             'io_errors')
     _environment_ready = False
 
-    def __init__(self, url, use_spice):
+    def __init__(self, url=None, use_spice=True):
         Controller.__init__(self)
         self._url = url
         self._want_spice = use_spice

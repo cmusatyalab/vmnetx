@@ -95,11 +95,11 @@ class Controller(gobject.GObject):
             if parsed.scheme == 'vmnetx':
                 category = 'Remote'
                 from .remote import RemoteController
-                return RemoteController(url, use_spice)
+                return RemoteController(url=url, use_spice=use_spice)
             else:
                 category = 'Local'
                 from .local import LocalController
-                return LocalController(url, use_spice)
+                return LocalController(url=url, use_spice=use_spice)
         except ImportError:
             raise MachineExecutionError(('%s execution of virtual machines ' +
                     'is not supported on this system') % category)
