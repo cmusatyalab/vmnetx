@@ -158,12 +158,12 @@ class LocalController(Controller):
             'io_errors')
     _environment_ready = False
 
-    def __init__(self, url=None, use_spice=True):
+    def __init__(self, url=None, package=None, use_spice=True):
         Controller.__init__(self)
         self._url = url
         self._want_spice = use_spice
         self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
-        self._package = None
+        self._package = package
         self._memory_image_path = None
         self._fs = None
         self._conn = None
@@ -179,8 +179,11 @@ class LocalController(Controller):
             raise ValueError('setup_environment has not been called')
 
         # Load package
-        package = Package(self._url, scheme=self.scheme,
-                username=self.username, password=self.password)
+        if self._package is None:
+            package = Package(self._url, scheme=self.scheme,
+                    username=self.username, password=self.password)
+        else:
+            package = self._package
 
         # Validate domain XML
         domain_xml = DomainXML(package.domain.data)

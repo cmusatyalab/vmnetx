@@ -25,6 +25,7 @@ from urlparse import urlunsplit
 
 from ..controller import Controller, MachineExecutionError, MachineStateError
 from ..controller.local import LocalController
+from ..package import Package
 from ..protocol import ServerEndpoint
 
 _log = logging.getLogger(__name__)
@@ -168,11 +169,11 @@ class VMNetXServer(object):
         else:
             hostname += ':%d' % port
 
-        self._controller = Controller.get_for_ref(package_ref, use_spice=True)
-        if not isinstance(self._controller, LocalController):
-            raise ValueError('Refusing to re-export remote VM!')
+        # The package reference must be a url to the VM
+        package = Package(package_ref, username=username, password=password,
+                scheme=scheme)
+        self._controller = LocalController(package=package, use_spice=True)
         self._controller.setup_environment()
-        self._controller.scheme = scheme
         self._controller.username = username
         self._controller.password = password
         self._controller.initialize()
