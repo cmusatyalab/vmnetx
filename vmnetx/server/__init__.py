@@ -75,7 +75,8 @@ class _ServerConnection(gobject.GObject):
                 'running' if cs == LocalController.STATE_RUNNING else
                 'stopping' if cs == LocalController.STATE_STOPPING else
                 'unknown')
-        self._endp.send_auth_ok(state, self._controller.vm_name)
+        self._endp.send_auth_ok(state, self._controller.vm_name,
+                self._controller.max_mouse_rate)
         _log.info('Authenticated')
         return True
 

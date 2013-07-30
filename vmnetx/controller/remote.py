@@ -39,7 +39,7 @@ class _ViewerConnection(object):
         self._endp.connect('close', self._shutdown)
         self._endp.send_authenticate(token)
 
-    def _auth_ok(self, _endp, state, _name):
+    def _auth_ok(self, _endp, state, _name, _max_mouse_rate):
         if state == 'running':
             self._endp.send_attach_viewer()
         else:
@@ -194,7 +194,7 @@ class RemoteController(Controller):
                     ErrorBuffer('Reauthentication failed: %s' % error))
             self._endp.shutdown()
 
-    def _auth_ok(self, _endp, state, name):
+    def _auth_ok(self, _endp, state, name, max_mouse_rate):
         if self._phase == self.PHASE_STOP:
             return
         self.state = (self.STATE_STARTING if state == 'starting' else
@@ -204,6 +204,7 @@ class RemoteController(Controller):
         self._endp.start_pinging()
         if self._phase == self.PHASE_INIT:
             self.vm_name = name
+            self.max_mouse_rate = max_mouse_rate or None
             self._loop.quit()
         elif self._phase == self.PHASE_RUN:
             self.emit('network-reconnect')
