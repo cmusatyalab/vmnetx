@@ -35,6 +35,7 @@ nobase_python_PYTHON = vmnetx/__init__.py \
 	vmnetx/define.py \
 	vmnetx/domain.py \
 	vmnetx/generate.py \
+	vmnetx/memory.py \
 	vmnetx/package.py \
 	vmnetx/protocol.py \
 	vmnetx/reference.py \

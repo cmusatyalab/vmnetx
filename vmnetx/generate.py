@@ -17,13 +17,13 @@
 
 from __future__ import division
 import os
-import struct
 import subprocess
 import sys
 from tempfile import NamedTemporaryFile
 from urlparse import urlunsplit
 
 from .domain import DomainXML, DomainXMLError
+from .memory import LibvirtQemuMemoryHeader
 from .package import Package
 from .util import DetailException
 
@@ -31,74 +31,12 @@ class MachineGenerationError(DetailException):
     pass
 
 
-class _QemuMemoryHeader(object):
-    HEADER_MAGIC = 'LibvirtQemudSave'
-    HEADER_VERSION = 2
-    # Header values are stored "native-endian".  We only support x86, so
-    # assume we don't need to byteswap.
-    HEADER_FORMAT = str(len(HEADER_MAGIC)) + 's19I'
-    HEADER_LENGTH = struct.calcsize(HEADER_FORMAT)
-    HEADER_UNUSED_VALUES = 15
-
-    COMPRESS_RAW = 0
-    COMPRESS_XZ = 3
-
-    # pylint is confused by "\0", #111799
-    # pylint: disable=W1401
-    def __init__(self, fh):
-        # Read header struct
-        fh.seek(0)
-        buf = fh.read(self.HEADER_LENGTH)
-        header = list(struct.unpack(self.HEADER_FORMAT, buf))
-        magic = header.pop(0)
-        version = header.pop(0)
-        self._xml_len = header.pop(0)
-        self.was_running = header.pop(0)
-        self.compressed = header.pop(0)
-
-        # Check header
-        if magic != self.HEADER_MAGIC:
-            raise MachineGenerationError('Invalid memory image magic')
-        if version != self.HEADER_VERSION:
-            raise MachineGenerationError('Unknown memory image version %d' %
-                    version)
-        if header != [0] * self.HEADER_UNUSED_VALUES:
-            raise MachineGenerationError('Unused header values not 0')
-
-        # Read XML, drop trailing NUL padding
-        self.xml = fh.read(self._xml_len - 1).rstrip('\0')
-        if fh.read(1) != '\0':
-            raise MachineGenerationError('Missing NUL byte after XML')
-    # pylint: enable=W1401
-
-    def seek_body(self, fh):
-        fh.seek(self.HEADER_LENGTH + self._xml_len)
-
-    def write(self, fh):
-        # Calculate header
-        if len(self.xml) > self._xml_len - 1:
-            # If this becomes a problem, we could write out a larger xml_len,
-            # though this must be page-aligned.
-            raise MachineGenerationError('self.xml is too large')
-        header = [self.HEADER_MAGIC,
-                self.HEADER_VERSION,
-                self._xml_len,
-                self.was_running,
-                self.compressed]
-        header.extend([0] * self.HEADER_UNUSED_VALUES)
-
-        # Write data
-        fh.seek(0)
-        fh.write(struct.pack(self.HEADER_FORMAT, *header))
-        fh.write(struct.pack('%ds' % self._xml_len, self.xml))
-
-
 def copy_memory(in_path, out_path, xml=None, compress=True):
     # Disable buffering on fin to ensure that the file offset inherited
     # by xz is exactly what we pass to seek()
     fin = open(in_path, 'r', 0)
     fout = open(out_path, 'w')
-    hdr = _QemuMemoryHeader(fin)
+    hdr = LibvirtQemuMemoryHeader(fin)
     # Ensure the input is uncompressed, even if we will not be compressing
     if hdr.compressed != hdr.COMPRESS_RAW:
         raise MachineGenerationError('Cannot recompress save format %d' %
