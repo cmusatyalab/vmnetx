@@ -117,7 +117,7 @@ def setup_signals():
 parser = OptionParser(usage=USAGE, version=VERSION, description=DESCRIPTION)
 parser.add_option('-d', '--debug', dest='debug', action='store_true',
         help='Enable debug messages')
-parser.add_option('-c', '--create-token', dest='url', metavar='URL',
+parser.add_option('-c', '--create-token', dest='create_token', metavar='URL',
         help='URL of the VM for which the token is created')
 parser.add_option('-s', '--server', dest='server', metavar='URL',
         help='URL of the server to create token')
@@ -128,16 +128,18 @@ opts, args = parser.parse_args()
 
 if opts.debug:
     loglevel = logging.DEBUG
+elif opts.create_token:
+    loglevel = logging.WARNING
 else:
     loglevel = logging.INFO
 logging.basicConfig(level=loglevel)
 
-if opts.url:
+if opts.create_token:
     if opts.server is None or opts.secret is None:
         raise ValueError('Creating token requires --server and --secret-key')
     payload = {
         "secret_key": opts.secret,
-        "url": opts.url,
+        "url": opts.create_token,
     }
     r = requests.post(urljoin(opts.server, 'create-token'),
             data=json.dumps(payload))
