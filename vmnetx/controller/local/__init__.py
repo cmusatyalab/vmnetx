@@ -40,6 +40,7 @@ import uuid
 from wsgiref.handlers import format_date_time as format_rfc1123_date
 
 from ...domain import DomainXML
+from ...memory import LibvirtQemuMemoryHeader
 from ...package import Package
 from ...util import ErrorBuffer, ensure_dir, get_cache_dir
 from .. import Controller, MachineExecutionError, MachineStateError, Statistic
@@ -338,6 +339,12 @@ class LocalController(Controller):
         self._domain_xml = domain_xml.get_for_execution(self._domain_name,
                 emulator, disk_image_path, self.viewer_password,
                 use_spice=self.use_spice).xml
+
+        # Write domain XML to memory image
+        with open(self._memory_image_path, 'r+') as fh:
+            hdr = LibvirtQemuMemoryHeader(fh)
+            hdr.xml = self._domain_xml
+            hdr.write(fh)
 
         # Set configuration
         self.vm_name = package.name
