@@ -28,7 +28,6 @@ import sys
 import yaml
 
 import vmnetx
-from vmnetx.package import NeedAuthentication
 from vmnetx.server import VMNetXServer
 
 USAGE = 'Usage: %prog [options] config-file'
@@ -45,9 +44,9 @@ def parse_config(path):
         config = yaml.load(stream)
     options = {}
 
-    options['package_ref'] = config.get('package_ref')
-    if options['package_ref'] is None:
-        raise ValueError('Missing package reference')
+    options['secret_key'] = config.get('secret_key')
+    if options['secret_key'] is None:
+        raise ValueError("Missing secret key")
 
     options['username'] = config.get('username')
     options['password'] = config.get('password')
@@ -120,14 +119,9 @@ else:
 logging.basicConfig(level=loglevel)
 
 options = parse_config(config_path)
-username = options.pop('username')
-password = options.pop('password')
-try:
-    server = VMNetXServer(**options)
-except NeedAuthentication, e:
-    server = VMNetXServer(scheme=e.scheme, username=username,
-            password=password, **options)
-print 'URL: %s' % server.url
+
+server = VMNetXServer(options)
+server.initialize()
 loop = glib.MainLoop()
 try:
     loop.run()
