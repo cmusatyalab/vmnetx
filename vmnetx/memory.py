@@ -15,6 +15,7 @@
 # for more details.
 #
 
+from __future__ import division
 import struct
 
 class MemoryImageError(Exception):
@@ -29,6 +30,9 @@ class LibvirtQemuMemoryHeader(object):
     HEADER_FORMAT = str(len(HEADER_MAGIC)) + 's19I'
     HEADER_LENGTH = struct.calcsize(HEADER_FORMAT)
     HEADER_UNUSED_VALUES = 15
+
+    XML_MINIMUM_PAD = 8 << 10
+    XML_END_ALIGNMENT = 4 << 10   # x86 page size
 
     COMPRESS_RAW = 0
     COMPRESS_XZ = 3
@@ -63,12 +67,20 @@ class LibvirtQemuMemoryHeader(object):
     def seek_body(self, fh):
         fh.seek(self.HEADER_LENGTH + self._xml_len)
 
-    def write(self, fh):
-        # Calculate header
+    def write(self, fh, extend=False):
+        # Calculate new XML length
+        if extend and (self._xml_len - 1 < len(self.xml) +
+                self.XML_MINIMUM_PAD):
+            xml_len = len(self.xml) + self.XML_MINIMUM_PAD + 1
+            # Round up the start of the memory image data to a multiple of
+            # the x86 page size
+            self._xml_len = (((self.HEADER_LENGTH + xml_len +
+                    self.XML_END_ALIGNMENT - 1) // self.XML_END_ALIGNMENT) *
+                    self.XML_END_ALIGNMENT) - self.HEADER_LENGTH
         if len(self.xml) > self._xml_len - 1:
-            # If this becomes a problem, we could write out a larger xml_len,
-            # though this must be page-aligned.
             raise MemoryImageError('self.xml is too large')
+
+        # Calculate header
         header = [self.HEADER_MAGIC,
                 self.HEADER_VERSION,
                 self._xml_len,

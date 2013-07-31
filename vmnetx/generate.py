@@ -47,7 +47,7 @@ def copy_memory(in_path, out_path, xml=None, compress=True):
         hdr.compressed = hdr.COMPRESS_XZ
     if xml is not None:
         hdr.xml = xml
-    hdr.write(fout)
+    hdr.write(fout, extend=True)
 
     # Print size of uncompressed image
     fin.seek(0, 2)
