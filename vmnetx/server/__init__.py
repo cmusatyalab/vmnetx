@@ -51,6 +51,7 @@ class _ServerConnection(gobject.GObject):
         self._endp.connect('start-vm', self._client_start_vm)
         self._endp.connect('startup-cancel', self._client_startup_cancel)
         self._endp.connect('stop-vm', self._client_stop_vm)
+        self._endp.connect('ping', self._client_ping)
         self._endp.connect('error', self._client_error)
         self._endp.connect('close', self._client_shutdown)
         self._controller_sources = []
@@ -134,6 +135,9 @@ class _ServerConnection(gobject.GObject):
         except MachineStateError:
             self._endp.send_error("Can't stop VM unless it is running")
         return True
+
+    def _client_ping(self, _endp):
+        _log.debug("Ping")
 
     def _client_error(self, _endp, message):
         _log.warning("Protocol error: %s", message)

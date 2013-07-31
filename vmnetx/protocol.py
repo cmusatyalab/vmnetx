@@ -290,6 +290,7 @@ class ServerEndpoint(_Endpoint):
                 gobject.signal_accumulator_true_handled),
         'stop-vm': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN, (),
                 gobject.signal_accumulator_true_handled),
+        'ping': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
     def __init__(self, sock):
@@ -333,6 +334,7 @@ class ServerEndpoint(_Endpoint):
             elif mtype == 'ping':
                 self._need_auth()
                 self._transmit('pong')
+                self.emit('ping')
 
             else:
                 _Endpoint._dispatch(self, mtype, msg)
