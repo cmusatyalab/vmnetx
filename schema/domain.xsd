@@ -147,9 +147,6 @@
   </xs:element>
   <xs:element name="clock">
     <xs:complexType>
-      <xs:sequence>
-        <xs:element minOccurs="0" maxOccurs="unbounded" ref="timer"/>
-      </xs:sequence>
       <xs:attribute name="offset" use="required">
         <xs:simpleType>
           <xs:restriction base="xs:token">
@@ -162,70 +159,6 @@
       </xs:attribute>
       <xs:attribute name="timezone" type="timeZone"/>
       <xs:attribute name="adjustment" type="timeDelta"/>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="timer">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:element minOccurs="0" ref="catchup"/>
-      </xs:sequence>
-      <xs:attribute name="name" use="required">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:enumeration value="platform"/>
-            <xs:enumeration value="pit"/>
-            <xs:enumeration value="rtc"/>
-            <xs:enumeration value="hpet"/>
-            <xs:enumeration value="tsc"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
-      <xs:attribute name="track">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:enumeration value="boot"/>
-            <xs:enumeration value="guest"/>
-            <xs:enumeration value="wall"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
-      <xs:attribute name="tickpolicy">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:enumeration value="delay"/>
-            <xs:enumeration value="catchup"/>
-            <xs:enumeration value="merge"/>
-            <xs:enumeration value="discard"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
-      <xs:attribute name="frequency" type="unsignedInt"/>
-      <xs:attribute name="mode">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:enumeration value="auto"/>
-            <xs:enumeration value="native"/>
-            <xs:enumeration value="emulate"/>
-            <xs:enumeration value="paravirt"/>
-            <xs:enumeration value="smpsafe"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
-      <xs:attribute name="present">
-        <xs:simpleType>
-          <xs:restriction base="xs:token">
-            <xs:enumeration value="yes"/>
-            <xs:enumeration value="no"/>
-          </xs:restriction>
-        </xs:simpleType>
-      </xs:attribute>
-    </xs:complexType>
-  </xs:element>
-  <xs:element name="catchup">
-    <xs:complexType>
-      <xs:attribute name="threshold" type="unsignedInt"/>
-      <xs:attribute name="slew" type="unsignedInt"/>
-      <xs:attribute name="limit" type="unsignedInt"/>
     </xs:complexType>
   </xs:element>
   <xs:group name="osbootdev">
