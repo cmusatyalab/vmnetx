@@ -341,10 +341,11 @@ class LocalController(Controller):
                 use_spice=self.use_spice).xml
 
         # Write domain XML to memory image
-        with open(self._memory_image_path, 'r+') as fh:
-            hdr = LibvirtQemuMemoryHeader(fh)
-            hdr.xml = self._domain_xml
-            hdr.write(fh)
+        if self._memory_image_path is not None:
+            with open(self._memory_image_path, 'r+') as fh:
+                hdr = LibvirtQemuMemoryHeader(fh)
+                hdr.xml = self._domain_xml
+                hdr.write(fh)
 
         # Set configuration
         self.vm_name = package.name
