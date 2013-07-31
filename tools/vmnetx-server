@@ -19,9 +19,11 @@
 import fcntl
 from getpass import getpass
 import glib
+import json
 import logging
 from optparse import OptionParser
 import os
+import requests
 import signal
 import socket
 import sys
