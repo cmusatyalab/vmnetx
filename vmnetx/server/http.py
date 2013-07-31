@@ -37,16 +37,17 @@ class HttpServer(Flask):
 
     def _create_token(self):
         try:
-            secret_key = request.headers['X-Secret-Key']
-        except KeyError:
-            return Response('Missing secret key', 400)
-        if secret_key != self._options['secret_key']:
-            return Response('Incorrect secret key', 401)
-
-        try:
             args = json.loads(request.data)
         except ValueError:
             return Response('Invalid request JSON', 400)
+
+        try:
+            secret_key = args['secret_key']
+        except KeyError:
+            return Response('Missing secret key', 403)
+        if secret_key != self._options['secret_key']:
+            return Response('Incorrect secret key', 403)
+
         try:
             url = args['url']
         except KeyError:
