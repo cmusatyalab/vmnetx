@@ -211,6 +211,8 @@ class VMNetXServer(object):
         self._options = options
         self._http = None
         self._unauthenticated_conns = set()
+        self._listen = None
+        self._listen_source = None
 
         # Accessed by HTTP server
         self._lock = Lock()
@@ -278,12 +280,15 @@ class VMNetXServer(object):
             self._tokens[state.token] = state
         return state.token
 
-
     def shutdown(self):
         # Does not shut down web server, since there's no API for doing so
         _log.info("Shutting down VMNetXServer")
-        glib.source_remove(self._listen_source)
-        self._listen.close()
+        if self._listen_source is not None:
+            glib.source_remove(self._listen_source)
+            self._listen_source = None
+        if self._listen is not None:
+            self._listen.close()
+            self._listen = None
         with self._lock:
             for state in self._tokens.values():
                 state.shutdown()
