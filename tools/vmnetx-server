@@ -24,6 +24,7 @@ import logging
 from optparse import OptionParser
 import os
 import requests
+from urlparse import urljoin
 import signal
 import socket
 import sys
@@ -138,7 +139,8 @@ if opts.url:
         "secret_key": opts.secret,
         "url": opts.url,
     }
-    r = requests.post(opts.server, data=json.dumps(payload))
+    r = requests.post(urljoin(opts.server, 'create-token'),
+            data=json.dumps(payload))
     if r.status_code != requests.codes.ok:
         sys.stderr.write('Server replied with code %d\n' % r.status_code)
         sys.exit(1)
