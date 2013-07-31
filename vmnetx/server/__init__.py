@@ -223,7 +223,7 @@ class VMNetXServer(object):
         host = self._options['http_host']
         port = self._options['http_port']
         self._http = Thread(target=http_server.run,
-                kwargs={"host": host, "port": port})
+                kwargs={"host": host, "port": port, "threaded": True})
         # The http server should exit when the main thread terminates
         self._http.daemon = True
         self._http.start()
