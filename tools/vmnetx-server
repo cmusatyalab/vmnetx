@@ -16,34 +16,112 @@
 # for more details.
 #
 
+import fcntl
 from getpass import getpass
-import gtk
+import glib
 import logging
 from optparse import OptionParser
+import os
+import signal
+import socket
 import sys
+import yaml
 
 import vmnetx
-from vmnetx.package import NeedAuthentication
 from vmnetx.server import VMNetXServer
 
-USAGE = 'Usage: %prog [options] {reference-path|package-url|package-path}'
+USAGE = 'Usage: %prog [options] config-file'
 VERSION = '%prog ' + vmnetx.__version__
 DESCRIPTION = 'Export VMNetX VMs via remote network protocol.'
+
+DEFAULT_PORT = 18923
+DEFAULT_GC_INTERVAL = 1000 * 5  # milliseconds
+DEFAULT_TOKEN_TIMEOUT = 60 * 5  # seconds
+DEFAULT_HTTP_HOST = '127.0.0.1'
+DEFAULT_HTTP_PORT = 18924
+
+
+def parse_config(path):
+    with open(path, 'r') as stream:
+        config = yaml.load(stream)
+    options = {}
+
+    options['secret_key'] = config.get('secret_key')
+    if options['secret_key'] is None:
+        raise ValueError("Missing secret key")
+
+    options['username'] = config.get('username')
+    options['password'] = config.get('password')
+
+    options['host'] = config.get('host')
+    if options['host'] is None:
+        options['host'] = socket.gethostbyname(socket.gethostname())
+
+    options['port'] = config.get('port', DEFAULT_PORT)
+    if not isinstance(options['port'], int):
+        raise ValueError("Invalid port setting")
+
+    options['http_host'] = config.get('http_host', DEFAULT_HTTP_HOST)
+    if not isinstance(options['http_host'], str):
+        raise ValueError("Invalid http host")
+
+    options['http_port'] = config.get('http_port', DEFAULT_HTTP_PORT)
+    if not isinstance(options['http_port'], int):
+        raise ValueError("Invalid http port")
+
+    options['gc_interval'] = config.get('gc_interval', DEFAULT_GC_INTERVAL)
+    if not isinstance(options['gc_interval'], int):
+        raise ValueError("Invalid GC timeout")
+
+    options['token_timeout'] = config.get('token_timeout',
+            DEFAULT_TOKEN_TIMEOUT)
+    if not isinstance(options['token_timeout'], int):
+        raise ValueError("Invalid token timeout")
+
+    return options
+
+
+# self-pipe trick for shutting down correctly from signals
+def shutdown(source, _cond):
+    try:
+        source.read(1)
+    except IOError, e:
+        if e.errno == errno.EAGAIN:
+            return True
+        _log.exception("Received unexpected error: shutting down")
+    loop.quit()
+    return False
+
+
+def setup_signals():
+    fd_rd, fd_wr = os.pipe()
+    fcntl.fcntl(fd_rd, fcntl.F_SETFL,
+            fcntl.fcntl(fd_rd, fcntl.F_GETFL) | os.O_NONBLOCK)
+    fcntl.fcntl(fd_wr, fcntl.F_SETFL,
+            fcntl.fcntl(fd_wr, fcntl.F_GETFL) | os.O_NONBLOCK)
+
+    rd = os.fdopen(fd_rd, 'r')
+    wr = os.fdopen(fd_wr, 'w', 0)
+
+    glib.io_add_watch(rd, glib.IO_IN, shutdown)
+
+    def sig_handler(sig, _frame):
+        wr.write('x')
+    signal.signal(signal.SIGTERM, sig_handler)
+    signal.signal(signal.SIGINT, sig_handler)
+
 
 parser = OptionParser(usage=USAGE, version=VERSION, description=DESCRIPTION)
 parser.add_option('-d', '--debug', dest='debug', action='store_true',
         help='Enable debug messages')
-parser.add_option('-l', '--listen', dest='host',
-        help='Address to listen on', metavar='ADDRESS')
-parser.add_option('-p', '--port', dest='port', type='int',
-        help='Port to listen on', metavar='PORT')
-parser.add_option('-u', '--username', dest='username',
-        help='Username on remote server', metavar='USERNAME')
+parser.add_option('-c', '--create-token', dest='url', metavar='URL',
+        help='URL of the VM for which the token is created')
+parser.add_option('-s', '--server', dest='server', metavar='URL',
+        help='URL of the server to create token')
+parser.add_option('-k', '--secret-key', dest='secret', metavar='KEY',
+        help='Secret key of the server to create token')
 
 opts, args = parser.parse_args()
-if len(args) != 1:
-    parser.error('Incorrect mandatory argument')
-package_ref = args[0]
 
 if opts.debug:
     loglevel = logging.DEBUG
@@ -51,25 +129,31 @@ else:
     loglevel = logging.INFO
 logging.basicConfig(level=loglevel)
 
-username = opts.username
-scheme = password = None
-while True:
+if opts.url:
+    if opts.server is None or opts.secret is None:
+        raise ValueError('Creating token requires --server and --secret-key')
+    payload = {
+        "secret_key": opts.secret,
+        "url": opts.url,
+    }
+    r = requests.post(opts.server, data=json.dumps(payload))
+    if r.status_code != requests.codes.ok:
+        sys.stderr.write('Server replied with code %d\n' % r.status_code)
+        sys.exit(1)
+    data = json.loads(r.text)
+    print data['url']
+else:
+    if len(args) != 1:
+        parser.error('Incorrect mandatory argument')
+    config_path = args[0]
+    options = parse_config(config_path)
+
+    setup_signals()
+    server = VMNetXServer(options)
+    server.initialize()
+
+    loop = glib.MainLoop()
     try:
-        server = VMNetXServer(package_ref, host=opts.host, port=opts.port,
-                scheme=scheme, username=username, password=password)
-    except NeedAuthentication, e:
-        scheme = e.scheme
-        print 'Host: %s' % e.host
-        print 'Realm: %s' % e.realm
-        if username is None:
-            username = raw_input('Username: ')
-        else:
-            print 'Username: %s' % username
-        password = getpass()
-        continue
-    break
-print 'URL: %s' % server.url
-try:
-    gtk.main()
-finally:
-    server.shutdown()
+        loop.run()
+    finally:
+        server.shutdown()

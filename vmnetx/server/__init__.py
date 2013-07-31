@@ -16,15 +16,20 @@
 #
 
 from __future__ import division
+import base64
 import errno
 import glib
 import gobject
 import logging
+import os
 import socket
-from urlparse import urlunsplit
+from threading import Thread, Lock
+import time
 
+from .http import HttpServer
 from ..controller import Controller, MachineExecutionError, MachineStateError
 from ..controller.local import LocalController
+from ..package import Package
 from ..protocol import ServerEndpoint
 
 _log = logging.getLogger(__name__)
@@ -32,12 +37,14 @@ _log = logging.getLogger(__name__)
 
 class _ServerConnection(gobject.GObject):
     __gsignals__ = {
+        'need-controller': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN,
+            (gobject.TYPE_STRING,), gobject.signal_accumulator_true_handled),
         'close': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
-    def __init__(self, controller, sock):
+    def __init__(self, sock):
         gobject.GObject.__init__(self)
-        self._controller = controller
+        self._controller = None
         self._endp = ServerEndpoint(sock)
         self._endp.connect('authenticate', self._client_authenticate)
         self._endp.connect('attach-viewer', self._client_attach_viewer)
@@ -51,8 +58,16 @@ class _ServerConnection(gobject.GObject):
     def shutdown(self):
         self._endp.shutdown()
 
+    def set_controller(self, controller):
+        self._controller = controller
+
     def _client_authenticate(self, _endp, token):
-        if token != self._controller.viewer_password:
+        if self._controller is not None:
+            self._endp.send_error('Already authenticated')
+            return True
+
+        self.emit('need-controller', token)
+        if self._controller is None:
             self._endp.send_auth_failed('Authentication failed')
             return True
 
@@ -153,48 +168,74 @@ class _ServerConnection(gobject.GObject):
 gobject.type_register(_ServerConnection)
 
 
-class VMNetXServer(object):
-    DEFAULT_PORT = 18923
+class _TokenState(object):
+    def __init__(self, package, username, password):
+        self.token = base64.urlsafe_b64encode(os.urandom(15))
+        self._package = package
+        self._username = username
+        self._password = password
+        self._controller = None
+        self._conns = set()
+        self.last_seen = time.time()
 
-    def __init__(self, package_ref, host=None, port=None, scheme=None,
-            username=None, password=None):
-        gobject.threads_init()
-
-        hostname = host
-        if host is None:
-            host = '0.0.0.0'
-            hostname = socket.getfqdn()
-        if port is None:
-            port = self.DEFAULT_PORT
-        else:
-            hostname += ':%d' % port
-
-        self._controller = Controller.get_for_ref(package_ref, use_spice=True)
-        if not isinstance(self._controller, LocalController):
-            raise ValueError('Refusing to re-export remote VM!')
-        self._controller.scheme = scheme
-        self._controller.username = username
-        self._controller.password = password
-        self._controller.initialize()
-
-        try:
+    def get_controller(self, conn):
+        if self._controller is None:
+            self._controller = LocalController(package=self._package,
+                viewer_password=self.token)
+            self._controller.username = self._username
+            self._controller.password = self._password
+            self._controller.initialize()
             if not self._controller.use_spice:
                 raise MachineExecutionError('SPICE support is unavailable')
-            self.url = urlunsplit(('vmnetx', hostname,
-                    '/' + self._controller.viewer_password, '', ''))
+            self.last_seen = time.time()
+        self._conns.add(conn)
+        conn.connect('close', self._close)
+        return self._controller
 
-            self._listen = socket.socket()
-            self._listen.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            self._listen.bind((host, port))
-            self._listen.listen(16)
-            self._listen.setblocking(0)
-            self._listen_source = glib.io_add_watch(self._listen, glib.IO_IN,
-                    self._accept)
+    def _close(self, conn):
+        self._conns.remove(conn)
 
-            self._conns = set()
-        except:
+    def shutdown(self):
+        conns = list(self._conns)
+        self._conns = set()
+        for conn in conns:
+            conn.shutdown()
+        if self._controller is not None:
             self._controller.shutdown()
-            raise
+            self._controller = None
+
+
+class VMNetXServer(object):
+    def __init__(self, options):
+        glib.threads_init()
+        self._options = options
+        self._http = None
+        self._unauthenticated_conns = set()
+
+        # Accessed by HTTP server
+        self._lock = Lock()
+        self._tokens = {}  # token -> _TokenState
+
+    def initialize(self):
+        # Prepare environment for local controllers
+        LocalController.setup_environment()
+
+        http_server = HttpServer(self._options, self)
+        host = self._options['http_host']
+        port = self._options['http_port']
+        self._http = Thread(target=http_server.run,
+                kwargs={"host": host, "port": port, "threaded": True})
+        # The http server should exit when the main thread terminates
+        self._http.daemon = True
+        self._http.start()
+
+        self._listen = socket.socket()
+        self._listen.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self._listen.bind((self._options['host'], self._options['port']))
+        self._listen.listen(16)
+        self._listen.setblocking(0)
+        self._listen_source = glib.io_add_watch(self._listen, glib.IO_IN,
+                self._accept)
 
     def _accept(self, _source, _cond):
         while True:
@@ -205,17 +246,48 @@ class VMNetXServer(object):
                     return True
                 else:
                     _log.exception('Accepting connection')
-            conn = _ServerConnection(self._controller, sock)
+            conn = _ServerConnection(sock)
+            conn.connect('need-controller', self._fetch_controller)
             conn.connect('close', self._close)
-            self._conns.add(conn)
+            self._unauthenticated_conns.add(conn)
 
     def _close(self, conn):
-        self._conns.remove(conn)
+        try:
+            self._unauthenticated_conns.remove(conn)
+        except KeyError:
+            pass
+
+    def _fetch_controller(self, conn, token):
+        _log.debug("Fetching controller for token %s" % token)
+
+        with self._lock:
+            try:
+                state = self._tokens[token]
+            except KeyError:
+                return False
+
+            controller = state.get_controller(conn)
+            conn.set_controller(controller)
+            self._unauthenticated_conns.remove(conn)
+            return True
+
+    def create_token(self, package):
+        with self._lock:
+            state = _TokenState(package, self._options['username'],
+                    self._options['password'])
+            self._tokens[state.token] = state
+        return state.token
+
 
     def shutdown(self):
+        # Does not shut down web server, since there's no API for doing so
+        _log.info("Shutting down VMNetXServer")
         glib.source_remove(self._listen_source)
         self._listen.close()
-        conns = list(self._conns)
+        with self._lock:
+            for state in self._tokens.values():
+                state.shutdown()
+            self._tokens = {}
+        conns = list(self._unauthenticated_conns)
         for conn in conns:
             conn.shutdown()
-        self._controller.shutdown()

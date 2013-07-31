@@ -33,6 +33,7 @@ You will need:
 * Requests
 * dateutil
 * msgpack-python
+* PyYAML
 * spice-gtk Python bindings (optional)
 * gtk-vnc Python bindings
 * libvirt Python bindings

@@ -269,13 +269,15 @@ class LocalController(Controller):
     AUTHORIZER_IFACE = 'org.olivearchive.VMNetX.Authorizer'
     STATS = ('bytes_read', 'bytes_written', 'chunk_dirties', 'chunk_fetches',
             'io_errors')
+    _environment_ready = False
 
-    def __init__(self, url, use_spice):
+    def __init__(self, url=None, package=None,
+            use_spice=True, viewer_password=None):
         Controller.__init__(self)
         self._url = url
         self._want_spice = use_spice
         self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
-        self._package = None
+        self._package = package
         self._have_memory = False
         self._memory_image_path = None
         self._fs = None
@@ -284,16 +286,20 @@ class LocalController(Controller):
         self._viewer_address = None
         self._monitors = []
         self._load_monitor = None
+        self.viewer_password = viewer_password
 
     # Should be called before we open any windows, since we may re-exec
     # the whole program if we need to update the group list.
     def initialize(self):
-        # Verify authorization to mount a FUSE filesystem
-        self._ensure_permissions()
+        if not self._environment_ready:
+            raise ValueError('setup_environment has not been called')
 
         # Load package
-        package = Package(self._url, scheme=self.scheme,
-                username=self.username, password=self.password)
+        if self._package is None:
+            package = Package(self._url, scheme=self.scheme,
+                    username=self.username, password=self.password)
+        else:
+            package = self._package
 
         # Validate domain XML
         domain_xml = DomainXML(package.domain.data)
@@ -331,9 +337,12 @@ class LocalController(Controller):
 
         # Detect SPICE support
         self.use_spice = self._want_spice and self._spice_is_usable(emulator)
-        # VNC limits passwords to 8 characters
-        self.viewer_password = base64.urlsafe_b64encode(os.urandom(
-                15 if self.use_spice else 6))
+
+        # Create new viewer password if none existed
+        if self.viewer_password is None:
+            # VNC limits passwords to 8 characters
+            self.viewer_password = base64.urlsafe_b64encode(os.urandom(
+                    15 if self.use_spice else 6))
 
         # Get execution domain XML
         self._domain_xml = domain_xml.get_for_execution(self._domain_name,
@@ -373,17 +382,18 @@ class LocalController(Controller):
         # Kick off state machine after main loop starts
         gobject.idle_add(self.emit, 'vm-stopped')
 
-    def _ensure_permissions(self):
+    @classmethod
+    def setup_environment(cls):
         if os.geteuid() == 0:
             raise MachineExecutionError(
                     'Will not execute virtual machines as root')
 
         try:
-            obj = dbus.SystemBus().get_object(self.AUTHORIZER_NAME,
-                    self.AUTHORIZER_PATH)
+            obj = dbus.SystemBus().get_object(cls.AUTHORIZER_NAME,
+                    cls.AUTHORIZER_PATH)
             # We would like an infinite timeout, but dbus-python won't allow
             # it.  Pass the longest timeout dbus-python will accept.
-            groups = obj.EnableFUSEAccess(dbus_interface=self.AUTHORIZER_IFACE,
+            groups = obj.EnableFUSEAccess(dbus_interface=cls.AUTHORIZER_IFACE,
                     timeout=2147483)
         except dbus.exceptions.DBusException, e:
             # dbus-python exception handling is problematic.
@@ -395,6 +405,7 @@ class LocalController(Controller):
                 # wasn't configured correctly), proceed as though we have
                 # sufficient permission, and possibly fail later.  This
                 # avoids unnecessary failures in the common case.
+                cls._environment_ready = True
                 return
 
         if groups:
@@ -414,6 +425,8 @@ class LocalController(Controller):
             primary_gid = pwd.getpwuid(os.getuid()).pw_gid
             if os.getgid() != primary_gid:
                 switch_group(grp.getgrgid(primary_gid).gr_name)
+
+        cls._environment_ready = True
 
     def _spice_is_usable(self, emulator):
         '''Determine whether emulator supports SPICE.'''
