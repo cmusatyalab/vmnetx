@@ -68,22 +68,24 @@ class LibvirtQemuMemoryHeader(object):
         fh.seek(self.HEADER_LENGTH + self._xml_len)
 
     def write(self, fh, extend=False):
+        '''extend=True does not update the internal state used by
+        seek_body().'''
         # Calculate new XML length
-        if extend and (self._xml_len - 1 < len(self.xml) +
-                self.XML_MINIMUM_PAD):
+        xml_len = self._xml_len
+        if extend and xml_len - 1 < len(self.xml) + self.XML_MINIMUM_PAD:
             xml_len = len(self.xml) + self.XML_MINIMUM_PAD + 1
             # Round up the start of the memory image data to a multiple of
             # the x86 page size
-            self._xml_len = (((self.HEADER_LENGTH + xml_len +
+            xml_len = (((self.HEADER_LENGTH + xml_len +
                     self.XML_END_ALIGNMENT - 1) // self.XML_END_ALIGNMENT) *
                     self.XML_END_ALIGNMENT) - self.HEADER_LENGTH
-        if len(self.xml) > self._xml_len - 1:
+        if len(self.xml) > xml_len - 1:
             raise MemoryImageError('self.xml is too large')
 
         # Calculate header
         header = [self.HEADER_MAGIC,
                 self.HEADER_VERSION,
-                self._xml_len,
+                xml_len,
                 self.was_running,
                 self.compressed]
         header.extend([0] * self.HEADER_UNUSED_VALUES)
@@ -91,4 +93,4 @@ class LibvirtQemuMemoryHeader(object):
         # Write data
         fh.seek(0)
         fh.write(struct.pack(self.HEADER_FORMAT, *header))
-        fh.write(struct.pack('%ds' % self._xml_len, self.xml))
+        fh.write(struct.pack('%ds' % xml_len, self.xml))
