@@ -32,7 +32,7 @@ class LibvirtQemuMemoryHeader(object):
     HEADER_UNUSED_VALUES = 15
 
     XML_MINIMUM_PAD = 8 << 10
-    XML_END_ALIGNMENT = 4 << 10   # x86 page size
+    XML_END_ALIGNMENT = 4 << 10   # QEMU_MONITOR_MIGRATE_TO_FILE_BS
 
     COMPRESS_RAW = 0
     COMPRESS_XZ = 3
@@ -75,7 +75,7 @@ class LibvirtQemuMemoryHeader(object):
         if extend and xml_len - 1 < len(self.xml) + self.XML_MINIMUM_PAD:
             xml_len = len(self.xml) + self.XML_MINIMUM_PAD + 1
             # Round up the start of the memory image data to a multiple of
-            # the x86 page size
+            # the typical disk sector size
             xml_len = (((self.HEADER_LENGTH + xml_len +
                     self.XML_END_ALIGNMENT - 1) // self.XML_END_ALIGNMENT) *
                     self.XML_END_ALIGNMENT) - self.HEADER_LENGTH
