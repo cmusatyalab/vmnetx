@@ -40,6 +40,7 @@ class _ServerConnection(gobject.GObject):
         'need-controller': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN,
             (gobject.TYPE_STRING,), gobject.signal_accumulator_true_handled),
         'close': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'destroy-token': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
     def __init__(self, sock):
@@ -51,6 +52,7 @@ class _ServerConnection(gobject.GObject):
         self._endp.connect('start-vm', self._client_start_vm)
         self._endp.connect('startup-cancel', self._client_startup_cancel)
         self._endp.connect('stop-vm', self._client_stop_vm)
+        self._endp.connect('destroy-vm', self._client_destroy_vm)
         self._endp.connect('ping', self._client_ping)
         self._endp.connect('error', self._client_error)
         self._endp.connect('close', self._client_shutdown)
@@ -136,6 +138,11 @@ class _ServerConnection(gobject.GObject):
             self._endp.send_error("Can't stop VM unless it is running")
         return True
 
+    def _client_destroy_vm(self, _endp):
+        self.emit('destroy-token')
+        _log.info('Destroying VM')
+        return True
+
     def _client_ping(self, _endp):
         _log.debug("Ping")
 
@@ -172,14 +179,20 @@ class _ServerConnection(gobject.GObject):
 gobject.type_register(_ServerConnection)
 
 
-class _TokenState(object):
+class _TokenState(gobject.GObject):
+    __gsignals__ = {
+        'destroy': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+    }
+
     def __init__(self, package, username, password):
+        gobject.GObject.__init__(self)
         self.token = base64.urlsafe_b64encode(os.urandom(15))
         self._package = package
         self._username = username
         self._password = password
         self._controller = None
         self._conns = set()
+        self._valid = True
         self.last_seen = time.time()
 
     def get_controller(self, conn):
@@ -194,18 +207,23 @@ class _TokenState(object):
             self.last_seen = time.time()
         self._conns.add(conn)
         conn.connect('close', self._close)
+        conn.connect('destroy-token', lambda _conn: self.shutdown())
         return self._controller
 
     def _close(self, conn):
         self._conns.remove(conn)
 
     def shutdown(self):
-        conns = list(self._conns)
-        for conn in conns:
-            conn.shutdown()
-        if self._controller is not None:
-            self._controller.shutdown()
-            self._controller = None
+        if self._valid:
+            self._valid = False
+            conns = list(self._conns)
+            for conn in conns:
+                conn.shutdown()
+            if self._controller is not None:
+                self._controller.shutdown()
+                self._controller = None
+            self.emit('destroy')
+gobject.type_register(_TokenState)
 
 
 class VMNetXServer(object):
@@ -281,7 +299,11 @@ class VMNetXServer(object):
             state = _TokenState(package, self._options['username'],
                     self._options['password'])
             self._tokens[state.token] = state
+            state.connect('destroy', self._destroy_token)
         return state.token
+
+    def _destroy_token(self, state):
+        del self._tokens[state.token]
 
     def shutdown(self):
         # Does not shut down web server, since there's no API for doing so
@@ -293,9 +315,9 @@ class VMNetXServer(object):
             self._listen.close()
             self._listen = None
         with self._lock:
-            for state in self._tokens.values():
+            states = self._tokens.values()
+            for state in states:
                 state.shutdown()
-            self._tokens = {}
         conns = list(self._unauthenticated_conns)
         for conn in conns:
             conn.shutdown()

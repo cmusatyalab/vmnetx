@@ -283,6 +283,11 @@ class RemoteController(Controller):
                 elif self.state == self.STATE_RUNNING:
                     self.state = self.STATE_STOPPING
                     self._endp.send_stop_vm()
+
+            elif wanted == self.STATE_DESTROYED:
+                if self.state != self.STATE_DESTROYED:
+                    self.state = self.STATE_DESTROYED
+                    self._endp.send_destroy_vm()
         except (EndpointStateError, IOError):
             # Can't send messages right now; drop on floor
             pass
@@ -312,7 +317,7 @@ class RemoteController(Controller):
         if self._endp is not None:
             self._phase = self.PHASE_STOP
             with _TemporaryMainLoop() as self._loop:
-                self.stop_vm()
+                self._want_state(self.STATE_DESTROYED)
                 self._endp.shutdown()
             self._loop = None
         self.state = self.STATE_DESTROYED

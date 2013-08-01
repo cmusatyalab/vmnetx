@@ -290,6 +290,8 @@ class ServerEndpoint(_Endpoint):
                 gobject.signal_accumulator_true_handled),
         'stop-vm': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN, (),
                 gobject.signal_accumulator_true_handled),
+        'destroy-vm': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN, (),
+                gobject.signal_accumulator_true_handled),
         'ping': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
@@ -305,6 +307,7 @@ class ServerEndpoint(_Endpoint):
     do_start_vm = _fail_if_not_handled
     do_startup_cancel = _fail_if_not_handled
     do_stop_vm = _fail_if_not_handled
+    do_destroy_vm = _fail_if_not_handled
 
     def _need_auth(self):
         if not self._authenticated:
@@ -330,6 +333,10 @@ class ServerEndpoint(_Endpoint):
             elif mtype == 'stop-vm':
                 self._need_auth()
                 self.emit('stop-vm')
+
+            elif mtype == 'destroy-vm':
+                self._need_auth()
+                self.emit('destroy-vm')
 
             elif mtype == 'ping':
                 self._need_auth()
@@ -538,6 +545,10 @@ class ClientEndpoint(_Endpoint):
     @_need_send_state(STATE_RUNNING)
     def send_stop_vm(self):
         self._transmit('stop-vm')
+
+    @_need_send_state(STATE_RUNNING)
+    def send_destroy_vm(self):
+        self._transmit('destroy-vm')
 
     @_need_send_state(STATE_RUNNING)
     def send_ping(self):
