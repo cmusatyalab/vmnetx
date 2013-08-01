@@ -271,8 +271,8 @@ class LocalController(Controller):
             'io_errors')
     _environment_ready = False
 
-    def __init__(self, url=None, package=None,
-            use_spice=True, viewer_password=None):
+    def __init__(self, url=None, package=None, use_spice=True,
+            viewer_password=None):
         Controller.__init__(self)
         self._url = url
         self._want_spice = use_spice
