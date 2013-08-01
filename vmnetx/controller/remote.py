@@ -286,7 +286,6 @@ class RemoteController(Controller):
             # Can't send messages right now; drop on floor
             pass
 
-    @Controller._ensure_state(Controller.STATE_STOPPED)
     def start_vm(self):
         self._want_state(self.STATE_RUNNING)
 
