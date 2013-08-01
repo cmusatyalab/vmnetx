@@ -239,6 +239,7 @@ class VMNetXServer(object):
         self._unauthenticated_conns = set()
         self._listen = None
         self._listen_source = None
+        self._gc_timer = None
 
         # Accessed by HTTP server
         self._lock = Lock()
@@ -264,6 +265,10 @@ class VMNetXServer(object):
         self._listen.setblocking(0)
         self._listen_source = glib.io_add_watch(self._listen, glib.IO_IN,
                 self._accept)
+
+        # Start garbage collection
+        self._gc_timer = glib.timeout_add_seconds(self._options['gc_interval'],
+                self._gc)
 
     def _accept(self, _source, _cond):
         while True:
@@ -310,6 +315,21 @@ class VMNetXServer(object):
     def _destroy_token(self, state):
         del self._tokens[state.token]
 
+    def _gc(self):
+        _log.debug("GC: Removing stale tokens")
+        gc = self._options['gc_interval']
+        to = self._options['token_timeout']
+        with self._lock:
+            # All garbage collection is done with relation to a single start time
+            curr = time.time()
+            states = self._tokens.values()
+            for state in states:
+                # Check if the token has not timed out since the last gc call
+                if curr > state.last_seen + gc + to:
+                    _log.debug('GC: Removing token %s', state.token)
+                    state.shutdown()
+        return True
+
     def shutdown(self):
         # Does not shut down web server, since there's no API for doing so
         _log.info("Shutting down VMNetXServer")
@@ -319,6 +339,9 @@ class VMNetXServer(object):
         if self._listen is not None:
             self._listen.close()
             self._listen = None
+        if self._gc_timer is not None:
+            glib.source_remove(self._gc_timer)
+            self._gc_timer = None
         with self._lock:
             states = self._tokens.values()
             for state in states:

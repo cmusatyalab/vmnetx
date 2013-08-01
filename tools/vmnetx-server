@@ -38,7 +38,7 @@ VERSION = '%prog ' + vmnetx.__version__
 DESCRIPTION = 'Export VMNetX VMs via remote network protocol.'
 
 DEFAULT_PORT = 18923
-DEFAULT_GC_INTERVAL = 1000 * 5  # milliseconds
+DEFAULT_GC_INTERVAL = 5  # seconds
 DEFAULT_TOKEN_TIMEOUT = 60 * 5  # seconds
 DEFAULT_HTTP_HOST = '127.0.0.1'
 DEFAULT_HTTP_PORT = 18924
