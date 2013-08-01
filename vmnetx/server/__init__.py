@@ -201,7 +201,6 @@ class _TokenState(object):
 
     def shutdown(self):
         conns = list(self._conns)
-        self._conns = set()
         for conn in conns:
             conn.shutdown()
         if self._controller is not None:
