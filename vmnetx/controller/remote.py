@@ -136,6 +136,7 @@ class RemoteController(Controller):
         self._backoff.connect('attempt', self._attempt_connection)
     # pylint: enable=E1103
 
+    @Controller._ensure_state(Controller.STATE_UNINITIALIZED)
     def initialize(self):
         assert self._phase == self.PHASE_INIT
         with _TemporaryMainLoop() as self._loop:
@@ -314,4 +315,5 @@ class RemoteController(Controller):
                 self.stop_vm()
                 self._endp.shutdown()
             self._loop = None
+        self.state = self.STATE_DESTROYED
 gobject.type_register(RemoteController)

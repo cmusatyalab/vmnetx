@@ -52,17 +52,19 @@ class Controller(gobject.GObject):
                 (ErrorBuffer,)),
     }
 
-    STATE_STOPPED = 0
-    STATE_STARTING = 1
-    STATE_RUNNING = 2
-    STATE_STOPPING = 3
+    STATE_UNINITIALIZED = 0
+    STATE_STOPPED = 1
+    STATE_STARTING = 2
+    STATE_RUNNING = 3
+    STATE_STOPPING = 4
+    STATE_DESTROYED = 5
 
     def __init__(self):
         gobject.GObject.__init__(self)
 
         # Publicly readable
         self.vm_name = None
-        self.state = self.STATE_STOPPED
+        self.state = self.STATE_UNINITIALIZED
         self.use_spice = True
         self.is_remote = False
         self.viewer_password = None

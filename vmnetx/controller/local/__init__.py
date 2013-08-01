@@ -288,6 +288,7 @@ class LocalController(Controller):
         self._load_monitor = None
         self.viewer_password = viewer_password
 
+    @Controller._ensure_state(Controller.STATE_UNINITIALIZED)
     def initialize(self):
         if not self._environment_ready:
             raise ValueError('setup_environment has not been called')
@@ -378,6 +379,7 @@ class LocalController(Controller):
             self._load_monitor.connect('progress', self._load_progress)
 
         # Kick off state machine after main loop starts
+        self.state = self.STATE_STOPPED
         gobject.idle_add(self.emit, 'vm-stopped')
 
     # Should be called before we open any windows, since we may re-exec
@@ -540,11 +542,15 @@ class LocalController(Controller):
     def shutdown(self):
         for monitor in self._monitors:
             monitor.close()
+        self._monitors = []
         self.stop_vm()
         # Close libvirt connection
         if self._conn is not None:
             self._conn.close()
+            self._conn = None
         # Terminate vmnetfs
         if self._fs is not None:
             self._fs.terminate()
+            self._fs = None
+        self.state = self.STATE_DESTROYED
 gobject.type_register(LocalController)
