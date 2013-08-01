@@ -288,8 +288,6 @@ class LocalController(Controller):
         self._load_monitor = None
         self.viewer_password = viewer_password
 
-    # Should be called before we open any windows, since we may re-exec
-    # the whole program if we need to update the group list.
     def initialize(self):
         if not self._environment_ready:
             raise ValueError('setup_environment has not been called')
@@ -382,6 +380,8 @@ class LocalController(Controller):
         # Kick off state machine after main loop starts
         gobject.idle_add(self.emit, 'vm-stopped')
 
+    # Should be called before we open any windows, since we may re-exec
+    # the whole program if we need to update the group list.
     @classmethod
     def setup_environment(cls):
         if os.geteuid() == 0:
