@@ -15,7 +15,7 @@
 # for more details.
 #
 
-from flask import Flask, Response, render_template, request
+from flask import Flask, Response, request
 import json
 import logging
 from urlparse import urlunsplit
