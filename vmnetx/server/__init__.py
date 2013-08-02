@@ -313,7 +313,8 @@ class VMNetXServer(object):
         return state.token
 
     def _destroy_token(self, state):
-        del self._tokens[state.token]
+        with self._lock:
+            del self._tokens[state.token]
 
     def _gc(self):
         _log.debug("GC: Removing stale tokens")
