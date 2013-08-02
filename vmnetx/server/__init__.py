@@ -186,6 +186,7 @@ class _TokenState(gobject.GObject):
     }
 
     def __init__(self, package, username, password):
+        # Called from HTTP worker thread
         gobject.GObject.__init__(self)
         self.token = base64.urlsafe_b64encode(os.urandom(15))
         self._package = package
@@ -305,6 +306,7 @@ class VMNetXServer(object):
             return True
 
     def create_token(self, package):
+        # Called from HTTP worker thread
         with self._lock:
             state = _TokenState(package, self._options['username'],
                     self._options['password'])
