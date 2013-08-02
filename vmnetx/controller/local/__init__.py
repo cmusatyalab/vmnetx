@@ -528,7 +528,7 @@ class LocalController(Controller):
                 self.emit('vm-stopped')
 
     def stop_vm(self):
-        if self._conn is not None and (self.state == self.STATE_STARTING or
+        if (self.state == self.STATE_STARTING or
                 self.state == self.STATE_RUNNING):
             self.state = Controller.STATE_STOPPING
             try:
