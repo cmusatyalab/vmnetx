@@ -15,7 +15,7 @@
 # for more details.
 #
 
-from flask import Flask, Response, request
+from flask import Flask, Response, request, jsonify
 import json
 import logging
 from urlparse import urlunsplit
@@ -70,8 +70,5 @@ class HttpServer(Flask):
 
         r = urlunsplit(('vmnetx', hostname, '/' + token, '', ''))
 
-        response = {
-            'url': r,
-        }
         _log.info("Preparing VM at %s with token %s", url, token)
-        return Response(json.dumps(response), mimetype='application/json')
+        return jsonify(url=r)
