@@ -334,8 +334,8 @@ class VMNetXServer(object):
             self._gc_timer = None
         with self._lock:
             states = self._tokens.values()
-            for state in states:
-                state.shutdown()
+        for state in states:
+            state.shutdown()
         conns = list(self._unauthenticated_conns)
         for conn in conns:
             conn.shutdown()
