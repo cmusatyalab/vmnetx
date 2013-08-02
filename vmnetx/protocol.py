@@ -286,8 +286,6 @@ class ServerEndpoint(_Endpoint):
                 gobject.signal_accumulator_true_handled),
         'start-vm': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN, (),
                 gobject.signal_accumulator_true_handled),
-        'startup-cancel': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN, (),
-                gobject.signal_accumulator_true_handled),
         'stop-vm': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN, (),
                 gobject.signal_accumulator_true_handled),
         'destroy-vm': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN, (),
@@ -305,7 +303,6 @@ class ServerEndpoint(_Endpoint):
     do_authenticate = _fail_if_not_handled
     do_attach_viewer = _fail_if_not_handled
     do_start_vm = _fail_if_not_handled
-    do_startup_cancel = _fail_if_not_handled
     do_stop_vm = _fail_if_not_handled
     do_destroy_vm = _fail_if_not_handled
 
@@ -325,10 +322,6 @@ class ServerEndpoint(_Endpoint):
             elif mtype == 'start-vm':
                 self._need_auth()
                 self.emit('start-vm')
-
-            elif mtype == 'startup-cancel':
-                self._need_auth()
-                self.emit('startup-cancel')
 
             elif mtype == 'stop-vm':
                 self._need_auth()
@@ -365,9 +358,6 @@ class ServerEndpoint(_Endpoint):
 
     def send_startup_complete(self, check_display):
         self._transmit('startup-complete', check_display=check_display)
-
-    def send_startup_cancelled(self):
-        self._transmit('startup-cancelled')
 
     def send_startup_rejected_memory(self):
         self._transmit('startup-rejected-memory')
@@ -430,7 +420,6 @@ class ClientEndpoint(_Endpoint):
                 (gobject.TYPE_DOUBLE,)),
         'startup-complete': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (gobject.TYPE_BOOLEAN,)),
-        'startup-cancelled': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'startup-rejected-memory': (gobject.SIGNAL_RUN_LAST,
                 gobject.TYPE_NONE, ()),
         'startup-failed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
@@ -478,10 +467,6 @@ class ClientEndpoint(_Endpoint):
             elif mtype == 'startup-complete':
                 self._need_dispatch_state(self.STATE_RUNNING)
                 self.emit('startup-complete', msg['check_display'])
-
-            elif mtype == 'startup-cancelled':
-                self._need_dispatch_state(self.STATE_RUNNING)
-                self.emit('startup-cancelled')
 
             elif mtype == 'startup-rejected-memory':
                 self._need_dispatch_state(self.STATE_RUNNING)
@@ -537,10 +522,6 @@ class ClientEndpoint(_Endpoint):
     @_need_send_state(STATE_RUNNING)
     def send_start_vm(self):
         self._transmit('start-vm')
-
-    @_need_send_state(STATE_RUNNING)
-    def send_startup_cancel(self):
-        self._transmit('startup-cancel')
 
     @_need_send_state(STATE_RUNNING)
     def send_stop_vm(self):

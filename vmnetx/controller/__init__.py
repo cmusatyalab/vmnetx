@@ -40,7 +40,6 @@ class Controller(gobject.GObject):
                 (gobject.TYPE_UINT64, gobject.TYPE_UINT64)),
         'startup-complete': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (gobject.TYPE_BOOLEAN,)),
-        'startup-cancelled': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'startup-rejected-memory': (gobject.SIGNAL_RUN_LAST,
                 gobject.TYPE_NONE, ()),
         'startup-failed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
@@ -120,9 +119,6 @@ class Controller(gobject.GObject):
     def start_vm(self):
         raise NotImplementedError
 
-    def startup_cancel(self):
-        raise NotImplementedError
-
     def connect_viewer(self, callback):
         '''Create a new connection for the VNC/SPICE viewer without blocking.
         When done, call callback(sock=sock) on success or
@@ -184,9 +180,6 @@ class _DummyControllerSubclass(Controller):
         raise ValueError
 
     def start_vm(self):
-        raise ValueError
-
-    def startup_cancel(self):
         raise ValueError
 
     def connect_viewer(self, _callback):

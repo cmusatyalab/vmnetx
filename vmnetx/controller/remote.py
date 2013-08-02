@@ -177,7 +177,6 @@ class RemoteController(Controller):
             connect('auth-failed', self._auth_failed)
             connect('startup-progress', self._startup_progress)
             connect('startup-complete', self._startup_complete)
-            connect('startup-cancelled', self._startup_cancelled)
             connect('startup-rejected-memory',
                     self._startup_rejected_memory)
             connect('startup-failed', self._startup_failed)
@@ -219,11 +218,6 @@ class RemoteController(Controller):
         if self._phase == self.PHASE_RUN:
             self.state = self.STATE_RUNNING
             self.emit('startup-complete', check_display)
-
-    def _startup_cancelled(self, _endp):
-        if self._phase == self.PHASE_RUN:
-            self.state = self.STATE_STOPPED
-            self.emit('startup-cancelled')
 
     def _startup_rejected_memory(self, _endp):
         if self._phase == self.PHASE_RUN:
@@ -276,11 +270,8 @@ class RemoteController(Controller):
                     self._endp.send_start_vm()
 
             elif wanted == self.STATE_STOPPED:
-                if self.state == self.STATE_STARTING:
-                    self.state = self.STATE_STOPPING
-                    self._endp.send_startup_cancel()
-
-                elif self.state == self.STATE_RUNNING:
+                if (self.state == self.STATE_STARTING or
+                        self.state == self.STATE_RUNNING):
                     self.state = self.STATE_STOPPING
                     self._endp.send_stop_vm()
 
@@ -294,9 +285,6 @@ class RemoteController(Controller):
 
     def start_vm(self):
         self._want_state(self.STATE_RUNNING)
-
-    def startup_cancel(self):
-        self._want_state(self.STATE_STOPPED)
 
     def connect_viewer(self, callback):
         if self.state != self.STATE_RUNNING:

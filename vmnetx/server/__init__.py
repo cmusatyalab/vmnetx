@@ -51,7 +51,6 @@ class _ServerConnection(gobject.GObject):
         self._endp.connect('authenticate', self._client_authenticate)
         self._endp.connect('attach-viewer', self._client_attach_viewer)
         self._endp.connect('start-vm', self._client_start_vm)
-        self._endp.connect('startup-cancel', self._client_startup_cancel)
         self._endp.connect('stop-vm', self._client_stop_vm)
         self._endp.connect('destroy-vm', self._client_destroy_vm)
         self._endp.connect('ping', self._client_ping)
@@ -83,7 +82,6 @@ class _ServerConnection(gobject.GObject):
             self._controller_sources.append(source)
         connect('startup-progress', self._ctrl_startup_progress)
         connect('startup-complete', self._ctrl_startup_complete)
-        connect('startup-cancelled', self._ctrl_startup_cancelled)
         connect('startup-rejected-memory', self._ctrl_startup_rejected_memory)
         connect('startup-failed', self._ctrl_startup_failed)
         connect('vm-stopped', self._ctrl_vm_stopped)
@@ -123,14 +121,6 @@ class _ServerConnection(gobject.GObject):
             self._endp.send_error("Can't start VM unless it is stopped")
         return True
 
-    def _client_startup_cancel(self, _endp):
-        try:
-            self._controller.startup_cancel()
-            _log.info('Cancelling startup')
-        except MachineStateError:
-            self._endp.send_error("Can't cancel startup unless VM is starting")
-        return True
-
     def _client_stop_vm(self, _endp):
         try:
             self._controller.stop_vm()
@@ -165,9 +155,6 @@ class _ServerConnection(gobject.GObject):
 
     def _ctrl_startup_complete(self, _obj, check_display):
         self._endp.send_startup_complete(check_display)
-
-    def _ctrl_startup_cancelled(self, _obj):
-        self._endp.send_startup_cancelled()
 
     def _ctrl_startup_rejected_memory(self, _obj):
         self._endp.send_startup_rejected_memory()

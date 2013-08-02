@@ -73,6 +73,7 @@ class VMNetXUI(object):
         self._wind = None
         self._load_window = None
         self._network_warning = None
+        self._shutdown_on_stop = False
         self._io_failed = False
         self._check_display = False
         self._bad_memory = False
@@ -92,8 +93,6 @@ class VMNetXUI(object):
             self._controller.connect('startup-progress',
                     self._startup_progress)
             self._controller.connect('startup-complete', self._startup_done)
-            self._controller.connect('startup-cancelled',
-                    self._startup_cancelled)
             self._controller.connect('startup-rejected-memory',
                     self._startup_rejected_memory)
             self._controller.connect('startup-failed', self._fatal_error)
@@ -183,7 +182,8 @@ class VMNetXUI(object):
         self._load_window.progress(count, total)
 
     def _startup_cancel(self, _obj):
-        self._controller.startup_cancel()
+        self._shutdown_on_stop = True
+        self._controller.stop_vm()
         self._wind.hide()
 
     def _destroy_load_window(self):
@@ -196,10 +196,6 @@ class VMNetXUI(object):
         self._wind.set_vm_running(True)
         self._wind.connect_viewer(self._controller.viewer_password)
         self._destroy_load_window()
-
-    def _startup_cancelled(self, _obj):
-        self._destroy_load_window()
-        self._shutdown()
 
     def _startup_rejected_memory(self, _obj):
         self._destroy_load_window()
@@ -282,8 +278,12 @@ class VMNetXUI(object):
         self._controller.stop_vm()
 
     def _vm_stopped(self, _obj):
-        self._wind.set_vm_running(False)
-        self._controller.start_vm()
+        if self._shutdown_on_stop:
+            self._destroy_load_window()
+            self._shutdown()
+        else:
+            self._wind.set_vm_running(False)
+            self._controller.start_vm()
 
     def _shutdown(self, _obj=None):
         self._wind.show_activity(False)

@@ -490,7 +490,7 @@ class LocalController(Controller):
         except:
             if self.state == self.STATE_STOPPING:
                 self.state = self.STATE_STOPPED
-                gobject.idle_add(self.emit, 'startup-cancelled')
+                gobject.idle_add(self.emit, 'vm-stopped')
             elif have_memory:
                 self._have_memory = False
                 gobject.idle_add(self.emit, 'startup-rejected-memory')
@@ -507,13 +507,6 @@ class LocalController(Controller):
     def _load_progress(self, _obj, count, total):
         if self._have_memory and self.state == self.STATE_STARTING:
             self.emit('startup-progress', count, total)
-
-    def startup_cancel(self):
-        if self.state == self.STATE_STARTING:
-            self.state = self.STATE_STOPPING
-            self.stop_vm()
-        elif self.state != self.STATE_STOPPING:
-            raise MachineStateError('Machine in inappropriate state')
 
     def connect_viewer(self, callback):
         if self.state != self.STATE_RUNNING:
