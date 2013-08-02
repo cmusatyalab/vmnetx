@@ -282,6 +282,7 @@ class LocalController(Controller):
         self._memory_image_path = None
         self._fs = None
         self._conn = None
+        self._launch_lock = threading.Lock()
         self._stop_thread = None
         self._domain_xml = None
         self._viewer_address = None
@@ -460,20 +461,23 @@ class LocalController(Controller):
         try:
             have_memory = self._have_memory
             try:
-                if have_memory:
-                    watchdog = _QemuWatchdog(self._domain_name)
-                    try:
-                        # Does not return domain handle
-                        # Does not allow autodestroy
-                        self._conn.restoreFlags(self._memory_image_path,
-                                self._domain_xml,
-                                libvirt.VIR_DOMAIN_SAVE_RUNNING)
-                    finally:
-                        watchdog.stop()
-                    domain = self._conn.lookupByName(self._domain_name)
-                else:
-                    domain = self._conn.createXML(self._domain_xml,
-                            libvirt.VIR_DOMAIN_START_AUTODESTROY)
+                with self._launch_lock:
+                    if self.state == self.STATE_STOPPING:
+                        raise MachineExecutionError('Stopped before starting')
+                    if have_memory:
+                        watchdog = _QemuWatchdog(self._domain_name)
+                        try:
+                            # Does not return domain handle
+                            # Does not allow autodestroy
+                            self._conn.restoreFlags(self._memory_image_path,
+                                    self._domain_xml,
+                                    libvirt.VIR_DOMAIN_SAVE_RUNNING)
+                        finally:
+                            watchdog.stop()
+                        domain = self._conn.lookupByName(self._domain_name)
+                    else:
+                        domain = self._conn.createXML(self._domain_xml,
+                                libvirt.VIR_DOMAIN_START_AUTODESTROY)
 
                 # Get viewer socket address
                 domain_xml = DomainXML(domain.XMLDesc(0),
@@ -533,11 +537,14 @@ class LocalController(Controller):
 
     def _stop_vm(self):
         # Thread function.
-        try:
-            self._conn.lookupByName(self._domain_name).destroy()
-        except libvirt.libvirtError:
-            # Assume that the VM did not exist or was already dying
-            pass
+        # Avoid race when startup is cancelled before the startup thread
+        # has a chance to run the VM
+        with self._launch_lock:
+            try:
+                self._conn.lookupByName(self._domain_name).destroy()
+            except libvirt.libvirtError:
+                # Assume that the VM did not exist or was already dying
+                pass
 
     def shutdown(self):
         for monitor in self._monitors:
