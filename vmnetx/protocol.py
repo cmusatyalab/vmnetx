@@ -356,14 +356,14 @@ class ServerEndpoint(_Endpoint):
     def send_startup_progress(self, fraction):
         self._transmit('startup-progress', fraction=fraction)
 
-    def send_startup_complete(self, check_display):
-        self._transmit('startup-complete', check_display=check_display)
-
     def send_startup_rejected_memory(self):
         self._transmit('startup-rejected-memory')
 
     def send_startup_failed(self, message):
         self._transmit('startup-failed', message=message)
+
+    def send_vm_started(self, check_display):
+        self._transmit('vm-started', check_display=check_display)
 
     def send_vm_stopped(self):
         self._transmit('vm-stopped')
@@ -418,12 +418,12 @@ class ClientEndpoint(_Endpoint):
         'attaching-viewer': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'startup-progress': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (gobject.TYPE_DOUBLE,)),
-        'startup-complete': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_BOOLEAN,)),
         'startup-rejected-memory': (gobject.SIGNAL_RUN_LAST,
                 gobject.TYPE_NONE, ()),
         'startup-failed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (gobject.TYPE_STRING,)),
+        'vm-started': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (gobject.TYPE_BOOLEAN,)),
         'vm-stopped': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'pong': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
@@ -464,10 +464,6 @@ class ClientEndpoint(_Endpoint):
                 self._need_dispatch_state(self.STATE_RUNNING)
                 self.emit('startup-progress', msg['fraction'])
 
-            elif mtype == 'startup-complete':
-                self._need_dispatch_state(self.STATE_RUNNING)
-                self.emit('startup-complete', msg['check_display'])
-
             elif mtype == 'startup-rejected-memory':
                 self._need_dispatch_state(self.STATE_RUNNING)
                 self.emit('startup-rejected-memory')
@@ -475,6 +471,10 @@ class ClientEndpoint(_Endpoint):
             elif mtype == 'startup-failed':
                 self._need_dispatch_state(self.STATE_RUNNING)
                 self.emit('startup-failed', msg['message'])
+
+            elif mtype == 'vm-started':
+                self._need_dispatch_state(self.STATE_RUNNING)
+                self.emit('vm-started', msg['check_display'])
 
             elif mtype == 'vm-stopped':
                 if self._state == self.STATE_ATTACHING_VIEWER:

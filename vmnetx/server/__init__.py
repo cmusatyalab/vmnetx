@@ -81,9 +81,9 @@ class _ServerConnection(gobject.GObject):
             source = self._controller.connect(signal, handler)
             self._controller_sources.append(source)
         connect('startup-progress', self._ctrl_startup_progress)
-        connect('startup-complete', self._ctrl_startup_complete)
         connect('startup-rejected-memory', self._ctrl_startup_rejected_memory)
         connect('startup-failed', self._ctrl_startup_failed)
+        connect('vm-started', self._ctrl_vm_started)
         connect('vm-stopped', self._ctrl_vm_stopped)
 
         cs = self._controller.state
@@ -153,14 +153,14 @@ class _ServerConnection(gobject.GObject):
     def _ctrl_startup_progress(self, _obj, count, total):
         self._endp.send_startup_progress(count / total)
 
-    def _ctrl_startup_complete(self, _obj, check_display):
-        self._endp.send_startup_complete(check_display)
-
     def _ctrl_startup_rejected_memory(self, _obj):
         self._endp.send_startup_rejected_memory()
 
     def _ctrl_startup_failed(self, _obj, error):
         self._endp.send_startup_failed(error.exception)
+
+    def _ctrl_vm_started(self, _obj, check_display):
+        self._endp.send_vm_started(check_display)
 
     def _ctrl_vm_stopped(self, _obj):
         self._endp.send_vm_stopped()

@@ -92,11 +92,11 @@ class VMNetXUI(object):
             self._controller.setup_environment()
             self._controller.connect('startup-progress',
                     self._startup_progress)
-            self._controller.connect('startup-complete', self._startup_done)
             self._controller.connect('startup-rejected-memory',
                     self._startup_rejected_memory)
             self._controller.connect('startup-failed', self._fatal_error)
             self._controller.connect('fatal-error', self._fatal_error)
+            self._controller.connect('vm-started', self._vm_started)
             self._controller.connect('vm-stopped', self._vm_stopped)
             self._controller.connect('network-disconnect',
                     self._network_disconnect)
@@ -191,7 +191,7 @@ class VMNetXUI(object):
             self._load_window.destroy()
             self._load_window = None
 
-    def _startup_done(self, _obj, check_display):
+    def _vm_started(self, _obj, check_display):
         self._check_display = check_display
         self._wind.set_vm_running(True)
         self._wind.connect_viewer(self._controller.viewer_password)

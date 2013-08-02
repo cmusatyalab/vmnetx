@@ -502,7 +502,7 @@ class LocalController(Controller):
                 gobject.idle_add(self.emit, 'vm-stopped')
         else:
             self.state = self.STATE_RUNNING
-            gobject.idle_add(self.emit, 'startup-complete', have_memory)
+            gobject.idle_add(self.emit, 'vm-started', have_memory)
     # pylint: enable=W0702
 
     def _load_progress(self, _obj, count, total):
