@@ -283,6 +283,7 @@ class LocalController(Controller):
         self._fs = None
         self._conn = None
         self._launch_lock = threading.Lock()
+        self._startup_running = False
         self._stop_thread = None
         self._domain_xml = None
         self._viewer_address = None
@@ -450,6 +451,7 @@ class LocalController(Controller):
     @Controller._ensure_state(Controller.STATE_STOPPED)
     def start_vm(self):
         self.state = self.STATE_STARTING
+        self._startup_running = True
         if self._have_memory:
             self.emit('startup-progress', 0, self._load_monitor.chunks)
         threading.Thread(name='vmnetx-startup', target=self._startup).start()
@@ -507,6 +509,8 @@ class LocalController(Controller):
         else:
             self.state = self.STATE_RUNNING
             gobject.idle_add(self.emit, 'vm-started', have_memory)
+        finally:
+            self._startup_running = False
     # pylint: enable=W0702
 
     def _load_progress(self, _obj, count, total):
@@ -521,9 +525,13 @@ class LocalController(Controller):
 
     def _lifecycle_event(self, _conn, domain, event, _detail, _data):
         if domain.name() == self._domain_name:
-            if event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
-                self.state = self.STATE_STOPPED
-                self.emit('vm-stopped')
+            if (event == libvirt.VIR_DOMAIN_EVENT_STOPPED and
+                    self.state != self.STATE_STOPPED):
+                # If the startup thread is running, it has absolute control
+                # over state transitions.
+                if not self._startup_running:
+                    self.state = self.STATE_STOPPED
+                    self.emit('vm-stopped')
 
     def stop_vm(self):
         if (self.state == self.STATE_STARTING or
