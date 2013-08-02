@@ -225,7 +225,6 @@ class RemoteController(Controller):
 
     def _startup_failed(self, _endp, message):
         if self._phase == self.PHASE_RUN:
-            self.state = self.STATE_STOPPED
             self.emit('startup-failed', ErrorBuffer(message))
 
     def _vm_stopped(self, _endp):

@@ -499,6 +499,7 @@ class LocalController(Controller):
             else:
                 self.state = self.STATE_STOPPED
                 gobject.idle_add(self.emit, 'startup-failed', ErrorBuffer())
+                gobject.idle_add(self.emit, 'vm-stopped')
         else:
             self.state = self.STATE_RUNNING
             gobject.idle_add(self.emit, 'startup-complete', have_memory)

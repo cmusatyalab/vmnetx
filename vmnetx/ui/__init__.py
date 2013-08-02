@@ -202,6 +202,10 @@ class VMNetXUI(object):
         self._warn_bad_memory()
 
     def _fatal_error(self, _obj, error):
+        # If called due to a startup-failed signal, we need to ensure that
+        # the subsequent vm-stopped signal, which may arrive before the
+        # main loop is shut down, does not cause another startup attempt.
+        self._shutdown_on_stop = True
         ew = FatalErrorWindow(self._wind, error)
         ew.run()
         ew.destroy()
