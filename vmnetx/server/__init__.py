@@ -39,6 +39,7 @@ class _ServerConnection(gobject.GObject):
     __gsignals__ = {
         'need-controller': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN,
             (gobject.TYPE_STRING,), gobject.signal_accumulator_true_handled),
+        'ping': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'close': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'destroy-token': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
@@ -144,7 +145,7 @@ class _ServerConnection(gobject.GObject):
         return True
 
     def _client_ping(self, _endp):
-        _log.debug("Ping")
+        self.emit('ping')
 
     def _client_error(self, _endp, message):
         _log.warning("Protocol error: %s", message)
@@ -206,9 +207,13 @@ class _TokenState(gobject.GObject):
                 raise MachineExecutionError('SPICE support is unavailable')
             self.last_seen = time.time()
         self._conns.add(conn)
+        conn.connect('ping', self._update_last_seen)
         conn.connect('close', self._close)
         conn.connect('destroy-token', lambda _conn: self.shutdown())
         return self._controller
+
+    def _update_last_seen(self, _conn):
+        self.last_seen = time.time()
 
     def _close(self, conn):
         self._conns.remove(conn)
