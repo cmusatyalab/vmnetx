@@ -282,6 +282,7 @@ class LocalController(Controller):
         self._memory_image_path = None
         self._fs = None
         self._conn = None
+        self._stop_thread = None
         self._domain_xml = None
         self._viewer_address = None
         self._monitors = []
@@ -510,8 +511,7 @@ class LocalController(Controller):
     def startup_cancel(self):
         if self.state == self.STATE_STARTING:
             self.state = self.STATE_STOPPING
-            threading.Thread(name='vmnetx-startup-cancel',
-                    target=self.stop_vm).start()
+            self.stop_vm()
         elif self.state != self.STATE_STOPPING:
             raise MachineStateError('Machine in inappropriate state')
 
@@ -531,19 +531,27 @@ class LocalController(Controller):
         if (self.state == self.STATE_STARTING or
                 self.state == self.STATE_RUNNING):
             self.state = Controller.STATE_STOPPING
-            try:
-                self._conn.lookupByName(self._domain_name).destroy()
-            except libvirt.libvirtError:
-                # Assume that the VM did not exist or was already dying
-                pass
             self._viewer_address = None
-        self._have_memory = False
+            self._have_memory = False
+            self._stop_thread = threading.Thread(name='vmnetx-stop-vm',
+                    target=self._stop_vm)
+            self._stop_thread.start()
+
+    def _stop_vm(self):
+        # Thread function.
+        try:
+            self._conn.lookupByName(self._domain_name).destroy()
+        except libvirt.libvirtError:
+            # Assume that the VM did not exist or was already dying
+            pass
 
     def shutdown(self):
         for monitor in self._monitors:
             monitor.close()
         self._monitors = []
         self.stop_vm()
+        if self._stop_thread is not None:
+            self._stop_thread.join()
         # Close libvirt connection
         if self._conn is not None:
             self._conn.close()
