@@ -24,6 +24,7 @@ from vmnetx.define import define_machine
 from vmnetx.domain import DomainXML
 from vmnetx.generate import generate_machine
 from vmnetx.reference import PackageReference
+from vmnetx.util import setup_libvirt
 
 USAGE = 'Usage: %prog [-nu] domain-xml out-file\n' + \
         '       %prog -r package-url out-file\n' + \
@@ -47,6 +48,7 @@ parser.add_option('-u', '--uncompressed', dest='compress',
 
 opts, args = parser.parse_args()
 try:
+    setup_libvirt()
     if opts.check_xml:
         if len(args) != 0:
             parser.error('Incorrect mandatory arguments')

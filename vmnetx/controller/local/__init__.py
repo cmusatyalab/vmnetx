@@ -42,7 +42,7 @@ from wsgiref.handlers import format_date_time as format_rfc1123_date
 from ...domain import DomainXML
 from ...memory import LibvirtQemuMemoryHeader
 from ...package import Package
-from ...util import ErrorBuffer, ensure_dir, get_cache_dir
+from ...util import ErrorBuffer, ensure_dir, get_cache_dir, setup_libvirt
 from .. import Controller, MachineExecutionError, MachineStateError, Statistic
 from .monitor import (ChunkMapMonitor, LineStreamMonitor,
         LoadProgressMonitor, StatMonitor)
@@ -51,13 +51,8 @@ from .vmnetfs import VMNetFS, NS as VMNETFS_NS
 
 _log = logging.getLogger(__name__)
 
-# Check libvirt version
-assert(libvirt.getVersion() >= 9008) # 0.9.8
-
-# Squash redundant reporting of libvirt errors to stderr.  This modifies
-# global state, since the Python bindings don't provide a way to do this
-# per-connection.
-libvirt.registerErrorHandler(lambda _ctx, _error: None, None)
+# Initialize libvirt.  Modifies global state.
+setup_libvirt()
 
 # Enable libvirt event reporting.  Also modifies global state.
 LibvirtEventImpl().register()
