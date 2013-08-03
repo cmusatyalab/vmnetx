@@ -219,6 +219,8 @@ class _Endpoint(gobject.GObject):
             self._next_message()
 
     def _transmit(self, mtype, **kwargs):
+        if self._asock is None:
+            raise IOError('Endpoint closed')
         _log.debug('Sent: %s', mtype)
         kwargs['_'] = mtype
         buf = msgpack.packb(kwargs)
