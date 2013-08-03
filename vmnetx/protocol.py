@@ -219,6 +219,8 @@ class _Endpoint(gobject.GObject):
             self._next_message()
 
     def _transmit(self, mtype, **kwargs):
+        if self._asock is None:
+            raise IOError('Endpoint closed')
         _log.debug('Sent: %s', mtype)
         kwargs['_'] = mtype
         buf = msgpack.packb(kwargs)
@@ -286,8 +288,6 @@ class ServerEndpoint(_Endpoint):
                 gobject.signal_accumulator_true_handled),
         'start-vm': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN, (),
                 gobject.signal_accumulator_true_handled),
-        'startup-cancel': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN, (),
-                gobject.signal_accumulator_true_handled),
         'stop-vm': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN, (),
                 gobject.signal_accumulator_true_handled),
         'destroy-vm': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN, (),
@@ -305,7 +305,6 @@ class ServerEndpoint(_Endpoint):
     do_authenticate = _fail_if_not_handled
     do_attach_viewer = _fail_if_not_handled
     do_start_vm = _fail_if_not_handled
-    do_startup_cancel = _fail_if_not_handled
     do_stop_vm = _fail_if_not_handled
     do_destroy_vm = _fail_if_not_handled
 
@@ -325,10 +324,6 @@ class ServerEndpoint(_Endpoint):
             elif mtype == 'start-vm':
                 self._need_auth()
                 self.emit('start-vm')
-
-            elif mtype == 'startup-cancel':
-                self._need_auth()
-                self.emit('startup-cancel')
 
             elif mtype == 'stop-vm':
                 self._need_auth()
@@ -363,17 +358,14 @@ class ServerEndpoint(_Endpoint):
     def send_startup_progress(self, fraction):
         self._transmit('startup-progress', fraction=fraction)
 
-    def send_startup_complete(self, check_display):
-        self._transmit('startup-complete', check_display=check_display)
-
-    def send_startup_cancelled(self):
-        self._transmit('startup-cancelled')
-
     def send_startup_rejected_memory(self):
         self._transmit('startup-rejected-memory')
 
     def send_startup_failed(self, message):
         self._transmit('startup-failed', message=message)
+
+    def send_vm_started(self, check_display):
+        self._transmit('vm-started', check_display=check_display)
 
     def send_vm_stopped(self):
         self._transmit('vm-stopped')
@@ -428,13 +420,12 @@ class ClientEndpoint(_Endpoint):
         'attaching-viewer': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'startup-progress': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (gobject.TYPE_DOUBLE,)),
-        'startup-complete': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_BOOLEAN,)),
-        'startup-cancelled': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'startup-rejected-memory': (gobject.SIGNAL_RUN_LAST,
                 gobject.TYPE_NONE, ()),
         'startup-failed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (gobject.TYPE_STRING,)),
+        'vm-started': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (gobject.TYPE_BOOLEAN,)),
         'vm-stopped': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'pong': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
@@ -475,14 +466,6 @@ class ClientEndpoint(_Endpoint):
                 self._need_dispatch_state(self.STATE_RUNNING)
                 self.emit('startup-progress', msg['fraction'])
 
-            elif mtype == 'startup-complete':
-                self._need_dispatch_state(self.STATE_RUNNING)
-                self.emit('startup-complete', msg['check_display'])
-
-            elif mtype == 'startup-cancelled':
-                self._need_dispatch_state(self.STATE_RUNNING)
-                self.emit('startup-cancelled')
-
             elif mtype == 'startup-rejected-memory':
                 self._need_dispatch_state(self.STATE_RUNNING)
                 self.emit('startup-rejected-memory')
@@ -490,6 +473,10 @@ class ClientEndpoint(_Endpoint):
             elif mtype == 'startup-failed':
                 self._need_dispatch_state(self.STATE_RUNNING)
                 self.emit('startup-failed', msg['message'])
+
+            elif mtype == 'vm-started':
+                self._need_dispatch_state(self.STATE_RUNNING)
+                self.emit('vm-started', msg['check_display'])
 
             elif mtype == 'vm-stopped':
                 if self._state == self.STATE_ATTACHING_VIEWER:
@@ -537,10 +524,6 @@ class ClientEndpoint(_Endpoint):
     @_need_send_state(STATE_RUNNING)
     def send_start_vm(self):
         self._transmit('start-vm')
-
-    @_need_send_state(STATE_RUNNING)
-    def send_startup_cancel(self):
-        self._transmit('startup-cancel')
 
     @_need_send_state(STATE_RUNNING)
     def send_stop_vm(self):

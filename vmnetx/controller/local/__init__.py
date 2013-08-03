@@ -282,6 +282,8 @@ class LocalController(Controller):
         self._memory_image_path = None
         self._fs = None
         self._conn = None
+        self._startup_running = False
+        self._stop_thread = None
         self._domain_xml = None
         self._viewer_address = None
         self._monitors = []
@@ -448,6 +450,7 @@ class LocalController(Controller):
     @Controller._ensure_state(Controller.STATE_STOPPED)
     def start_vm(self):
         self.state = self.STATE_STARTING
+        self._startup_running = True
         if self._have_memory:
             self.emit('startup-progress', 0, self._load_monitor.chunks)
         threading.Thread(name='vmnetx-startup', target=self._startup).start()
@@ -489,7 +492,7 @@ class LocalController(Controller):
         except:
             if self.state == self.STATE_STOPPING:
                 self.state = self.STATE_STOPPED
-                gobject.idle_add(self.emit, 'startup-cancelled')
+                gobject.idle_add(self.emit, 'vm-stopped')
             elif have_memory:
                 self._have_memory = False
                 gobject.idle_add(self.emit, 'startup-rejected-memory')
@@ -498,22 +501,17 @@ class LocalController(Controller):
             else:
                 self.state = self.STATE_STOPPED
                 gobject.idle_add(self.emit, 'startup-failed', ErrorBuffer())
+                gobject.idle_add(self.emit, 'vm-stopped')
         else:
             self.state = self.STATE_RUNNING
-            gobject.idle_add(self.emit, 'startup-complete', have_memory)
+            gobject.idle_add(self.emit, 'vm-started', have_memory)
+        finally:
+            self._startup_running = False
     # pylint: enable=W0702
 
     def _load_progress(self, _obj, count, total):
         if self._have_memory and self.state == self.STATE_STARTING:
             self.emit('startup-progress', count, total)
-
-    def startup_cancel(self):
-        if self.state == self.STATE_STARTING:
-            self.state = self.STATE_STOPPING
-            threading.Thread(name='vmnetx-startup-cancel',
-                    target=self.stop_vm).start()
-        elif self.state != self.STATE_STOPPING:
-            raise MachineStateError('Machine in inappropriate state')
 
     def connect_viewer(self, callback):
         if self.state != self.STATE_RUNNING:
@@ -523,27 +521,39 @@ class LocalController(Controller):
 
     def _lifecycle_event(self, _conn, domain, event, _detail, _data):
         if domain.name() == self._domain_name:
-            if event == libvirt.VIR_DOMAIN_EVENT_STOPPED:
-                self.state = self.STATE_STOPPED
-                self.emit('vm-stopped')
+            if (event == libvirt.VIR_DOMAIN_EVENT_STOPPED and
+                    self.state != self.STATE_STOPPED):
+                # If the startup thread is running, it has absolute control
+                # over state transitions.
+                if not self._startup_running:
+                    self.state = self.STATE_STOPPED
+                    self.emit('vm-stopped')
 
     def stop_vm(self):
-        if self._conn is not None and (self.state == self.STATE_STARTING or
+        if (self.state == self.STATE_STARTING or
                 self.state == self.STATE_RUNNING):
             self.state = Controller.STATE_STOPPING
-            try:
-                self._conn.lookupByName(self._domain_name).destroy()
-            except libvirt.libvirtError:
-                # Assume that the VM did not exist or was already dying
-                pass
             self._viewer_address = None
-        self._have_memory = False
+            self._have_memory = False
+            self._stop_thread = threading.Thread(name='vmnetx-stop-vm',
+                    target=self._stop_vm)
+            self._stop_thread.start()
+
+    def _stop_vm(self):
+        # Thread function.
+        try:
+            self._conn.lookupByName(self._domain_name).destroy()
+        except libvirt.libvirtError:
+            # Assume that the VM did not exist or was already dying
+            pass
 
     def shutdown(self):
         for monitor in self._monitors:
             monitor.close()
         self._monitors = []
         self.stop_vm()
+        if self._stop_thread is not None:
+            self._stop_thread.join()
         # Close libvirt connection
         if self._conn is not None:
             self._conn.close()

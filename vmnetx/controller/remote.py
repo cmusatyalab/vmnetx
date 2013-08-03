@@ -154,7 +154,7 @@ class RemoteController(Controller):
         if self.state == self.STATE_STOPPED:
             gobject.idle_add(self.emit, 'vm-stopped')
         elif self.state == self.STATE_RUNNING:
-            gobject.idle_add(self.emit, 'startup-complete', False)
+            gobject.idle_add(self.emit, 'vm-started', False)
 
     def _attempt_connection(self, _backoff):
         self._connect_socket(self._address, self._connected)
@@ -176,11 +176,10 @@ class RemoteController(Controller):
             connect('auth-ok', self._auth_ok)
             connect('auth-failed', self._auth_failed)
             connect('startup-progress', self._startup_progress)
-            connect('startup-complete', self._startup_complete)
-            connect('startup-cancelled', self._startup_cancelled)
             connect('startup-rejected-memory',
                     self._startup_rejected_memory)
             connect('startup-failed', self._startup_failed)
+            connect('vm-started', self._vm_started)
             connect('vm-stopped', self._vm_stopped)
             connect('error', self._error)
             connect('close', self._shutdown)
@@ -215,15 +214,10 @@ class RemoteController(Controller):
         if self._phase == self.PHASE_RUN:
             self.emit('startup-progress', int(fraction * 10000), 10000)
 
-    def _startup_complete(self, _endp, check_display):
+    def _vm_started(self, _endp, check_display):
         if self._phase == self.PHASE_RUN:
             self.state = self.STATE_RUNNING
-            self.emit('startup-complete', check_display)
-
-    def _startup_cancelled(self, _endp):
-        if self._phase == self.PHASE_RUN:
-            self.state = self.STATE_STOPPED
-            self.emit('startup-cancelled')
+            self.emit('vm-started', check_display)
 
     def _startup_rejected_memory(self, _endp):
         if self._phase == self.PHASE_RUN:
@@ -231,7 +225,6 @@ class RemoteController(Controller):
 
     def _startup_failed(self, _endp, message):
         if self._phase == self.PHASE_RUN:
-            self.state = self.STATE_STOPPED
             self.emit('startup-failed', ErrorBuffer(message))
 
     def _vm_stopped(self, _endp):
@@ -276,11 +269,8 @@ class RemoteController(Controller):
                     self._endp.send_start_vm()
 
             elif wanted == self.STATE_STOPPED:
-                if self.state == self.STATE_STARTING:
-                    self.state = self.STATE_STOPPING
-                    self._endp.send_startup_cancel()
-
-                elif self.state == self.STATE_RUNNING:
+                if (self.state == self.STATE_STARTING or
+                        self.state == self.STATE_RUNNING):
                     self.state = self.STATE_STOPPING
                     self._endp.send_stop_vm()
 
@@ -294,9 +284,6 @@ class RemoteController(Controller):
 
     def start_vm(self):
         self._want_state(self.STATE_RUNNING)
-
-    def startup_cancel(self):
-        self._want_state(self.STATE_STOPPED)
 
     def connect_viewer(self, callback):
         if self.state != self.STATE_RUNNING:

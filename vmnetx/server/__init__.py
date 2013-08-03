@@ -39,6 +39,7 @@ class _ServerConnection(gobject.GObject):
     __gsignals__ = {
         'need-controller': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN,
             (gobject.TYPE_STRING,), gobject.signal_accumulator_true_handled),
+        'ping': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'close': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'destroy-token': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
@@ -50,7 +51,6 @@ class _ServerConnection(gobject.GObject):
         self._endp.connect('authenticate', self._client_authenticate)
         self._endp.connect('attach-viewer', self._client_attach_viewer)
         self._endp.connect('start-vm', self._client_start_vm)
-        self._endp.connect('startup-cancel', self._client_startup_cancel)
         self._endp.connect('stop-vm', self._client_stop_vm)
         self._endp.connect('destroy-vm', self._client_destroy_vm)
         self._endp.connect('ping', self._client_ping)
@@ -81,10 +81,9 @@ class _ServerConnection(gobject.GObject):
             source = self._controller.connect(signal, handler)
             self._controller_sources.append(source)
         connect('startup-progress', self._ctrl_startup_progress)
-        connect('startup-complete', self._ctrl_startup_complete)
-        connect('startup-cancelled', self._ctrl_startup_cancelled)
         connect('startup-rejected-memory', self._ctrl_startup_rejected_memory)
         connect('startup-failed', self._ctrl_startup_failed)
+        connect('vm-started', self._ctrl_vm_started)
         connect('vm-stopped', self._ctrl_vm_stopped)
 
         cs = self._controller.state
@@ -122,14 +121,6 @@ class _ServerConnection(gobject.GObject):
             self._endp.send_error("Can't start VM unless it is stopped")
         return True
 
-    def _client_startup_cancel(self, _endp):
-        try:
-            self._controller.startup_cancel()
-            _log.info('Cancelling startup')
-        except MachineStateError:
-            self._endp.send_error("Can't cancel startup unless VM is starting")
-        return True
-
     def _client_stop_vm(self, _endp):
         try:
             self._controller.stop_vm()
@@ -144,7 +135,7 @@ class _ServerConnection(gobject.GObject):
         return True
 
     def _client_ping(self, _endp):
-        _log.debug("Ping")
+        self.emit('ping')
 
     def _client_error(self, _endp, message):
         _log.warning("Protocol error: %s", message)
@@ -162,17 +153,14 @@ class _ServerConnection(gobject.GObject):
     def _ctrl_startup_progress(self, _obj, count, total):
         self._endp.send_startup_progress(count / total)
 
-    def _ctrl_startup_complete(self, _obj, check_display):
-        self._endp.send_startup_complete(check_display)
-
-    def _ctrl_startup_cancelled(self, _obj):
-        self._endp.send_startup_cancelled()
-
     def _ctrl_startup_rejected_memory(self, _obj):
         self._endp.send_startup_rejected_memory()
 
     def _ctrl_startup_failed(self, _obj, error):
         self._endp.send_startup_failed(error.exception)
+
+    def _ctrl_vm_started(self, _obj, check_display):
+        self._endp.send_vm_started(check_display)
 
     def _ctrl_vm_stopped(self, _obj):
         self._endp.send_vm_stopped()
@@ -185,6 +173,7 @@ class _TokenState(gobject.GObject):
     }
 
     def __init__(self, package, username, password):
+        # Called from HTTP worker thread
         gobject.GObject.__init__(self)
         self.token = base64.urlsafe_b64encode(os.urandom(15))
         self._package = package
@@ -206,9 +195,13 @@ class _TokenState(gobject.GObject):
                 raise MachineExecutionError('SPICE support is unavailable')
             self.last_seen = time.time()
         self._conns.add(conn)
+        conn.connect('ping', self._update_last_seen)
         conn.connect('close', self._close)
         conn.connect('destroy-token', lambda _conn: self.shutdown())
         return self._controller
+
+    def _update_last_seen(self, _conn):
+        self.last_seen = time.time()
 
     def _close(self, conn):
         self._conns.remove(conn)
@@ -234,6 +227,7 @@ class VMNetXServer(object):
         self._unauthenticated_conns = set()
         self._listen = None
         self._listen_source = None
+        self._gc_timer = None
 
         # Accessed by HTTP server
         self._lock = Lock()
@@ -259,6 +253,10 @@ class VMNetXServer(object):
         self._listen.setblocking(0)
         self._listen_source = glib.io_add_watch(self._listen, glib.IO_IN,
                 self._accept)
+
+        # Start garbage collection
+        self._gc_timer = glib.timeout_add_seconds(self._options['gc_interval'],
+                self._gc)
 
     def _accept(self, _source, _cond):
         while True:
@@ -295,6 +293,7 @@ class VMNetXServer(object):
             return True
 
     def create_token(self, package):
+        # Called from HTTP worker thread
         with self._lock:
             state = _TokenState(package, self._options['username'],
                     self._options['password'])
@@ -303,7 +302,23 @@ class VMNetXServer(object):
         return state.token
 
     def _destroy_token(self, state):
-        del self._tokens[state.token]
+        with self._lock:
+            del self._tokens[state.token]
+
+    def _gc(self):
+        _log.debug("GC: Removing stale tokens")
+        gc = self._options['gc_interval']
+        to = self._options['token_timeout']
+        with self._lock:
+            # All garbage collection is done with relation to a single start time
+            curr = time.time()
+            states = self._tokens.values()
+            for state in states:
+                # Check if the token has not timed out since the last gc call
+                if curr > state.last_seen + gc + to:
+                    _log.debug('GC: Removing token %s', state.token)
+                    state.shutdown()
+        return True
 
     def shutdown(self):
         # Does not shut down web server, since there's no API for doing so
@@ -314,10 +329,13 @@ class VMNetXServer(object):
         if self._listen is not None:
             self._listen.close()
             self._listen = None
+        if self._gc_timer is not None:
+            glib.source_remove(self._gc_timer)
+            self._gc_timer = None
         with self._lock:
             states = self._tokens.values()
-            for state in states:
-                state.shutdown()
+        for state in states:
+            state.shutdown()
         conns = list(self._unauthenticated_conns)
         for conn in conns:
             conn.shutdown()
