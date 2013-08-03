@@ -354,8 +354,8 @@ class DomainXML(object):
                 ),
                 e.video(
                     e.model(
-                        type='vga',
-                        vram='4096',
+                        type='qxl',
+                        vram='65536',
                         heads='1',
                     ),
                     e.address(
