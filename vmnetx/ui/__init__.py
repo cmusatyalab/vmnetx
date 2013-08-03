@@ -73,7 +73,7 @@ class VMNetXUI(object):
         self._wind = None
         self._load_window = None
         self._network_warning = None
-        self._shutdown_on_stop = False
+        self._shutting_down = False
         self._io_failed = False
         self._check_display = False
         self._bad_memory = False
@@ -182,7 +182,7 @@ class VMNetXUI(object):
         self._load_window.progress(count, total)
 
     def _startup_cancel(self, _obj):
-        self._shutdown_on_stop = True
+        self._shutting_down = True
         self._controller.stop_vm()
         self._wind.hide()
 
@@ -192,6 +192,10 @@ class VMNetXUI(object):
             self._load_window = None
 
     def _vm_started(self, _obj, check_display):
+        if self._shutting_down:
+            # Tried to cancel shutdown; lost the race.
+            self._controller.stop_vm()
+            return
         self._check_display = check_display
         self._wind.set_vm_running(True)
         self._wind.connect_viewer(self._controller.viewer_password)
@@ -205,7 +209,7 @@ class VMNetXUI(object):
         # If called due to a startup-failed signal, we need to ensure that
         # the subsequent vm-stopped signal, which may arrive before the
         # main loop is shut down, does not cause another startup attempt.
-        self._shutdown_on_stop = True
+        self._shutting_down = True
         ew = FatalErrorWindow(self._wind, error)
         ew.run()
         ew.destroy()
@@ -282,7 +286,7 @@ class VMNetXUI(object):
         self._controller.stop_vm()
 
     def _vm_stopped(self, _obj):
-        if self._shutdown_on_stop:
+        if self._shutting_down:
             self._destroy_load_window()
             self._shutdown()
         else:
