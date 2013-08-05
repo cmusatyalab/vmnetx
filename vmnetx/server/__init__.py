@@ -311,13 +311,13 @@ class VMNetXServer(object):
         to = self._options['token_timeout']
         with self._lock:
             # All garbage collection is done with relation to a single start time
-            curr = time.time()
             states = self._tokens.values()
-            for state in states:
-                # Check if the token has not timed out since the last gc call
-                if curr > state.last_seen + gc + to:
-                    _log.debug('GC: Removing token %s', state.token)
-                    state.shutdown()
+        curr = time.time()
+        for state in states:
+            # Check if the token has not timed out since the last gc call
+            if curr > state.last_seen + gc + to:
+                _log.debug('GC: Removing token %s', state.token)
+                state.shutdown()
         return True
 
     def shutdown(self):
