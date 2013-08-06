@@ -15,6 +15,7 @@
 # for more details.
 #
 
+from collections import namedtuple
 from lxml import etree
 from lxml.builder import ElementMaker
 import os
@@ -43,6 +44,13 @@ strict_schema = etree.RelaxNG(file=STRICT_SCHEMA_PATH)
 
 class DomainXMLError(DetailException):
     pass
+
+
+# This is a class, not an constant
+# pylint: disable=C0103
+_Emulator = namedtuple('_Emulator', ('os_type', 'domain_type', 'arch',
+        'machine', 'canonical_machine', 'path'))
+# pylint: enable=C0103
 
 
 class DomainXML(object):
@@ -181,7 +189,8 @@ class DomainXML(object):
     def detect_emulator(self, conn):
         '''Return the emulator path that we should use for this domain XML.
         (*Not* the one actually specified in the XML document.)'''
-        return self._get_emulator_for_domain(conn, etree.fromstring(self.xml))
+        return self._get_emulator_for_domain(conn,
+                etree.fromstring(self.xml)).path
 
     def get_for_execution(self, name, emulator, disk_image_path,
             viewer_password, use_spice=True):
@@ -273,7 +282,7 @@ class DomainXML(object):
             ),
             e.devices(
                 e.emulator(
-                    cls._get_emulator(conn, 'hvm', 'kvm', 'i686', 'pc')
+                    cls._get_emulator(conn, 'hvm', 'kvm', 'i686', 'pc').path
                 ),
                 e.disk(
                     e.driver(
@@ -382,6 +391,51 @@ class DomainXML(object):
         return cls(cls._to_xml(tree), validate=cls.VALIDATE_STRICT)
 
     @classmethod
+    def _try_remove_attr(cls, tree, xpath, attr, required_value):
+        for el in tree.xpath(xpath):
+            if el.get(attr) == required_value:
+                del el.attrib[attr]
+
+    @classmethod
+    def make_backward_compatible(cls, conn, xml):
+        # Remove backward-incompatible default attributes which libvirt adds
+        # to domain XML during defineXML(), and return new XML.  Any
+        # non-default attributes will be left alone and will probably go on
+        # to cause a validation error.  This is a class method because of
+        # the unusual requirement for a libvirt connection.
+
+        try:
+            tree = etree.fromstring(xml)
+        except etree.XMLSyntaxError, e:
+            raise DomainXMLError('Domain XML does not parse', str(e))
+
+        cls._try_remove_attr(tree, '//address[@type="drive"]', 'target', '0')
+        cls._try_remove_attr(tree, '/domain/cpu', 'mode', 'custom')
+        cls._try_remove_attr(tree, '/domain/cpu/model', 'fallback', 'allow')
+        cls._try_remove_attr(tree, '/domain/currentMemory', 'unit', 'KiB')
+        cls._try_remove_attr(tree, '/domain/devices/graphics', 'port', '-1')
+        cls._try_remove_attr(tree, '/domain/memory', 'unit', 'KiB')
+        cls._try_remove_attr(tree, '/domain/vcpu', 'placement', 'static')
+
+        for el in tree.xpath('/domain/devices/controller[@type="pci"]' +
+                '[@index="0"][@model="pci-root"]'):
+            if not el.getchildren():
+                el.getparent().remove(el)
+
+        for el in tree.xpath('/domain/devices/video/model'):
+            if 'ram' in el.attrib and el.get('ram') == el.get('vram'):
+                del el.attrib['ram']
+
+        emulator = cls._get_emulator_for_domain(conn, tree)
+        if (emulator.os_type == 'hvm' and emulator.domain_type == 'kvm' and
+                emulator.arch == 'i686' and emulator.machine == 'pc'):
+            el = cls._xpath_one(tree, '/domain/os/type')
+            if el.get('machine') == emulator.canonical_machine:
+                el.set('machine', emulator.machine)
+
+        return cls._to_xml(tree)
+
+    @classmethod
     def _get_emulator_for_domain(cls, conn, tree):
         # Get desired emulator properties
         type_node = cls._xpath_one(tree, '/domain/os/type')
@@ -410,7 +464,8 @@ class DomainXML(object):
 
                 # Check supported machines
                 for machine_node in arch_node.xpath('machine'):
-                    if machine_node.text == machine:
+                    if (machine_node.text == machine or
+                            machine_node.get('canonical') == machine):
                         # Check domain types
                         for domain_node in arch_node.xpath('domain'):
                             if domain_node.get('type') == domain_type:
@@ -421,7 +476,11 @@ class DomainXML(object):
                                             'emulator')
                                 if len(emulator_nodes) != 1:
                                     continue
-                                return emulator_nodes[0].text
+                                return _Emulator(os_type, domain_type, arch,
+                                        machine_node.text,
+                                        machine_node.get('canonical') or
+                                        machine_node.text,
+                                        emulator_nodes[0].text)
 
         # Failed.
         raise DomainXMLError('No suitable emulator for %s/%s/%s/%s' %

@@ -16,6 +16,8 @@
 #
 
 from __future__ import division
+from contextlib import closing
+import libvirt
 import os
 import subprocess
 import sys
@@ -94,7 +96,10 @@ def generate_machine(name, in_xml, out_file, compress=True):
     # Parse domain XML
     try:
         with open(in_xml) as fh:
-            domain = DomainXML(fh.read(), validate=DomainXML.VALIDATE_STRICT)
+            data = fh.read()
+        with closing(libvirt.open('qemu:///session')) as conn:
+            data = DomainXML.make_backward_compatible(conn, data)
+        domain = DomainXML(data, validate=DomainXML.VALIDATE_STRICT)
     except (IOError, DomainXMLError), e:
         raise MachineGenerationError(str(e), getattr(e, 'detail', None))
 
