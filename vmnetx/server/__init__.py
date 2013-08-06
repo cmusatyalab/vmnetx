@@ -17,13 +17,15 @@
 
 from __future__ import division
 import base64
+from datetime import datetime
+from dateutil.tz import tzutc
 import errno
 import glib
 import gobject
 import logging
 import os
 import socket
-from threading import Thread, Lock
+from threading import Thread, Lock, Event
 import time
 
 from .http import HttpServer
@@ -172,7 +174,7 @@ class _TokenState(gobject.GObject):
         'destroy': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
-    def __init__(self, package, username, password):
+    def __init__(self, package, username, password, user_ident):
         # Called from HTTP worker thread
         gobject.GObject.__init__(self)
         self.token = base64.urlsafe_b64encode(os.urandom(15))
@@ -182,6 +184,7 @@ class _TokenState(gobject.GObject):
         self._controller = None
         self._conns = set()
         self._valid = True
+        self.user_ident = user_ident
         self.last_seen = time.time()
 
     def get_controller(self, conn):
@@ -199,6 +202,28 @@ class _TokenState(gobject.GObject):
         conn.connect('close', self._close)
         conn.connect('destroy-token', lambda _conn: self.shutdown())
         return self._controller
+
+    @property
+    def status(self):
+        if self._controller is None:
+            return 'pending'
+        state = self._controller.state
+        if state == LocalController.STATE_UNINITIALIZED:
+            return "uninitialized"
+        elif state == LocalController.STATE_STOPPED:
+            return "stopped"
+        elif state == LocalController.STATE_STARTING:
+            return "starting"
+        elif state == LocalController.STATE_RUNNING:
+            return "running"
+        elif state == LocalController.STATE_STOPPING:
+            return "stopping"
+        elif state == LocalController.STATE_DESTROYED:
+            return "destroyed"
+
+    @property
+    def vm_name(self):
+        return self._package.name
 
     def _update_last_seen(self, _conn):
         self.last_seen = time.time()
@@ -292,11 +317,11 @@ class VMNetXServer(object):
             self._unauthenticated_conns.remove(conn)
             return True
 
-    def create_token(self, package):
+    def create_token(self, package, user_ident):
         # Called from HTTP worker thread
         with self._lock:
             state = _TokenState(package, self._options['username'],
-                    self._options['password'])
+                    self._options['password'], user_ident)
             self._tokens[state.token] = state
             state.connect('destroy', self._destroy_token)
         return state.token
@@ -305,19 +330,40 @@ class VMNetXServer(object):
         with self._lock:
             del self._tokens[state.token]
 
+    def get_status(self):
+        # Called from HTTP worker thread
+        complete = Event()
+        tokens = []
+        glib.idle_add(self._get_status, tokens, complete)
+        complete.wait()
+        return tokens
+
+    def _get_status(self, tokens, complete):
+        # Called from event loop thread
+        with self._lock:
+            for state in self._tokens.values():
+                tokens.append({
+                    "vm_name": state.vm_name,
+                    "user_ident": state.user_ident,
+                    "status": state.status,
+                    "last_seen": datetime.fromtimestamp(state.last_seen,
+                            tzutc()).isoformat(),
+                })
+        complete.set()
+
     def _gc(self):
         _log.debug("GC: Removing stale tokens")
         gc = self._options['gc_interval']
         to = self._options['token_timeout']
         with self._lock:
             # All garbage collection is done with relation to a single start time
-            curr = time.time()
             states = self._tokens.values()
-            for state in states:
-                # Check if the token has not timed out since the last gc call
-                if curr > state.last_seen + gc + to:
-                    _log.debug('GC: Removing token %s', state.token)
-                    state.shutdown()
+        curr = time.time()
+        for state in states:
+            # Check if the token has not timed out since the last gc call
+            if curr > state.last_seen + gc + to:
+                _log.debug('GC: Removing token %s', state.token)
+                state.shutdown()
         return True
 
     def shutdown(self):
