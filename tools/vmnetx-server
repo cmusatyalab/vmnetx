@@ -16,6 +16,8 @@
 # for more details.
 #
 
+from dateutil.parser import parse as parse_date
+from dateutil.tz import tzlocal
 import fcntl
 from getpass import getpass
 import glib
@@ -119,27 +121,61 @@ parser.add_option('-d', '--debug', dest='debug', action='store_true',
         help='Enable debug messages')
 parser.add_option('-c', '--create-token', dest='create_token', metavar='URL',
         help='URL of the VM for which the token is created')
-parser.add_option('-s', '--server', dest='server', metavar='URL',
+parser.add_option('-S', '--server', dest='server', metavar='URL',
         default='http://%s:%s' % (DEFAULT_HTTP_HOST, DEFAULT_HTTP_PORT),
         help='URL of the server to create token')
 parser.add_option('-k', '--secret-key', dest='secret', metavar='KEY',
         help='Secret key of the server to create token')
+parser.add_option('-s', '--status', dest='status', action='store_true',
+        help='Get status of server')
+parser.add_option('-u', '--user-ident', dest='user_ident', metavar='NAME',
+        default='Test client',
+        help='User identifier to pass to server')
 
 opts, args = parser.parse_args()
 
 if opts.debug:
     loglevel = logging.DEBUG
-elif opts.create_token:
+elif opts.create_token or opts.status:
     loglevel = logging.WARNING
 else:
     loglevel = logging.INFO
 logging.basicConfig(level=loglevel)
 
-if opts.create_token:
+if opts.status:
+    if opts.secret is None:
+        raise ValueError('Getting status requires --secret-key')
+    headers = {"X-Secret-Key": opts.secret}
+    r = requests.get(urljoin(opts.server, 'status'), headers=headers)
+    if r.status_code != requests.codes.ok:
+        sys.stderr.write('Server replied with code %d\n' % r.status_code)
+        sys.exit(1)
+
+    data = json.loads(r.text)
+    status = data['status']
+
+    if status:
+        fmt = ('%(vm_name)-30.30s %(user_ident)-19.19s ' +
+                '%(status)-8.8s %(last_seen)-19.19s')
+        print fmt % {
+            'vm_name': 'VM name',
+            'user_ident': 'User Identifier',
+            'status': 'Status',
+            'last_seen': 'Last Seen',
+        }
+        for entry in status:
+            parsed_time = parse_date(entry['last_seen'])
+            local_time = parsed_time.astimezone(tzlocal())
+            entry['last_seen'] = local_time.strftime('%Y-%m-%d %H:%M:%S')
+            print fmt % entry
+    else:
+        print 'No tokens exist'
+elif opts.create_token:
     if opts.secret is None:
         raise ValueError('Creating token requires --secret-key')
     payload = {
         "url": opts.create_token,
+        "user_ident": opts.user_ident,
     }
     headers = {"X-Secret-Key": opts.secret}
     r = requests.post(urljoin(opts.server, 'create-token'),

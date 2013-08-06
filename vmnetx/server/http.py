@@ -15,6 +15,8 @@
 # for more details.
 #
 
+from datetime import datetime
+from dateutil.tz import tzutc
 from flask import Flask, Response, request, jsonify
 import json
 import logging
@@ -34,6 +36,19 @@ class HttpServer(Flask):
         self._server = server
         self.add_url_rule('/create-token', 'create-token',
                 self._create_token, methods=['POST'])
+        self.add_url_rule('/status', 'status', self._status)
+
+    def _status(self):
+        try:
+            secret_key = request.headers['X-Secret-Key']
+        except KeyError:
+            return Response('Missing secret key', 403)
+        if secret_key != self._options['secret_key']:
+            return Response('Incorrect secret key', 403)
+
+        current_time = datetime.now(tzutc()).isoformat()
+        status = self._server.get_status()
+        return jsonify(current_time=current_time, status=status)
 
     def _create_token(self):
         try:
@@ -51,6 +66,7 @@ class HttpServer(Flask):
             url = args['url']
         except KeyError:
             return Response('Invalid or missing argument', 400)
+        user_ident = args.get('user_ident')
 
         username = self._options['username']
         password = self._options['password']
@@ -59,7 +75,7 @@ class HttpServer(Flask):
         except NeedAuthentication, e:
             package = Package(url, scheme=e.scheme, username=username,
                     password=password)
-        token = self._server.create_token(package)
+        token = self._server.create_token(package, user_ident)
 
         host = self._options['host']
         port = self._options['port']
