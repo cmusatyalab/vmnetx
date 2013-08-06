@@ -451,6 +451,7 @@ class DomainXML(object):
     def _get_emulator(cls, conn, os_type, domain_type, arch, machine):
         caps = etree.fromstring(conn.getCapabilities())
 
+        candidate = None
         for guest in caps.xpath('/capabilities/guest'):
             # Check type
             type_node = cls._xpath_opt(guest, 'os_type')
@@ -464,8 +465,9 @@ class DomainXML(object):
 
                 # Check supported machines
                 for machine_node in arch_node.xpath('machine'):
+                    canonical_machine = machine_node.get('canonical')
                     if (machine_node.text == machine or
-                            machine_node.get('canonical') == machine):
+                            canonical_machine == machine):
                         # Check domain types
                         for domain_node in arch_node.xpath('domain'):
                             if domain_node.get('type') == domain_type:
@@ -476,11 +478,20 @@ class DomainXML(object):
                                             'emulator')
                                 if len(emulator_nodes) != 1:
                                     continue
-                                return _Emulator(os_type, domain_type, arch,
-                                        machine_node.text,
-                                        machine_node.get('canonical') or
-                                        machine_node.text,
+                                emulator = _Emulator(os_type, domain_type,
+                                        arch, machine_node.text,
+                                        canonical_machine or machine_node.text,
                                         emulator_nodes[0].text)
+                                if canonical_machine is not None:
+                                    return emulator
+                                else:
+                                    # Save candidate, wait for one with
+                                    # "canonical" attribute
+                                    candidate = emulator
+
+        # Return saved candidate, if any
+        if candidate is not None:
+            return candidate
 
         # Failed.
         raise DomainXMLError('No suitable emulator for %s/%s/%s/%s' %
