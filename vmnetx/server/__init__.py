@@ -293,16 +293,13 @@ class VMNetXServer(gobject.GObject):
         glib.threads_init()
         gobject.GObject.__init__(self)
         self._options = options
+        self._tokens = {}  # token -> _TokenState
         self._http = None
         self._unauthenticated_conns = set()
         self._listen = None
         self._listen_source = None
         self._gc_timer = None
         self._shutting_down = False
-
-        # Accessed by HTTP server
-        self._lock = Lock()
-        self._tokens = {}  # token -> _TokenState
 
     def initialize(self):
         # Prepare environment for local controllers
@@ -353,16 +350,15 @@ class VMNetXServer(gobject.GObject):
     def _fetch_controller(self, conn, token):
         _log.debug("Fetching controller for token %s" % token)
 
-        with self._lock:
-            try:
-                state = self._tokens[token]
-            except KeyError:
-                return False
+        try:
+            state = self._tokens[token]
+        except KeyError:
+            return False
 
-            controller = state.get_controller(conn)
-            conn.set_controller(controller)
-            self._unauthenticated_conns.remove(conn)
-            return True
+        controller = state.get_controller(conn)
+        conn.set_controller(controller)
+        self._unauthenticated_conns.remove(conn)
+        return True
 
     def create_token(self, package, user_ident):
         # Called from HTTP worker thread
@@ -370,16 +366,14 @@ class VMNetXServer(gobject.GObject):
 
     def _create_token(self, package, user_ident):
         # Called from event loop thread
-        with self._lock:
-            state = _TokenState(package, self._options['username'],
-                    self._options['password'], user_ident)
-            self._tokens[state.token] = state
-            state.connect('destroy', self._destroy_token)
+        state = _TokenState(package, self._options['username'],
+                self._options['password'], user_ident)
+        self._tokens[state.token] = state
+        state.connect('destroy', self._destroy_token)
         return state.token
 
     def _destroy_token(self, state):
-        with self._lock:
-            del self._tokens[state.token]
+        del self._tokens[state.token]
         self._check_shutdown()
 
     def get_status(self):
@@ -389,25 +383,23 @@ class VMNetXServer(gobject.GObject):
     def _get_status(self):
         # Called from event loop thread
         tokens = []
-        with self._lock:
-            for state in self._tokens.values():
-                tokens.append({
-                    "vm_name": state.vm_name,
-                    "user_ident": state.user_ident,
-                    "status": state.status,
-                    "last_seen": datetime.fromtimestamp(state.last_seen,
-                            tzutc()).isoformat(),
-                })
+        for state in self._tokens.values():
+            tokens.append({
+                "vm_name": state.vm_name,
+                "user_ident": state.user_ident,
+                "status": state.status,
+                "last_seen": datetime.fromtimestamp(state.last_seen,
+                        tzutc()).isoformat(),
+            })
         return tokens
 
     def _gc(self):
         _log.debug("GC: Removing stale tokens")
         gc = self._options['gc_interval']
         to = self._options['token_timeout']
-        with self._lock:
-            # All garbage collection is done with relation to a single start time
-            states = self._tokens.values()
+        # All garbage collection is done with relation to a single start time
         curr = time.time()
+        states = self._tokens.values()
         for state in states:
             # Check if the token has not timed out since the last gc call
             if curr > state.last_seen + gc + to:
@@ -428,8 +420,7 @@ class VMNetXServer(gobject.GObject):
         if self._gc_timer is not None:
             glib.source_remove(self._gc_timer)
             self._gc_timer = None
-        with self._lock:
-            states = self._tokens.values()
+        states = self._tokens.values()
         for state in states:
             state.shutdown()
         conns = list(self._unauthenticated_conns)
@@ -438,12 +429,8 @@ class VMNetXServer(gobject.GObject):
         self._check_shutdown()
 
     def _check_shutdown(self):
-        if self._shutting_down:
-            with self._lock:
-                if self._tokens:
-                    return
-            if self._unauthenticated_conns:
-                return
+        if (self._shutting_down and not self._tokens
+                and not self._unauthenticated_conns):
             self._shutting_down = False
             self.emit('shutdown')
 gobject.type_register(VMNetXServer)
