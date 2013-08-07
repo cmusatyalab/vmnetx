@@ -185,6 +185,8 @@ class _TokenState(gobject.GObject):
         self.last_seen = time.time()
 
     def get_controller(self, conn):
+        if not self._valid:
+            raise ValueError('Token already shut down')
         if self._controller is None:
             self._controller = LocalController(package=self._package,
                 viewer_password=self.token)
@@ -205,6 +207,12 @@ class _TokenState(gobject.GObject):
 
     def _close(self, conn):
         self._conns.remove(conn)
+        if not self._valid and not self._conns:
+            # All connections closed; finish shutting down
+            if self._controller is not None:
+                self._controller.shutdown()
+                self._controller = None
+            self.emit('destroy')
 
     def shutdown(self):
         if self._valid:
@@ -212,22 +220,24 @@ class _TokenState(gobject.GObject):
             conns = list(self._conns)
             for conn in conns:
                 conn.shutdown()
-            if self._controller is not None:
-                self._controller.shutdown()
-                self._controller = None
-            self.emit('destroy')
 gobject.type_register(_TokenState)
 
 
-class VMNetXServer(object):
+class VMNetXServer(gobject.GObject):
+    __gsignals__ = {
+        'shutdown': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+    }
+
     def __init__(self, options):
         glib.threads_init()
+        gobject.GObject.__init__(self)
         self._options = options
         self._http = None
         self._unauthenticated_conns = set()
         self._listen = None
         self._listen_source = None
         self._gc_timer = None
+        self._shutting_down = False
 
         # Accessed by HTTP server
         self._lock = Lock()
@@ -277,6 +287,7 @@ class VMNetXServer(object):
             self._unauthenticated_conns.remove(conn)
         except KeyError:
             pass
+        self._check_shutdown()
 
     def _fetch_controller(self, conn, token):
         _log.debug("Fetching controller for token %s" % token)
@@ -304,6 +315,7 @@ class VMNetXServer(object):
     def _destroy_token(self, state):
         with self._lock:
             del self._tokens[state.token]
+        self._check_shutdown()
 
     def _gc(self):
         _log.debug("GC: Removing stale tokens")
@@ -323,6 +335,7 @@ class VMNetXServer(object):
     def shutdown(self):
         # Does not shut down web server, since there's no API for doing so
         _log.info("Shutting down VMNetXServer")
+        self._shutting_down = True
         if self._listen_source is not None:
             glib.source_remove(self._listen_source)
             self._listen_source = None
@@ -339,3 +352,15 @@ class VMNetXServer(object):
         conns = list(self._unauthenticated_conns)
         for conn in conns:
             conn.shutdown()
+        self._check_shutdown()
+
+    def _check_shutdown(self):
+        if self._shutting_down:
+            with self._lock:
+                if self._tokens:
+                    return
+            if self._unauthenticated_conns:
+                return
+            self._shutting_down = False
+            self.emit('shutdown')
+gobject.type_register(VMNetXServer)
