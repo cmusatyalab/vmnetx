@@ -63,6 +63,15 @@ class _ServerConnection(gobject.GObject):
     def shutdown(self):
         self._endp.shutdown()
 
+    def destroy(self):
+        if self._controller is not None and not self._endp.protocol_disabled:
+            # Authenticated connection without an attached viewer
+            try:
+                self._endp.send_vm_destroyed()
+            except IOError:
+                pass
+        self.shutdown()
+
     def set_controller(self, controller):
         self._controller = controller
 
@@ -103,7 +112,7 @@ class _ServerConnection(gobject.GObject):
         def done(sock=None, error=None):
             assert error is not None or sock is not None
             if error is not None:
-                self._endp.set_protocol_disabled(False)
+                self._endp.protocol_disabled = False
                 self._endp.send_error("Couldn't connect viewer")
                 return True
             self._endp.send_attaching_viewer()
@@ -111,7 +120,7 @@ class _ServerConnection(gobject.GObject):
             self._disconnect_controller()
             self._endp.start_forwarding(sock)
             _log.info('Attaching viewer')
-        self._endp.set_protocol_disabled(True)
+        self._endp.protocol_disabled = True
         self._controller.connect_viewer(done)
         return True
 
@@ -188,6 +197,8 @@ class _TokenState(gobject.GObject):
         self.last_seen = time.time()
 
     def get_controller(self, conn):
+        if not self._valid:
+            raise ValueError('Token already shut down')
         if self._controller is None:
             self._controller = LocalController(package=self._package,
                 viewer_password=self.token)
@@ -230,29 +241,37 @@ class _TokenState(gobject.GObject):
 
     def _close(self, conn):
         self._conns.remove(conn)
+        if not self._valid and not self._conns:
+            # All connections closed; finish shutting down
+            if self._controller is not None:
+                self._controller.shutdown()
+                self._controller = None
+            self.emit('destroy')
 
     def shutdown(self):
         if self._valid:
             self._valid = False
             conns = list(self._conns)
             for conn in conns:
-                conn.shutdown()
-            if self._controller is not None:
-                self._controller.shutdown()
-                self._controller = None
-            self.emit('destroy')
+                conn.destroy()
 gobject.type_register(_TokenState)
 
 
-class VMNetXServer(object):
+class VMNetXServer(gobject.GObject):
+    __gsignals__ = {
+        'shutdown': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+    }
+
     def __init__(self, options):
         glib.threads_init()
+        gobject.GObject.__init__(self)
         self._options = options
         self._http = None
         self._unauthenticated_conns = set()
         self._listen = None
         self._listen_source = None
         self._gc_timer = None
+        self._shutting_down = False
 
         # Accessed by HTTP server
         self._lock = Lock()
@@ -302,6 +321,7 @@ class VMNetXServer(object):
             self._unauthenticated_conns.remove(conn)
         except KeyError:
             pass
+        self._check_shutdown()
 
     def _fetch_controller(self, conn, token):
         _log.debug("Fetching controller for token %s" % token)
@@ -329,6 +349,7 @@ class VMNetXServer(object):
     def _destroy_token(self, state):
         with self._lock:
             del self._tokens[state.token]
+        self._check_shutdown()
 
     def get_status(self):
         # Called from HTTP worker thread
@@ -369,6 +390,7 @@ class VMNetXServer(object):
     def shutdown(self):
         # Does not shut down web server, since there's no API for doing so
         _log.info("Shutting down VMNetXServer")
+        self._shutting_down = True
         if self._listen_source is not None:
             glib.source_remove(self._listen_source)
             self._listen_source = None
@@ -385,3 +407,15 @@ class VMNetXServer(object):
         conns = list(self._unauthenticated_conns)
         for conn in conns:
             conn.shutdown()
+        self._check_shutdown()
+
+    def _check_shutdown(self):
+        if self._shutting_down:
+            with self._lock:
+                if self._tokens:
+                    return
+            if self._unauthenticated_conns:
+                return
+            self._shutting_down = False
+            self.emit('shutdown')
+gobject.type_register(VMNetXServer)

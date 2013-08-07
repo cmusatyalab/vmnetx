@@ -238,7 +238,12 @@ class _Endpoint(gobject.GObject):
         except KeyError, e:
             raise _MessageError('Missing field in message: %s' % e)
 
-    def set_protocol_disabled(self, disabled):
+    @property
+    def protocol_disabled(self):
+        return self._protocol_disabled
+
+    @protocol_disabled.setter
+    def protocol_disabled(self, disabled):
         if self._protocol_disabled == disabled:
             return
         self._protocol_disabled = disabled
@@ -246,7 +251,7 @@ class _Endpoint(gobject.GObject):
             self._next_message()
 
     def start_forwarding(self, peer):
-        self.set_protocol_disabled(True)
+        self.protocol_disabled = True
         self._peer = _AsyncSocket(peer)
         self._peer.connect('close', self._shutdown)
         self._open_sockets += 1
@@ -369,6 +374,9 @@ class ServerEndpoint(_Endpoint):
 
     def send_vm_stopped(self):
         self._transmit('vm-stopped')
+
+    def send_vm_destroyed(self):
+        self._transmit('vm-destroyed')
 gobject.type_register(ServerEndpoint)
 
 
@@ -427,6 +435,7 @@ class ClientEndpoint(_Endpoint):
         'vm-started': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (gobject.TYPE_BOOLEAN,)),
         'vm-stopped': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'vm-destroyed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'pong': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
@@ -485,6 +494,14 @@ class ClientEndpoint(_Endpoint):
                     return
                 self._need_dispatch_state(self.STATE_RUNNING)
                 self.emit('vm-stopped')
+
+            elif mtype == 'vm-destroyed':
+                if self._state == self.STATE_ATTACHING_VIEWER:
+                    # Could happen on viewer connections while the setup
+                    # handshake is running
+                    return
+                self._need_dispatch_state(self.STATE_RUNNING)
+                self.emit('vm-destroyed')
 
             elif mtype == 'pong':
                 self.emit('pong')
