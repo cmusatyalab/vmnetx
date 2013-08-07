@@ -257,6 +257,33 @@ class _TokenState(gobject.GObject):
 gobject.type_register(_TokenState)
 
 
+class _MainLoopFuture(object):
+    def __init__(self, func, *args, **kwargs):
+        # Called from HTTP worker thread
+        self._event = Event()
+        self._result = None
+        self._exception = None
+        self._func = func
+        self._args = args
+        self._kwargs = kwargs
+        glib.idle_add(self._run, priority=glib.PRIORITY_DEFAULT)
+
+    def _run(self):
+        # Called from event loop thread
+        try:
+            self._result = self._func(*self._args, **self._kwargs)
+        except Exception, e:
+            self._exception = e
+        self._event.set()
+
+    def get(self):
+        # Called from HTTP worker thread
+        self._event.wait()
+        if self._exception is not None:
+            raise self._exception
+        return self._result
+
+
 class VMNetXServer(gobject.GObject):
     __gsignals__ = {
         'shutdown': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
@@ -339,6 +366,10 @@ class VMNetXServer(gobject.GObject):
 
     def create_token(self, package, user_ident):
         # Called from HTTP worker thread
+        return _MainLoopFuture(self._create_token, package, user_ident).get()
+
+    def _create_token(self, package, user_ident):
+        # Called from event loop thread
         with self._lock:
             state = _TokenState(package, self._options['username'],
                     self._options['password'], user_ident)
@@ -353,14 +384,11 @@ class VMNetXServer(gobject.GObject):
 
     def get_status(self):
         # Called from HTTP worker thread
-        complete = Event()
-        tokens = []
-        glib.idle_add(self._get_status, tokens, complete)
-        complete.wait()
-        return tokens
+        return _MainLoopFuture(self._get_status).get()
 
-    def _get_status(self, tokens, complete):
+    def _get_status(self):
         # Called from event loop thread
+        tokens = []
         with self._lock:
             for state in self._tokens.values():
                 tokens.append({
@@ -370,7 +398,7 @@ class VMNetXServer(gobject.GObject):
                     "last_seen": datetime.fromtimestamp(state.last_seen,
                             tzutc()).isoformat(),
                 })
-        complete.set()
+        return tokens
 
     def _gc(self):
         _log.debug("GC: Removing stale tokens")
