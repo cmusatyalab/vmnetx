@@ -101,7 +101,7 @@ class _ServerConnection(gobject.GObject):
         def done(sock=None, error=None):
             assert error is not None or sock is not None
             if error is not None:
-                self._endp.set_protocol_disabled(False)
+                self._endp.protocol_disabled = False
                 self._endp.send_error("Couldn't connect viewer")
                 return True
             self._endp.send_attaching_viewer()
@@ -109,7 +109,7 @@ class _ServerConnection(gobject.GObject):
             self._disconnect_controller()
             self._endp.start_forwarding(sock)
             _log.info('Attaching viewer')
-        self._endp.set_protocol_disabled(True)
+        self._endp.protocol_disabled = True
         self._controller.connect_viewer(done)
         return True
 

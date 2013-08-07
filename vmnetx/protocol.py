@@ -238,7 +238,12 @@ class _Endpoint(gobject.GObject):
         except KeyError, e:
             raise _MessageError('Missing field in message: %s' % e)
 
-    def set_protocol_disabled(self, disabled):
+    @property
+    def protocol_disabled(self):
+        return self._protocol_disabled
+
+    @protocol_disabled.setter
+    def protocol_disabled(self, disabled):
         if self._protocol_disabled == disabled:
             return
         self._protocol_disabled = disabled
@@ -246,7 +251,7 @@ class _Endpoint(gobject.GObject):
             self._next_message()
 
     def start_forwarding(self, peer):
-        self.set_protocol_disabled(True)
+        self.protocol_disabled = True
         self._peer = _AsyncSocket(peer)
         self._peer.connect('close', self._shutdown)
         self._open_sockets += 1
