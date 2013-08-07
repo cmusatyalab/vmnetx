@@ -61,6 +61,15 @@ class _ServerConnection(gobject.GObject):
     def shutdown(self):
         self._endp.shutdown()
 
+    def destroy(self):
+        if self._controller is not None and not self._endp.protocol_disabled:
+            # Authenticated connection without an attached viewer
+            try:
+                self._endp.send_vm_destroyed()
+            except IOError:
+                pass
+        self.shutdown()
+
     def set_controller(self, controller):
         self._controller = controller
 
@@ -219,7 +228,7 @@ class _TokenState(gobject.GObject):
             self._valid = False
             conns = list(self._conns)
             for conn in conns:
-                conn.shutdown()
+                conn.destroy()
 gobject.type_register(_TokenState)
 
 

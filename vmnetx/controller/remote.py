@@ -181,6 +181,7 @@ class RemoteController(Controller):
             connect('startup-failed', self._startup_failed)
             connect('vm-started', self._vm_started)
             connect('vm-stopped', self._vm_stopped)
+            connect('vm-destroyed', self._vm_destroyed)
             connect('error', self._error)
             connect('close', self._shutdown)
             self._endp.send_authenticate(self.viewer_password)
@@ -231,6 +232,11 @@ class RemoteController(Controller):
         if self._phase == self.PHASE_RUN:
             self.state = self.STATE_STOPPED
             self.emit('vm-stopped')
+
+    def _vm_destroyed(self, _endp):
+        if self._phase == self.PHASE_RUN:
+            self.emit('fatal-error', ErrorBuffer('Virtual machine terminated'))
+            self._endp.shutdown()
 
     def _error(self, _endp, message):
         if self._phase == self.PHASE_INIT:

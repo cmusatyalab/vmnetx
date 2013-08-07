@@ -374,6 +374,9 @@ class ServerEndpoint(_Endpoint):
 
     def send_vm_stopped(self):
         self._transmit('vm-stopped')
+
+    def send_vm_destroyed(self):
+        self._transmit('vm-destroyed')
 gobject.type_register(ServerEndpoint)
 
 
@@ -432,6 +435,7 @@ class ClientEndpoint(_Endpoint):
         'vm-started': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (gobject.TYPE_BOOLEAN,)),
         'vm-stopped': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'vm-destroyed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'pong': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
@@ -490,6 +494,14 @@ class ClientEndpoint(_Endpoint):
                     return
                 self._need_dispatch_state(self.STATE_RUNNING)
                 self.emit('vm-stopped')
+
+            elif mtype == 'vm-destroyed':
+                if self._state == self.STATE_ATTACHING_VIEWER:
+                    # Could happen on viewer connections while the setup
+                    # handshake is running
+                    return
+                self._need_dispatch_state(self.STATE_RUNNING)
+                self.emit('vm-destroyed')
 
             elif mtype == 'pong':
                 self.emit('pong')
