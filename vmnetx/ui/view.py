@@ -73,7 +73,6 @@ class _ViewerWidget(gtk.EventBox):
         self._last_motion_time = 0
         if max_mouse_rate is not None:
             self._motion_interval = 1000 // max_mouse_rate  # ms
-            self.connect('motion-notify-event', self._motion)
         else:
             self._motion_interval = None
 
@@ -118,6 +117,13 @@ class _ViewerWidget(gtk.EventBox):
 
     def _grab_focus(self, _wid):
         self.get_child().grab_focus()
+
+    def _connect_display_signals(self, widget):
+        # Subclasses should call this after creating the actual display
+        # widget.  The argument should be the widget that will be the
+        # target of mouse grabs.
+        if self._motion_interval is not None:
+            widget.connect('motion-notify-event', self._motion)
 
     def _motion(self, _wid, motion):
         if motion.time < self._last_motion_time + self._motion_interval:
@@ -180,6 +186,7 @@ class VNCWidget(_ViewerWidget):
         self._vnc.connect('vnc-keyboard-ungrab', self._grab, 'keyboard', False)
         self._vnc.connect('vnc-pointer-grab', self._grab, 'mouse', True)
         self._vnc.connect('vnc-pointer-ungrab', self._grab, 'mouse', False)
+        self._connect_display_signals(self._vnc)
         self._vnc.set_pointer_grab(True)
         self._vnc.set_keyboard_grab(True)
         self._vnc.set_scaling(True)
@@ -278,6 +285,7 @@ class SpiceWidget(_ViewerWidget):
             self._display.connect('size-request', self._size_request)
             self._display.connect('keyboard-grab', self._grab, 'keyboard')
             self._display.connect('mouse-grab', self._grab, 'mouse')
+            self._connect_display_signals(self._display)
 
     def _display_create(self, channel, _format, _width, _height, _stride,
             _shmid, _imgdata):
