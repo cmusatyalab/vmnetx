@@ -17,6 +17,7 @@
 
 from __future__ import division
 import cairo
+from distutils.version import LooseVersion
 import glib
 import gobject
 import gtk
@@ -29,11 +30,14 @@ from ..util import ErrorBuffer, BackoffTimer
 
 # have_spice_viewer is a variable, not a constant
 # pylint: disable=C0103
+have_spice_viewer = False
 try:
     import SpiceClientGtk
-    have_spice_viewer = True
+    # SpiceClientGtk.Session.open_fd(-1) doesn't work on < 0.10
+    if LooseVersion(SpiceClientGtk.__version__) >= LooseVersion('0.10'):
+        have_spice_viewer = True
 except ImportError:
-    have_spice_viewer = False
+    pass
 # pylint: enable=C0103
 
 # pylint chokes on Gtk widgets, #112550
