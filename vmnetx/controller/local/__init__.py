@@ -18,6 +18,7 @@
 import base64
 from calendar import timegm
 import dbus
+from distutils.version import LooseVersion
 import gobject
 import grp
 # pylint doesn't understand hashlib.sha256
@@ -31,6 +32,7 @@ from lxml.builder import ElementMaker
 import os
 import pipes
 import pwd
+import re
 import signal
 import subprocess
 import sys
@@ -343,7 +345,8 @@ class LocalController(Controller):
         # Get execution domain XML
         self._domain_xml = domain_xml.get_for_execution(self._domain_name,
                 emulator, disk_image_path, self.viewer_password,
-                use_spice=self.use_spice).xml
+                use_spice=self.use_spice,
+                allow_qxl=self._qxl_is_usable(emulator)).xml
 
         # Write domain XML to memory image
         if self._memory_image_path is not None:
@@ -436,6 +439,24 @@ class LocalController(Controller):
         out += err
         if 'invalid option' in out or 'spice is not supported' in out:
             # qemu is too old to support SPICE, or SPICE is not compiled in
+            return False
+        return True
+
+    def _qxl_is_usable(self, emulator):
+        '''Blacklist emulators with broken qxl support.'''
+        proc = subprocess.Popen([emulator, '-version'],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                close_fds=True)
+        out, err = proc.communicate()
+        out += err
+        match = re.search(r'emulator version ([0-9.]+)', out)
+        if not match:
+            # Assume we're safe
+            return True
+        ver = LooseVersion(match.group(1))
+        if ver >= LooseVersion('1.0') and ver < LooseVersion('1.1'):
+            # Ubuntu 12.04
+            # https://bugs.launchpad.net/ubuntu/+source/qemu-kvm-spice/+bug/970234
             return False
         return True
 

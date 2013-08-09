@@ -193,7 +193,7 @@ class DomainXML(object):
                 etree.fromstring(self.xml)).path
 
     def get_for_execution(self, name, emulator, disk_image_path,
-            viewer_password, use_spice=True):
+            viewer_password, use_spice=True, allow_qxl=True):
         # Parse XML
         tree = etree.fromstring(self.xml)
 
@@ -238,6 +238,11 @@ class DomainXML(object):
         timer_node = etree.SubElement(clock_node, 'timer')
         timer_node.set('name', 'rtc')
         timer_node.set('track', 'guest')
+
+        video_model = self._xpath_opt(tree, '/domain/devices/video/model')
+        if (video_model is not None and video_model.get('type') == 'qxl' and
+                not allow_qxl):
+            video_model.set('type', 'cirrus')
 
         # Return new instance
         return type(self)(self._to_xml(tree), safe=False)
