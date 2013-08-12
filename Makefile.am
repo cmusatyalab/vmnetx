@@ -66,9 +66,12 @@ nobase_dist_pkgpython_DATA = schema/domain.xsd \
 	schema/libvirt/storageencryption.rng
 
 applicationsdir = $(datarootdir)/applications
+icondir = $(datarootdir)/icons/hicolor/256x256/apps
 mimedir = $(datarootdir)/mime/packages
 dist_applications_DATA = desktop/vmnetx.desktop
+dist_icon_DATA = desktop/vmnetx.png
 dist_mime_DATA = desktop/vmnetx.xml
+EXTRA_DIST += desktop/README.icon
 
 man_MANS = man/vmnetx.1 man/vmnetx-generate.1
 CLEANFILES += man/vmnetx.1 man/vmnetx-generate.1
