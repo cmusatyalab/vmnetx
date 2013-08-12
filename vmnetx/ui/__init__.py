@@ -78,6 +78,13 @@ class VMNetXUI(object):
         self._check_display = False
         self._bad_memory = False
 
+        try:
+            icon = gtk.icon_theme_get_default().load_icon('vmnetx', 256, 0)
+            gtk.window_set_default_icon(icon)
+        except glib.GError:
+            # Icon not installed in search path
+            pass
+
     # We intentionally catch all exceptions
     # pylint: disable=W0702
     def run(self):
