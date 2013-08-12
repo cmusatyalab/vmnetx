@@ -40,7 +40,7 @@ _log = logging.getLogger(__name__)
 class _ServerConnection(gobject.GObject):
     __gsignals__ = {
         'need-controller': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN,
-            (gobject.TYPE_STRING,), gobject.signal_accumulator_true_handled),
+                (gobject.TYPE_STRING,)),
         'ping': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'close': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'destroy-token': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
@@ -72,18 +72,24 @@ class _ServerConnection(gobject.GObject):
                 pass
         self.shutdown()
 
-    def set_controller(self, controller):
-        self._controller = controller
-
     def _client_authenticate(self, _endp, token):
         if self._controller is not None:
             self._endp.send_error('Already authenticated')
             return True
 
         self.emit('need-controller', token)
-        if self._controller is None:
+        return True
+
+    def set_controller(self, controller):
+        if self._controller is not None:
+            self._endp.send_error('Already authenticated')
+            return
+
+        if controller is None:
             self._endp.send_auth_failed('Authentication failed')
-            return True
+            return
+
+        self._controller = controller
 
         # Now we can start forwarding controller signals.  We disconnect
         # from the controller at shutdown to avoid leaking _ServerConnection
@@ -353,12 +359,12 @@ class VMNetXServer(gobject.GObject):
         try:
             state = self._tokens[token]
         except KeyError:
-            return False
+            conn.set_controller(None)
+            return
 
         controller = state.get_controller(conn)
         conn.set_controller(controller)
         self._unauthenticated_conns.remove(conn)
-        return True
 
     def create_token(self, package, user_ident):
         # Called from HTTP worker thread
