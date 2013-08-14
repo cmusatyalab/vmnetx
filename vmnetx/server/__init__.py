@@ -80,13 +80,13 @@ class _ServerConnection(gobject.GObject):
         self.emit('need-controller', token)
         return True
 
+    def fail_controller(self):
+        '''Called when authentication fails.'''
+        self._endp.send_auth_failed('Authentication failed')
+
     def set_controller(self, controller):
         if self._controller is not None:
             self._endp.send_error('Already authenticated')
-            return
-
-        if controller is None:
-            self._endp.send_auth_failed('Authentication failed')
             return
 
         self._controller = controller
@@ -359,7 +359,7 @@ class VMNetXServer(gobject.GObject):
         try:
             state = self._tokens[token]
         except KeyError:
-            conn.set_controller(None)
+            conn.fail_controller()
             return
 
         controller = state.get_controller(conn)
