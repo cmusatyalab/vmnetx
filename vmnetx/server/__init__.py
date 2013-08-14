@@ -200,6 +200,8 @@ class _WorkerThreadFuture(object):
 
         Thread(target=self._run).start()
 
+    # We intentionally catch most exceptions
+    # pylint: disable=W0703
     def _run(self):
         # Called in worker thread
         result = exception = None
@@ -214,12 +216,13 @@ class _WorkerThreadFuture(object):
             for cb in self._callbacks:
                 self._fire_callback(cb)
             self._callbacks = []
+    # pylint: enable=W0703
 
-    def _fire_callback(self, cb):
+    def _fire_callback(self, callback):
         if self._exception is not None:
-            glib.idle_add(partial(cb, exception=self._exception))
+            glib.idle_add(partial(callback, exception=self._exception))
         else:
-            glib.idle_add(partial(cb, result=self._result))
+            glib.idle_add(partial(callback, result=self._result))
 
     def get(self, callback):
         # Called from event loop thread
@@ -267,11 +270,11 @@ class _TokenState(gobject.GObject):
             if self._controller_future is None:
                 # and start a thread to do so
                 self._controller_future = _WorkerThreadFuture(
-                        self._get_controller_worker, conn)
+                        self._get_controller_worker)
             self._controller_future.get(partial(self._get_controller_result,
                     conn))
 
-    def _get_controller_worker(self, conn):
+    def _get_controller_worker(self):
         # Runs in worker thread
         assert self._controller is None
         try:
@@ -347,8 +350,11 @@ class _TokenState(gobject.GObject):
             else:
                 self.emit('destroy')
 
+    # Unused keyword arguments
+    # pylint: disable=W0613
     def _controller_shutdown_finished(self, result=None, exception=None):
         self.emit('destroy')
+    # pylint: enable=W0613
 
     def shutdown(self):
         if self._valid:
@@ -371,6 +377,8 @@ class _MainLoopFuture(object):
         self._kwargs = kwargs
         glib.idle_add(self._run, priority=glib.PRIORITY_DEFAULT)
 
+    # We intentionally catch most exceptions
+    # pylint: disable=W0703
     def _run(self):
         # Called from event loop thread
         try:
@@ -378,13 +386,17 @@ class _MainLoopFuture(object):
         except Exception, e:
             self._exception = e
         self._event.set()
+    # pylint: enable=W0703
 
+    # pylint thinks we're raising None, but we explicitly check for this
+    # pylint: disable=E0702
     def get(self):
         # Called from HTTP worker thread
         self._event.wait()
         if self._exception is not None:
             raise self._exception
         return self._result
+    # pylint: enable=E0702
 
 
 class VMNetXServer(gobject.GObject):

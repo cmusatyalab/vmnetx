@@ -456,7 +456,10 @@ class LocalController(Controller):
         ver = LooseVersion(match.group(1))
         if ver >= LooseVersion('1.0') and ver < LooseVersion('1.1'):
             # Ubuntu 12.04
+            # Yes, pylint, the URL is too long.
+            # pylint: disable=C0301
             # https://bugs.launchpad.net/ubuntu/+source/qemu-kvm-spice/+bug/970234
+            # pylint: enable=C0301
             return False
         return True
 
