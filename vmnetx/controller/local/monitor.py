@@ -78,7 +78,7 @@ class _StreamMonitorBase(_Monitor):
     def _read(self, _fh=None, _condition=None):
         try:
             buf = self._fh.read()
-        except IOError:
+        except (IOError, ValueError):
             # e.g. vmnetfs crashed
             self.close()
             return False
