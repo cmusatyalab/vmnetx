@@ -100,7 +100,7 @@ class _StreamMonitorBase(_Monitor):
         raise NotImplementedError()
 
     def update(self):
-        self._read()
+        glib.idle_add(self._read)
 
     def close(self):
         if not self._fh.closed:
