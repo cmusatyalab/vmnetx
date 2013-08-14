@@ -193,6 +193,7 @@ class _WorkerThreadFuture(object):
         self._kwargs = kwargs
 
         self._lock = Lock()
+        self._done = False
         self._result = None
         self._exception = None
         self._callbacks = []
@@ -209,6 +210,7 @@ class _WorkerThreadFuture(object):
         with self._lock:
             self._result = result
             self._exception = exception
+            self._done = True
             for cb in self._callbacks:
                 self._fire_callback(cb)
             self._callbacks = []
@@ -216,17 +218,15 @@ class _WorkerThreadFuture(object):
     def _fire_callback(self, cb):
         if self._exception is not None:
             glib.idle_add(partial(cb, exception=self._exception))
-            return True
-        elif self._result is not None:
-            glib.idle_add(partial(cb, result=self._result))
-            return True
         else:
-            return False
+            glib.idle_add(partial(cb, result=self._result))
 
     def get(self, callback):
         # Called from event loop thread
         with self._lock:
-            if not self._fire_callback(callback):
+            if self._done:
+                self._fire_callback(callback)
+            else:
                 self._callbacks.append(callback)
 
 
