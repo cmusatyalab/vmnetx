@@ -295,7 +295,7 @@ class _TokenState(gobject.GObject):
         controller = result
         if self._destroyed:
             # Lost the race: we've already completed destruction
-            controller.shutdown()
+            _WorkerThreadFuture(controller.shutdown)
             return
         if self._controller is None:
             self._controller = controller
@@ -304,7 +304,9 @@ class _TokenState(gobject.GObject):
     @property
     def status(self):
         if self._controller is None:
-            if self._controller_future is not None:
+            if self._destroyed:
+                return 'terminating'
+            elif self._controller_future is not None:
                 return 'initializing'
             else:
                 return 'pending'
@@ -338,9 +340,15 @@ class _TokenState(gobject.GObject):
             # All connections closed; finish shutting down
             self._destroyed = True
             if self._controller is not None:
-                self._controller.shutdown()
+                controller = self._controller
                 self._controller = None
-            self.emit('destroy')
+                future = _WorkerThreadFuture(controller.shutdown)
+                future.get(self._controller_shutdown_finished)
+            else:
+                self.emit('destroy')
+
+    def _controller_shutdown_finished(self, result=None, exception=None):
+        self.emit('destroy')
 
     def shutdown(self):
         if self._valid:
