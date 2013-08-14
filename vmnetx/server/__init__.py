@@ -199,6 +199,7 @@ class _TokenState(gobject.GObject):
         self._controller = None
         self._conns = set()
         self._valid = True
+        self._destroyed = False
         self.user_ident = user_ident
         self.last_seen = time.time()
 
@@ -247,8 +248,12 @@ class _TokenState(gobject.GObject):
 
     def _close(self, conn):
         self._conns.remove(conn)
-        if not self._valid and not self._conns:
+        self._try_destroy()
+
+    def _try_destroy(self):
+        if not self._valid and not self._conns and not self._destroyed:
             # All connections closed; finish shutting down
+            self._destroyed = True
             if self._controller is not None:
                 self._controller.shutdown()
                 self._controller = None
@@ -260,6 +265,7 @@ class _TokenState(gobject.GObject):
             conns = list(self._conns)
             for conn in conns:
                 conn.destroy()
+            self._try_destroy()
 gobject.type_register(_TokenState)
 
 
