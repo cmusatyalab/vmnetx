@@ -202,7 +202,7 @@ class _TokenState(gobject.GObject):
         self.user_ident = user_ident
         self.last_seen = time.time()
 
-    def get_controller(self, conn):
+    def add_connection(self, conn):
         if not self._valid:
             raise ValueError('Token already shut down')
         if self._controller is None:
@@ -218,7 +218,7 @@ class _TokenState(gobject.GObject):
         conn.connect('ping', self._update_last_seen)
         conn.connect('close', self._close)
         conn.connect('destroy-token', lambda _conn: self.shutdown())
-        return self._controller
+        conn.set_controller(self._controller)
 
     @property
     def status(self):
@@ -362,8 +362,7 @@ class VMNetXServer(gobject.GObject):
             conn.fail_controller()
             return
 
-        controller = state.get_controller(conn)
-        conn.set_controller(controller)
+        state.add_connection(conn)
         self._unauthenticated_conns.remove(conn)
 
     def create_token(self, package, user_ident):
