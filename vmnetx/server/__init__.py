@@ -20,6 +20,7 @@ import base64
 from datetime import datetime
 from dateutil.tz import tzutc
 import errno
+from functools import partial
 import glib
 import gobject
 import logging
@@ -184,6 +185,51 @@ class _ServerConnection(gobject.GObject):
 gobject.type_register(_ServerConnection)
 
 
+class _WorkerThreadFuture(object):
+    def __init__(self, func, *args, **kwargs):
+        # Called from event loop thread
+        self._func = func
+        self._args = args
+        self._kwargs = kwargs
+
+        self._lock = Lock()
+        self._result = None
+        self._exception = None
+        self._callbacks = []
+
+        Thread(target=self._run).start()
+
+    def _run(self):
+        # Called in worker thread
+        result = exception = None
+        try:
+            result = self._func(*self._args, **self._kwargs)
+        except Exception, e:
+            exception = e
+        with self._lock:
+            self._result = result
+            self._exception = exception
+            for cb in self._callbacks:
+                self._fire_callback(cb)
+            self._callbacks = []
+
+    def _fire_callback(self, cb):
+        if self._exception is not None:
+            glib.idle_add(partial(cb, exception=self._exception))
+            return True
+        elif self._result is not None:
+            glib.idle_add(partial(cb, result=self._result))
+            return True
+        else:
+            return False
+
+    def get(self, callback):
+        # Called from event loop thread
+        with self._lock:
+            if not self._fire_callback(callback):
+                self._callbacks.append(callback)
+
+
 class _TokenState(gobject.GObject):
     __gsignals__ = {
         'destroy': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
@@ -196,6 +242,7 @@ class _TokenState(gobject.GObject):
         self._package = package
         self._username = username
         self._password = password
+        self._controller_future = None
         self._controller = None
         self._conns = set()
         self._valid = True
@@ -206,25 +253,61 @@ class _TokenState(gobject.GObject):
     def add_connection(self, conn):
         if not self._valid:
             raise ValueError('Token already shut down')
-        if self._controller is None:
-            self._controller = LocalController(package=self._package,
-                viewer_password=self.token)
-            self._controller.username = self._username
-            self._controller.password = self._password
-            self._controller.initialize()
-            if not self._controller.use_spice:
-                raise MachineExecutionError('SPICE support is unavailable')
-            self.last_seen = time.time()
+
+        self.last_seen = time.time()
         self._conns.add(conn)
         conn.connect('ping', self._update_last_seen)
         conn.connect('close', self._close)
         conn.connect('destroy-token', lambda _conn: self.shutdown())
-        conn.set_controller(self._controller)
+
+        if self._controller is not None:
+            conn.set_controller(self._controller)
+        else:
+            # Wait for controller to be initialized
+            if self._controller_future is None:
+                # and start a thread to do so
+                self._controller_future = _WorkerThreadFuture(
+                        self._get_controller_worker, conn)
+            self._controller_future.get(partial(self._get_controller_result,
+                    conn))
+
+    def _get_controller_worker(self, conn):
+        # Runs in worker thread
+        assert self._controller is None
+        try:
+            controller = LocalController(package=self._package,
+                    viewer_password=self.token)
+            controller.username = self._username
+            controller.password = self._password
+            controller.initialize()
+            if not controller.use_spice:
+                controller.shutdown()
+                raise MachineExecutionError('SPICE support is unavailable')
+            return controller
+        except Exception:
+            _log.exception('Failed to initialize controller')
+            raise
+
+    def _get_controller_result(self, conn, result=None, exception=None):
+        if exception is not None:
+            conn.fail_controller()
+            return
+        controller = result
+        if self._destroyed:
+            # Lost the race: we've already completed destruction
+            controller.shutdown()
+            return
+        if self._controller is None:
+            self._controller = controller
+        conn.set_controller(controller)
 
     @property
     def status(self):
         if self._controller is None:
-            return 'pending'
+            if self._controller_future is not None:
+                return 'initializing'
+            else:
+                return 'pending'
         state = self._controller.state
         if state == LocalController.STATE_UNINITIALIZED:
             return "uninitialized"
