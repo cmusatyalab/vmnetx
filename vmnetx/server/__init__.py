@@ -29,7 +29,7 @@ import socket
 from threading import Thread, Lock, Event
 import time
 
-from .http import HttpServer
+from .http import HttpServer, ServerUnavailableError
 from ..controller import Controller, MachineExecutionError, MachineStateError
 from ..controller.local import LocalController
 from ..package import Package
@@ -415,6 +415,7 @@ class VMNetXServer(gobject.GObject):
         self._listen_source = None
         self._gc_timer = None
         self._shutting_down = False
+        self.running = False
 
     def initialize(self):
         # Prepare environment for local controllers
@@ -440,6 +441,8 @@ class VMNetXServer(gobject.GObject):
         # Start garbage collection
         self._gc_timer = glib.timeout_add_seconds(self._options['gc_interval'],
                 self._gc)
+
+        self.running = True
 
     def _accept(self, _source, _cond):
         while True:
@@ -476,6 +479,8 @@ class VMNetXServer(gobject.GObject):
 
     def create_token(self, package, user_ident):
         # Called from HTTP worker thread
+        if not self.running:
+            raise ServerUnavailableError()
         return _MainLoopFuture(self._create_token, package, user_ident).get()
 
     def _create_token(self, package, user_ident):
@@ -492,6 +497,8 @@ class VMNetXServer(gobject.GObject):
 
     def get_status(self):
         # Called from HTTP worker thread
+        if not self.running:
+            raise ServerUnavailableError()
         return _MainLoopFuture(self._get_status).get()
 
     def _get_status(self):
@@ -524,6 +531,7 @@ class VMNetXServer(gobject.GObject):
     def shutdown(self):
         # Does not shut down web server, since there's no API for doing so
         _log.info("Shutting down VMNetXServer")
+        self.running = False
         self._shutting_down = True
         if self._listen_source is not None:
             glib.source_remove(self._listen_source)

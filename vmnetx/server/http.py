@@ -18,6 +18,7 @@
 from datetime import datetime
 from dateutil.tz import tzutc
 from flask import Flask, Response, request, jsonify
+from functools import wraps
 import json
 import logging
 from urlparse import urlunsplit
@@ -29,6 +30,10 @@ _log = logging.getLogger(__name__)
 DEFAULT_PORT = 18923
 
 
+class ServerUnavailableError(Exception):
+    pass
+
+
 class HttpServer(Flask):
     def __init__(self, options, server):
         Flask.__init__(self, __name__)
@@ -38,6 +43,21 @@ class HttpServer(Flask):
                 self._create_token, methods=['POST'])
         self.add_url_rule('/status', 'status', self._status)
 
+    # We are a decorator, accessing protected members of our own class
+    # pylint: disable=E0213,W0212
+    def _check_running(func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            if not self._server.running:
+                return Response('Server unavailable', 503)
+            try:
+                return func(self, *args, **kwargs)
+            except ServerUnavailableError:
+                return Response('Server unavailable', 503)
+        return wrapper
+    # pylint: enable=E0213,W0212
+
+    @_check_running
     def _status(self):
         try:
             secret_key = request.headers['X-Secret-Key']
@@ -50,6 +70,7 @@ class HttpServer(Flask):
         status = self._server.get_status()
         return jsonify(current_time=current_time, status=status)
 
+    @_check_running
     def _create_token(self):
         try:
             secret_key = request.headers['X-Secret-Key']
