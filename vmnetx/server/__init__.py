@@ -405,7 +405,7 @@ class VMNetXServer(gobject.GObject):
     }
 
     def __init__(self, options):
-        glib.threads_init()
+        gobject.threads_init()
         gobject.GObject.__init__(self)
         self._options = options
         self._tokens = {}  # token -> _TokenState
