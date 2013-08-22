@@ -116,16 +116,20 @@ def setup_signals(server):
     signal.signal(signal.SIGINT, sig_handler)
 
 
+default_server = 'http://%s:%s' % (DEFAULT_HTTP_HOST, DEFAULT_HTTP_PORT)
+
 parser = OptionParser(usage=USAGE, version=VERSION, description=DESCRIPTION)
 parser.add_option('-d', '--debug', dest='debug', action='store_true',
         help='Enable debug messages')
 parser.add_option('-c', '--create-token', dest='create_token', metavar='URL',
         help='URL of the VM for which the token is created')
 parser.add_option('-S', '--server', dest='server', metavar='URL',
-        default='http://%s:%s' % (DEFAULT_HTTP_HOST, DEFAULT_HTTP_PORT),
-        help='URL of the server to create token')
+        default=os.getenv('VMNETX_SERVER') or default_server,
+        help=('URL of the server to query (default: $VMNETX_SERVER or %s)'
+                % default_server))
 parser.add_option('-k', '--secret-key', dest='secret', metavar='KEY',
-        help='Secret key of the server to create token')
+        default=os.getenv('VMNETX_SECRET_KEY'),
+        help='Secret key of the server to query (default: $VMNETX_SECRET_KEY)')
 parser.add_option('-s', '--status', dest='status', action='store_true',
         help='Get status of server')
 parser.add_option('-u', '--user-ident', dest='user_ident', metavar='NAME',
