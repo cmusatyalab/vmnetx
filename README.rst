@@ -34,6 +34,7 @@ You will need:
 * dateutil
 * msgpack-python
 * PyYAML
+* Flask
 * spice-gtk Python bindings (optional)
 * gtk-vnc Python bindings
 * libvirt Python bindings
