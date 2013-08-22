@@ -129,7 +129,6 @@ parser.add_option('-k', '--secret-key', dest='secret', metavar='KEY',
 parser.add_option('-s', '--status', dest='status', action='store_true',
         help='Get status of server')
 parser.add_option('-u', '--user-ident', dest='user_ident', metavar='NAME',
-        default='Test client',
         help='User identifier to pass to server')
 
 opts, args = parser.parse_args()
