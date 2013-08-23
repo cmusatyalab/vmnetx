@@ -1,0 +1,199 @@
+.\"
+.\" Copyright (C) 2012-2013 Carnegie Mellon University
+.\"
+.\" This program is free software; you can redistribute it and/or modify it
+.\" under the terms of version 2 of the GNU General Public License as published
+.\" by the Free Software Foundation.  A copy of the GNU General Public License
+.\" should have been distributed along with this program in the file
+.\" COPYING.
+.\"
+.\" This program is distributed in the hope that it will be useful, but
+.\" WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+.\" or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+.\" for more details.
+.\"
+.TH VMNETX-SERVER 8 2013-08-23 "VMNetX @version@" "System Administration"
+
+.SH NAME
+vmnetx-server \- Execute virtual machines on behalf of remote users
+
+.SH SYNOPSIS
+.B vmnetx-server
+.RB [ \ \-d \ ]
+.I CONFIG-FILE
+.br
+.B vmnetx-server
+.BI \-c \ PACKAGE-URL
+.br
+.B vmnetx-server
+.B \-s
+
+.SH DESCRIPTION
+.B vmnetx-server
+provides thin-client access to VMNetX virtual machines.  Virtual machine
+instances are initially provisioned via
+.BR vmnetx-server 's
+web API, which returns a
+.I vmnetx://
+URL that can be provided to
+.BR vmnetx (1).
+.BR vmnetx (1)
+then connects to
+.BR vmnetx-server ,
+requests that the virtual machine be launched, and initiates a thin-client
+connection for interacting with it.
+
+.SH OPTIONS
+.TP
+.BI \-c\fR, "" \ \-\-create-token\  URL
+Connect to the specified server and request a token (provisioned session) for
+the VMNetX package at
+.IR URL .
+
+.TP
+.BR \-d ", " \-\^\-debug
+Enable debug messages.
+
+.TP
+.BR \-h ", " \-\^\-help
+Print a usage message summarizing these options, then exit.
+
+.TP
+.BI \-k\fR, "" \ \-\-secret-key\  KEY
+The secret key for authenticating with the server.
+Required by the
+.B -c
+and
+.B -s
+options.
+
+.TP
+.BR \-s ", " \-\^\-status
+Query the status of the specified server and print a summary.
+
+.TP
+.BI \-S\fR, "" \ \-\-server\  URL
+The URL of the server to query.
+Required by the
+.B -c
+and
+.B -s
+options.
+
+.TP
+.BI \-u\fR, "" \ \-\-user-ident\  NAME
+A string identifying the user for whom the token is being created.
+
+.TP
+.B \-\^\-version
+Print the version number of
+.B vmnetx-generate
+and exit.
+
+.SH CONFIGURATION FILE
+The configuration file is in YAML format.  It supports the following
+directives:
+
+.TP
+.IR gc_interval \ (default:\ 5\ seconds)
+How often
+.B vmnetx-server
+should scan for tokens to invalidate.
+When a token is invalidated, any associated virtual machine is terminated
+and its virtual disk deleted.
+
+.TP
+.IR host \ (default:\ autodetected)
+The hostname that should be used in
+.I vmnetx://
+URLs returned from the web API.  Also specifies
+the address on which
+.B vmnetx-server
+should listen for client connections.
+
+.TP
+.IR http_host \ (default:\ 127.0.0.1)
+The address on which
+.B vmnetx-server
+should listen for web API connections.
+
+.TP
+.IR http_port \ (default:\ 18924)
+The TCP port on which
+.B vmnetx-server
+should listen for web API connections.
+
+.TP
+.IR password \ (no\ default)
+The password to be used when accessing a VMNetX package if the remote server
+demands authentication.
+It is not possible to specify different passwords for different remote
+servers.
+
+.TP
+.IR port \ (default:\ 18923)
+The TCP port on which
+.B vmnetx-server
+should listen for client connections.
+
+.TP
+.IR secret_key \ (no\ default)
+The authorization key required of clients accessing the web API.
+
+.TP
+.IR token_timeout \ (default:\ 300\ seconds)
+The period of inactivity that should be permitted to a token before it is
+invalidated.
+Upon invalidation, any associated virtual machine is terminated and its
+virtual disk deleted.
+
+.TP
+.IR username \ (no\ default)
+The username to be used when accessing a VMNetX package if the remote server
+demands authentication.
+It is not possible to specify different usernames for different remote
+servers.
+
+
+.SH ENVIRONMENT
+
+.TP
+VMNETX_SERVER
+The default server URL for
+.B -c
+and
+.BR -s .
+Overridden by
+.BR -S .
+
+.TP
+VMNETX_SECRET_KEY
+The default secret key for
+.B -c
+and
+.BR -s .
+Overridden by
+.BR -k .
+
+.SH COPYRIGHT
+Copyright 2006-2013 Carnegie Mellon University.
+.PP
+This program is free software; you can redistribute it and/or modify it
+under the terms of version 2 of the GNU General Public License as published
+by the Free Software Foundation. This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+.
+.SH BUGS
+.BR vmnetx 's
+bug tracker and source repository are located at
+.RB < https://github.com/cmusatyalab/vmnetx >.
+
+.SH SEE ALSO
+.BR vmnetx (1),
+.BR vmnetx-generate (1),
+.BR qemu (1),
+.BR qemu-kvm (1)
+.\" This is allegedly a workaround for some troff -man implementations.
+.br

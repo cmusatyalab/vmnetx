@@ -17,5 +17,6 @@
 *.o
 *.pyc
 *.1
+*.8
 
 vmnetfs/vmnetfs

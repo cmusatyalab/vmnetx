@@ -102,6 +102,7 @@ VMNetX's bug tracker and source repository are located at
 
 .SH SEE ALSO
 .BR vmnetx-generate (1),
+.BR vmnetx-server (8),
 .BR qemu (1),
 .BR qemu-kvm (1)
 .\" This is allegedly a workaround for some troff -man implementations.

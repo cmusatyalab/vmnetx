@@ -74,9 +74,15 @@ dist_icon_DATA = desktop/vmnetx.png
 dist_mime_DATA = desktop/vmnetx.xml
 EXTRA_DIST += desktop/README.icon
 
-man_MANS = man/vmnetx.1 man/vmnetx-generate.1
-CLEANFILES += man/vmnetx.1 man/vmnetx-generate.1
-EXTRA_DIST += man/vmnetx.1.in man/vmnetx-generate.1.in
+man_MANS = man/vmnetx.1 \
+	man/vmnetx-generate.1 \
+	man/vmnetx-server.8
+CLEANFILES += man/vmnetx.1 \
+	man/vmnetx-generate.1 \
+	man/vmnetx-server.8
+EXTRA_DIST += man/vmnetx.1.in \
+	man/vmnetx-generate.1.in \
+	man/vmnetx-server.8.in
 
 dbusconfdir = $(sysconfdir)/dbus-1/system.d
 dbusservicedir = $(datarootdir)/dbus-1/system-services
@@ -93,7 +99,7 @@ vmnetx/system.py: vmnetx/system.py.in Makefile
 	$(AM_V_GEN) sed -e "s:@pkglibexecdir@:$(pkglibexecdir):g" \
 		-e "s:@version@:$(VERSION):g" $< > $@
 
-%.1: %.1.in Makefile
+man/%: man/%.in Makefile
 	$(AM_V_at)$(MKDIR_P) man
 	$(AM_V_GEN) sed -e "s:@version@:$(VERSION):g" $< > $@
 
