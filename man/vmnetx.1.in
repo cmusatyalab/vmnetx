@@ -12,7 +12,7 @@
 .\" or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 .\" for more details.
 .\"
-.TH VMNETX 1 2013-06-04 "VMNetX @version@" "User Commands"
+.TH VMNETX 1 2013-08-23 "VMNetX @version@" "User Commands"
 
 .SH NAME
 vmnetx \- Virtual Machine Network Execution
@@ -24,25 +24,26 @@ vmnetx \- Virtual Machine Network Execution
 
 .SH DESCRIPTION
 .B vmnetx
-executes a KVM-based virtual machine whose VMNetX package or reference file
-is located at the supplied
-.IR LOCATION .
-
-.PP
-VMNetX allows virtual machines to be stored on a web server and executed
+allows virtual machines to be stored on a web server and executed
 on-demand on a client system.
 The entire disk and memory state are not downloaded before starting the VM;
 instead, disk and memory chunks are retrieved on demand from the web server
 and then cached on the client.
+.B vmnetx
+can also provide remote access to a virtual machine running on an execution
+server.
 
 .PP
 .I LOCATION
-can be the path to a virtual machine package in the local filesystem, or
-the HTTP or HTTPS URL for a package on a remote server.
+can be the path to a virtual machine package in the local filesystem,
+the HTTP or HTTPS URL for a package on a remote server, or the
+.I vmnetx://
+URL to a virtual machine configured on a remote server.
 .B vmnetx
 also supports
 .IR reference\ files ,
-which are small documents containing the URL for a remote package.
+which are small documents containing the URL for a remote package or
+virtual machine.
 If
 .I LOCATION
 is a path to a reference file,
@@ -71,6 +72,13 @@ package in the current working directory.
 Execute the virtual machine package
 .I windows311.nxpk
 from the supplied URL, downloading pieces of the VM as required.
+
+.TP
+.B vmnetx vmnetx://example.com/NYE43i3PUSSDCIB8A6Fe
+Connect to the
+.I example.com
+execution server and provide a thin-client connection to the specified
+virtual machine.
 
 .TP
 .B vmnetx windows311.netx
