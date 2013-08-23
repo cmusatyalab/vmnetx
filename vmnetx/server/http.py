@@ -39,9 +39,9 @@ class HttpServer(Flask):
         Flask.__init__(self, __name__)
         self._options = options
         self._server = server
-        self.add_url_rule('/create-token', 'create-token',
-                self._create_token, methods=['POST'])
         self.add_url_rule('/status', 'status', self._status)
+        self.add_url_rule('/token', 'create-token',
+                self._create_token, methods=['POST'])
 
     # We are a decorator, accessing protected members of our own class
     # pylint: disable=E0213,W0212

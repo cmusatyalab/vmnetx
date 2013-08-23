@@ -181,7 +181,7 @@ elif opts.create_token:
         "user_ident": opts.user_ident,
     }
     headers = {"X-Secret-Key": opts.secret}
-    r = requests.post(urljoin(opts.server, 'create-token'),
+    r = requests.post(urljoin(opts.server, 'token'),
             data=json.dumps(payload), headers=headers)
     if r.status_code != requests.codes.ok:
         sys.stderr.write('Server replied with code %d\n' % r.status_code)
