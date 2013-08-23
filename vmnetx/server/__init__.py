@@ -49,7 +49,9 @@ class _ServerConnection(gobject.GObject):
 
     def __init__(self, sock):
         gobject.GObject.__init__(self)
+        self._peer = sock.getpeername()[0]
         self._controller = None
+        self._token = None
         self._endp = ServerEndpoint(sock)
         self._endp.connect('authenticate', self._client_authenticate)
         self._endp.connect('attach-viewer', self._client_attach_viewer)
@@ -85,12 +87,13 @@ class _ServerConnection(gobject.GObject):
         '''Called when authentication fails.'''
         self._endp.send_auth_failed('Authentication failed')
 
-    def set_controller(self, controller):
+    def set_controller(self, controller, token):
         if self._controller is not None:
             self._endp.send_error('Already authenticated')
             return
 
         self._controller = controller
+        self._token = token
 
         # Now we can start forwarding controller signals.  We disconnect
         # from the controller at shutdown to avoid leaking _ServerConnection
@@ -112,7 +115,7 @@ class _ServerConnection(gobject.GObject):
                 'unknown')
         self._endp.send_auth_ok(state, self._controller.vm_name,
                 self._controller.max_mouse_rate)
-        _log.info('Authenticated')
+        _log.info('Authenticated (%s, %s)', self._peer, self._token)
         return True
 
     def _client_attach_viewer(self, _endp):
@@ -126,7 +129,7 @@ class _ServerConnection(gobject.GObject):
             # Stop forwarding controller signals
             self._disconnect_controller()
             self._endp.start_forwarding(sock)
-            _log.info('Attaching viewer')
+            _log.info('Attaching viewer (%s, %s)', self._peer, self._token)
         self._endp.protocol_disabled = True
         self._controller.connect_viewer(done)
         return True
@@ -134,7 +137,7 @@ class _ServerConnection(gobject.GObject):
     def _client_start_vm(self, _endp):
         try:
             self._controller.start_vm()
-            _log.info('Starting VM')
+            _log.info('Starting VM (%s, %s)', self._peer, self._token)
         except MachineStateError:
             self._endp.send_error("Can't start VM unless it is stopped")
         return True
@@ -142,21 +145,22 @@ class _ServerConnection(gobject.GObject):
     def _client_stop_vm(self, _endp):
         try:
             self._controller.stop_vm()
-            _log.info('Stopping VM')
+            _log.info('Stopping VM (%s, %s)', self._peer, self._token)
         except MachineStateError:
             self._endp.send_error("Can't stop VM unless it is running")
         return True
 
     def _client_destroy_vm(self, _endp):
         self.emit('destroy-token')
-        _log.info('Destroying VM')
+        _log.info('Destroying VM (%s, %s)', self._peer, self._token)
         return True
 
     def _client_ping(self, _endp):
         self.emit('ping')
 
     def _client_error(self, _endp, message):
-        _log.warning("Protocol error: %s", message)
+        _log.warning("Protocol error: %s (%s, %s)", message, self._peer,
+                self._token)
         self.shutdown()
 
     def _disconnect_controller(self):
@@ -264,7 +268,7 @@ class _TokenState(gobject.GObject):
         conn.connect('destroy-token', lambda _conn: self.shutdown())
 
         if self._controller is not None:
-            conn.set_controller(self._controller)
+            conn.set_controller(self._controller, self.token)
         else:
             # Wait for controller to be initialized
             if self._controller_future is None:
@@ -288,7 +292,7 @@ class _TokenState(gobject.GObject):
                 raise MachineExecutionError('SPICE support is unavailable')
             return controller
         except Exception:
-            _log.exception('Failed to initialize controller')
+            _log.exception('Failed to initialize controller (%s)', self.token)
             raise
 
     def _get_controller_result(self, conn, result=None, exception=None):
@@ -302,7 +306,7 @@ class _TokenState(gobject.GObject):
             return
         if self._controller is None:
             self._controller = controller
-        conn.set_controller(controller)
+        conn.set_controller(controller, self.token)
 
     @property
     def status(self):
@@ -466,7 +470,7 @@ class VMNetXServer(gobject.GObject):
         self._check_shutdown()
 
     def _fetch_controller(self, conn, token):
-        _log.debug("Fetching controller for token %s" % token)
+        _log.debug("Fetching controller (%s)", token)
 
         try:
             state = self._tokens[token]
