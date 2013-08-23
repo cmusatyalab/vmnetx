@@ -9,8 +9,9 @@ AM_LDFLAGS = -pthread $(libcurl_LIBS) $(glib_LIBS) $(gthread_LIBS) \
 	$(fuse_LIBS) $(libxml2_LIBS)
 
 dist_bin_SCRIPTS = tools/vmnetx \
-	tools/vmnetx-server \
 	tools/vmnetx-generate
+
+dist_sbin_SCRIPTS = tools/vmnetx-server
 
 pkglibexec_PROGRAMS = vmnetfs/vmnetfs
 vmnetfs_vmnetfs_SOURCES = vmnetfs/bitmap.c \
