@@ -519,7 +519,6 @@ class VMNetXServer(gobject.GObject):
         return tokens
 
     def _gc(self):
-        _log.debug("GC: Removing stale tokens")
         gc = self._options['gc_interval']
         to = self._options['token_timeout']
         # All garbage collection is done with relation to a single start time
