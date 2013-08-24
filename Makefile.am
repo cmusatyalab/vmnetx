@@ -53,7 +53,7 @@ nobase_python_PYTHON = vmnetx/__init__.py \
 	vmnetx/ui/view.py
 nobase_nodist_python_PYTHON = vmnetx/system.py
 CLEANFILES = vmnetx/system.py
-EXTRA_DIST = vmnetx/system.py.in pylintrc vmnetx.te README.rst
+EXTRA_DIST = vmnetx/system.py.in pylintrc vmnetx.te README.rst NEWS.md
 
 nobase_dist_pkgpython_DATA = schema/domain.xsd \
 	schema/domain-metadata.xsd \
