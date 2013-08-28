@@ -1,3 +1,17 @@
+VMNetX 0.4.0 (2013-08-28)
+-------------------------
+
+- Add remote execution server
+- Add remote execution support to client
+- Add application icon
+- Allow running multiple instances of the same VM
+- Reduce manual editing of domain XML for package generation
+- Fix long delays restoring older memory images
+- Fix freeze on rejected memory image with qemu >= 1.3
+- Fix crashes on Ubuntu 12.04
+- Fix crash if host audio unavailable
+- Fix mouse rate throttling (broken in 0.3.3)
+
 VMNetX 0.3.3 (2013-06-21)
 -------------------------
 
