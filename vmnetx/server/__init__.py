@@ -499,10 +499,10 @@ class VMNetXServer(gobject.GObject):
         instance = _Instance(package, self._options['username'],
                 self._options['password'], user_ident)
         self._instances[instance.id] = instance
-        instance.connect('destroy', self._destroy_instance)
+        instance.connect('destroy', self._destroy_instance_cb)
         return (instance.id, instance.token)
 
-    def _destroy_instance(self, instance):
+    def _destroy_instance_cb(self, instance):
         del self._instances[instance.id]
         self._check_shutdown()
 
@@ -525,6 +525,16 @@ class VMNetXServer(gobject.GObject):
                         tzutc()).isoformat(),
             })
         return instances
+
+    def destroy_instance(self, instance_id):
+        # Called from HTTP worker thread
+        if not self.running:
+            raise ServerUnavailableError()
+        return _MainLoopFuture(self._destroy_instance, instance_id).get()
+
+    def _destroy_instance(self, instance_id):
+        # Called from event loop thread
+        self._instances[instance_id].shutdown()
 
     def _gc(self):
         gc = self._options['gc_interval']

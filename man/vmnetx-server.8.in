@@ -19,11 +19,14 @@ vmnetx-server \- Execute virtual machines on behalf of remote users
 
 .SH SYNOPSIS
 .B vmnetx-server
-.RB [ \ \-d \ ]
+.RB [ \ \-D \ ]
 .I CONFIG-FILE
 .br
 .B vmnetx-server
 .BI \-c \ PACKAGE-URL
+.br
+.B vmnetx-server
+.BI \-d \ INSTANCE-ID
 .br
 .B vmnetx-server
 .B \-s
@@ -51,7 +54,13 @@ for the VMNetX package at
 .IR URL .
 
 .TP
-.BR \-d ", " \-\^\-debug
+.BI \-d\fR, "" \ \-\-destroy-instance\  ID
+Connect to the specified server and request the destruction of the instance
+with the specified
+.IR ID .
+
+.TP
+.BR \-D ", " \-\^\-debug
 Enable debug messages.
 
 .TP
@@ -62,7 +71,7 @@ Print a usage message summarizing these options, then exit.
 .BI \-k\fR, "" \ \-\-secret-key\  KEY
 The secret key for authenticating with the server.
 Required by the
-.B -c
+.BR -c ", " -d ,
 and
 .B -s
 options.
@@ -75,7 +84,7 @@ Query the status of the specified server and print a summary.
 .BI \-S\fR, "" \ \-\-server\  URL
 The URL of the server to query.
 Required by the
-.B -c
+.BR -c ", " -d ,
 and
 .B -s
 options.
@@ -160,7 +169,7 @@ servers.
 .TP
 VMNETX_SERVER
 The default server URL for
-.B -c
+.BR -c ", " -d ,
 and
 .BR -s .
 Overridden by
@@ -169,7 +178,7 @@ Overridden by
 .TP
 VMNETX_SECRET_KEY
 The default secret key for
-.B -c
+.BR -c ", " -d ,
 and
 .BR -s .
 Overridden by

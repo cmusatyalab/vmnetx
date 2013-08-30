@@ -42,6 +42,8 @@ class HttpServer(Flask):
         self.add_url_rule('/instance', 'status', self._status)
         self.add_url_rule('/instance', 'create-instance',
                 self._create_instance, methods=['POST'])
+        self.add_url_rule('/instance/<id>', 'destroy-instance',
+                self._destroy_instance, methods=['DELETE'])
 
     # We are a decorator, accessing protected members of our own class
     # pylint: disable=E0213,W0212
@@ -111,3 +113,12 @@ class HttpServer(Flask):
 
         _log.info("Preparing instance %s at %s", id, url)
         return jsonify(url=r, id=id)
+
+    @_check_running
+    @_need_auth
+    def _destroy_instance(self, id):
+        try:
+            self._server.destroy_instance(id)
+            return Response('', 204)
+        except KeyError:
+            return Response('Not found', 404)
