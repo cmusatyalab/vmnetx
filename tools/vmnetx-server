@@ -150,7 +150,7 @@ if opts.status:
     if opts.secret is None:
         raise ValueError('Getting status requires --secret-key')
     headers = {"X-Secret-Key": opts.secret}
-    r = requests.get(urljoin(opts.server, 'status'), headers=headers)
+    r = requests.get(urljoin(opts.server, 'instance'), headers=headers)
     if r.status_code != requests.codes.ok:
         sys.stderr.write('Server replied with code %d\n' % r.status_code)
         sys.exit(1)

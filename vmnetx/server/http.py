@@ -39,7 +39,7 @@ class HttpServer(Flask):
         Flask.__init__(self, __name__)
         self._options = options
         self._server = server
-        self.add_url_rule('/status', 'status', self._status)
+        self.add_url_rule('/instance', 'status', self._status)
         self.add_url_rule('/instance', 'create-instance',
                 self._create_instance, methods=['POST'])
 
