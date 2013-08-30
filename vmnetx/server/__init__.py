@@ -517,6 +517,7 @@ class VMNetXServer(gobject.GObject):
         instances = []
         for instance in self._instances.values():
             instances.append({
+                "id": instance.id,
                 "vm_name": instance.vm_name,
                 "user_ident": instance.user_ident,
                 "status": instance.status,

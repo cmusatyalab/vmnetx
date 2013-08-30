@@ -159,9 +159,10 @@ if opts.status:
     instances = data['instances']
 
     if instances:
-        fmt = ('%(vm_name)-30.30s %(user_ident)-19.19s ' +
-                '%(status)-8.8s %(last_seen)-19.19s')
+        fmt = ('%(id)-16.16s %(vm_name)-24.24s %(user_ident)-18.18s ' +
+                '%(status)-8.8s %(last_seen)-9.9s')
         print fmt % {
+            'id': 'Instance ID',
             'vm_name': 'VM Name',
             'user_ident': 'User Identifier',
             'status': 'Status',
@@ -170,7 +171,7 @@ if opts.status:
         for instance in instances:
             parsed_time = parse_date(instance['last_seen'])
             local_time = parsed_time.astimezone(tzlocal())
-            instance['last_seen'] = local_time.strftime('%Y-%m-%d %H:%M:%S')
+            instance['last_seen'] = local_time.strftime('%H:%M:%S')
             print fmt % instance
     else:
         print 'No instances exist'
