@@ -96,7 +96,7 @@ class HttpServer(Flask):
         except NeedAuthentication, e:
             package = Package(url, scheme=e.scheme, username=username,
                     password=password)
-        token = self._server.create_instance(package, user_ident)
+        id, token = self._server.create_instance(package, user_ident)
 
         host = self._options['host']
         port = self._options['port']
@@ -106,5 +106,5 @@ class HttpServer(Flask):
 
         r = urlunsplit(('vmnetx', hostname, '/' + token, '', ''))
 
-        _log.info("Preparing VM at %s with token %s", url, token)
-        return jsonify(url=r)
+        _log.info("Preparing instance %s at %s", id, url)
+        return jsonify(url=r, id=id)

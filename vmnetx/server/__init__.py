@@ -51,7 +51,7 @@ class _ServerConnection(gobject.GObject):
         gobject.GObject.__init__(self)
         self._peer = sock.getpeername()[0]
         self._controller = None
-        self._token = None
+        self._instance_id = None
         self._endp = ServerEndpoint(sock)
         self._endp.connect('authenticate', self._client_authenticate)
         self._endp.connect('attach-viewer', self._client_attach_viewer)
@@ -87,13 +87,13 @@ class _ServerConnection(gobject.GObject):
         '''Called when authentication fails.'''
         self._endp.send_auth_failed('Authentication failed')
 
-    def set_controller(self, controller, token):
+    def set_controller(self, controller, instance_id):
         if self._controller is not None:
             self._endp.send_error('Already authenticated')
             return
 
         self._controller = controller
-        self._token = token
+        self._instance_id = instance_id
 
         # Now we can start forwarding controller signals.  We disconnect
         # from the controller at shutdown to avoid leaking _ServerConnection
@@ -115,7 +115,7 @@ class _ServerConnection(gobject.GObject):
                 'unknown')
         self._endp.send_auth_ok(state, self._controller.vm_name,
                 self._controller.max_mouse_rate)
-        _log.info('Authenticated (%s, %s)', self._peer, self._token)
+        _log.info('Authenticated (%s, %s)', self._peer, self._instance_id)
         return True
 
     def _client_attach_viewer(self, _endp):
@@ -129,7 +129,8 @@ class _ServerConnection(gobject.GObject):
             # Stop forwarding controller signals
             self._disconnect_controller()
             self._endp.start_forwarding(sock)
-            _log.info('Attaching viewer (%s, %s)', self._peer, self._token)
+            _log.info('Attaching viewer (%s, %s)', self._peer,
+                    self._instance_id)
         self._endp.protocol_disabled = True
         self._controller.connect_viewer(done)
         return True
@@ -137,7 +138,7 @@ class _ServerConnection(gobject.GObject):
     def _client_start_vm(self, _endp):
         try:
             self._controller.start_vm()
-            _log.info('Starting VM (%s, %s)', self._peer, self._token)
+            _log.info('Starting VM (%s, %s)', self._peer, self._instance_id)
         except MachineStateError:
             self._endp.send_error("Can't start VM unless it is stopped")
         return True
@@ -145,14 +146,14 @@ class _ServerConnection(gobject.GObject):
     def _client_stop_vm(self, _endp):
         try:
             self._controller.stop_vm()
-            _log.info('Stopping VM (%s, %s)', self._peer, self._token)
+            _log.info('Stopping VM (%s, %s)', self._peer, self._instance_id)
         except MachineStateError:
             self._endp.send_error("Can't stop VM unless it is running")
         return True
 
     def _client_destroy_vm(self, _endp):
         self.emit('destroy-instance')
-        _log.info('Destroying VM (%s, %s)', self._peer, self._token)
+        _log.info('Destroying VM (%s, %s)', self._peer, self._instance_id)
         return True
 
     def _client_ping(self, _endp):
@@ -160,7 +161,7 @@ class _ServerConnection(gobject.GObject):
 
     def _client_error(self, _endp, message):
         _log.warning("Protocol error: %s (%s, %s)", message, self._peer,
-                self._token)
+                self._instance_id)
         self.shutdown()
 
     def _disconnect_controller(self):
@@ -245,7 +246,9 @@ class _Instance(gobject.GObject):
     def __init__(self, package, username, password, user_ident):
         # Called from HTTP worker thread
         gobject.GObject.__init__(self)
-        self.token = base64.urlsafe_b64encode(os.urandom(15))
+        self.id = base64.b32encode(os.urandom(10))
+        self.authcode = base64.urlsafe_b64encode(os.urandom(15))
+        self.token = '%s/%s' % (self.id, self.authcode)
         self._package = package
         self._username = username
         self._password = password
@@ -268,7 +271,7 @@ class _Instance(gobject.GObject):
         conn.connect('destroy-instance', lambda _conn: self.shutdown())
 
         if self._controller is not None:
-            conn.set_controller(self._controller, self.token)
+            conn.set_controller(self._controller, self.id)
         else:
             # Wait for controller to be initialized
             if self._controller_future is None:
@@ -292,7 +295,7 @@ class _Instance(gobject.GObject):
                 raise MachineExecutionError('SPICE support is unavailable')
             return controller
         except Exception:
-            _log.exception('Failed to initialize controller (%s)', self.token)
+            _log.exception('Failed to initialize controller (%s)', self.id)
             raise
 
     def _get_controller_result(self, conn, result=None, exception=None):
@@ -306,7 +309,7 @@ class _Instance(gobject.GObject):
             return
         if self._controller is None:
             self._controller = controller
-        conn.set_controller(controller, self.token)
+        conn.set_controller(controller, self.id)
 
     @property
     def status(self):
@@ -412,7 +415,7 @@ class VMNetXServer(gobject.GObject):
         gobject.threads_init()
         gobject.GObject.__init__(self)
         self._options = options
-        self._instances = {}  # token -> _Instance
+        self._instances = {}  # id -> _Instance
         self._http = None
         self._unauthenticated_conns = set()
         self._listen = None
@@ -473,8 +476,11 @@ class VMNetXServer(gobject.GObject):
         _log.debug("Fetching controller (%s)", token)
 
         try:
-            instance = self._instances[token]
-        except KeyError:
+            id, authcode = token.split('/', 1)
+            instance = self._instances[id]
+            if instance.authcode != authcode:
+                raise KeyError
+        except (KeyError, ValueError):
             conn.fail_controller()
             return
 
@@ -492,12 +498,12 @@ class VMNetXServer(gobject.GObject):
         # Called from event loop thread
         instance = _Instance(package, self._options['username'],
                 self._options['password'], user_ident)
-        self._instances[instance.token] = instance
+        self._instances[instance.id] = instance
         instance.connect('destroy', self._destroy_instance)
-        return instance.token
+        return (instance.id, instance.token)
 
     def _destroy_instance(self, instance):
-        del self._instances[instance.token]
+        del self._instances[instance.id]
         self._check_shutdown()
 
     def get_status(self):
@@ -526,9 +532,9 @@ class VMNetXServer(gobject.GObject):
         curr = time.time()
         instances = self._instances.values()
         for instance in instances:
-            # Check if the token has not timed out since the last gc call
+            # Check if the instance has not timed out since the last gc call
             if curr > instance.last_seen + gc + to:
-                _log.debug('GC: Removing instance %s', instance.token)
+                _log.debug('GC: Removing instance %s', instance.id)
                 instance.shutdown()
         return True
 
