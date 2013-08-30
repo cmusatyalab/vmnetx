@@ -45,9 +45,9 @@ connection for interacting with it.
 
 .SH OPTIONS
 .TP
-.BI \-c\fR, "" \ \-\-create-token\  URL
-Connect to the specified server and request a token (provisioned session) for
-the VMNetX package at
+.BI \-c\fR, "" \ \-\-create-instance\  URL
+Connect to the specified server and request an instance (provisioned session)
+for the VMNetX package at
 .IR URL .
 
 .TP
@@ -82,7 +82,7 @@ options.
 
 .TP
 .BI \-u\fR, "" \ \-\-user-ident\  NAME
-A string identifying the user for whom the token is being created.
+A string identifying the user for whom the instance is being created.
 
 .TP
 .B \-\^\-version
@@ -98,8 +98,8 @@ directives:
 .IR gc_interval \ (default:\ 5\ seconds)
 How often
 .B vmnetx-server
-should scan for tokens to invalidate.
-When a token is invalidated, any associated virtual machine is terminated
+should scan for instances to invalidate.
+When an instance is invalidated, any associated virtual machine is terminated
 and its virtual disk deleted.
 
 .TP
@@ -124,6 +124,13 @@ The TCP port on which
 should listen for web API connections.
 
 .TP
+.IR instance_timeout \ (default:\ 300\ seconds)
+The period of inactivity that should be permitted to an instance before it is
+invalidated.
+Upon invalidation, any associated virtual machine is terminated and its
+virtual disk deleted.
+
+.TP
 .IR password \ (no\ default)
 The password to be used when accessing a VMNetX package if the remote server
 demands authentication.
@@ -139,13 +146,6 @@ should listen for client connections.
 .TP
 .IR secret_key \ (no\ default)
 The authorization key required of clients accessing the web API.
-
-.TP
-.IR token_timeout \ (default:\ 300\ seconds)
-The period of inactivity that should be permitted to a token before it is
-invalidated.
-Upon invalidation, any associated virtual machine is terminated and its
-virtual disk deleted.
 
 .TP
 .IR username \ (no\ default)

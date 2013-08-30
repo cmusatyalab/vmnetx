@@ -40,8 +40,8 @@ class HttpServer(Flask):
         self._options = options
         self._server = server
         self.add_url_rule('/status', 'status', self._status)
-        self.add_url_rule('/token', 'create-token',
-                self._create_token, methods=['POST'])
+        self.add_url_rule('/instance', 'create-instance',
+                self._create_instance, methods=['POST'])
 
     # We are a decorator, accessing protected members of our own class
     # pylint: disable=E0213,W0212
@@ -71,7 +71,7 @@ class HttpServer(Flask):
         return jsonify(current_time=current_time, instances=instances)
 
     @_check_running
-    def _create_token(self):
+    def _create_instance(self):
         try:
             secret_key = request.headers['X-Secret-Key']
         except KeyError:
@@ -96,7 +96,7 @@ class HttpServer(Flask):
         except NeedAuthentication, e:
             package = Package(url, scheme=e.scheme, username=username,
                     password=password)
-        token = self._server.create_token(package, user_ident)
+        token = self._server.create_instance(package, user_ident)
 
         host = self._options['host']
         port = self._options['port']

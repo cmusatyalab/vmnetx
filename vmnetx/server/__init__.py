@@ -44,7 +44,7 @@ class _ServerConnection(gobject.GObject):
                 (gobject.TYPE_STRING,)),
         'ping': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'close': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-        'destroy-token': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'destroy-instance': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
     def __init__(self, sock):
@@ -151,7 +151,7 @@ class _ServerConnection(gobject.GObject):
         return True
 
     def _client_destroy_vm(self, _endp):
-        self.emit('destroy-token')
+        self.emit('destroy-instance')
         _log.info('Destroying VM (%s, %s)', self._peer, self._token)
         return True
 
@@ -237,7 +237,7 @@ class _WorkerThreadFuture(object):
                 self._callbacks.append(callback)
 
 
-class _TokenState(gobject.GObject):
+class _Instance(gobject.GObject):
     __gsignals__ = {
         'destroy': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
@@ -259,13 +259,13 @@ class _TokenState(gobject.GObject):
 
     def add_connection(self, conn):
         if not self._valid:
-            raise ValueError('Token already shut down')
+            raise ValueError('Instance already shut down')
 
         self.last_seen = time.time()
         self._conns.add(conn)
         conn.connect('ping', self._update_last_seen)
         conn.connect('close', self._close)
-        conn.connect('destroy-token', lambda _conn: self.shutdown())
+        conn.connect('destroy-instance', lambda _conn: self.shutdown())
 
         if self._controller is not None:
             conn.set_controller(self._controller, self.token)
@@ -367,7 +367,7 @@ class _TokenState(gobject.GObject):
             for conn in conns:
                 conn.destroy()
             self._try_destroy()
-gobject.type_register(_TokenState)
+gobject.type_register(_Instance)
 
 
 class _MainLoopFuture(object):
@@ -412,7 +412,7 @@ class VMNetXServer(gobject.GObject):
         gobject.threads_init()
         gobject.GObject.__init__(self)
         self._options = options
-        self._tokens = {}  # token -> _TokenState
+        self._instances = {}  # token -> _Instance
         self._http = None
         self._unauthenticated_conns = set()
         self._listen = None
@@ -473,30 +473,31 @@ class VMNetXServer(gobject.GObject):
         _log.debug("Fetching controller (%s)", token)
 
         try:
-            state = self._tokens[token]
+            instance = self._instances[token]
         except KeyError:
             conn.fail_controller()
             return
 
-        state.add_connection(conn)
+        instance.add_connection(conn)
         self._unauthenticated_conns.remove(conn)
 
-    def create_token(self, package, user_ident):
+    def create_instance(self, package, user_ident):
         # Called from HTTP worker thread
         if not self.running:
             raise ServerUnavailableError()
-        return _MainLoopFuture(self._create_token, package, user_ident).get()
+        return _MainLoopFuture(self._create_instance, package,
+                user_ident).get()
 
-    def _create_token(self, package, user_ident):
+    def _create_instance(self, package, user_ident):
         # Called from event loop thread
-        state = _TokenState(package, self._options['username'],
+        instance = _Instance(package, self._options['username'],
                 self._options['password'], user_ident)
-        self._tokens[state.token] = state
-        state.connect('destroy', self._destroy_token)
-        return state.token
+        self._instances[instance.token] = instance
+        instance.connect('destroy', self._destroy_instance)
+        return instance.token
 
-    def _destroy_token(self, state):
-        del self._tokens[state.token]
+    def _destroy_instance(self, instance):
+        del self._instances[instance.token]
         self._check_shutdown()
 
     def get_status(self):
@@ -507,28 +508,28 @@ class VMNetXServer(gobject.GObject):
 
     def _get_status(self):
         # Called from event loop thread
-        tokens = []
-        for state in self._tokens.values():
-            tokens.append({
-                "vm_name": state.vm_name,
-                "user_ident": state.user_ident,
-                "status": state.status,
-                "last_seen": datetime.fromtimestamp(state.last_seen,
+        instances = []
+        for instance in self._instances.values():
+            instances.append({
+                "vm_name": instance.vm_name,
+                "user_ident": instance.user_ident,
+                "status": instance.status,
+                "last_seen": datetime.fromtimestamp(instance.last_seen,
                         tzutc()).isoformat(),
             })
-        return tokens
+        return instances
 
     def _gc(self):
         gc = self._options['gc_interval']
-        to = self._options['token_timeout']
+        to = self._options['instance_timeout']
         # All garbage collection is done with relation to a single start time
         curr = time.time()
-        states = self._tokens.values()
-        for state in states:
+        instances = self._instances.values()
+        for instance in instances:
             # Check if the token has not timed out since the last gc call
-            if curr > state.last_seen + gc + to:
-                _log.debug('GC: Removing token %s', state.token)
-                state.shutdown()
+            if curr > instance.last_seen + gc + to:
+                _log.debug('GC: Removing instance %s', instance.token)
+                instance.shutdown()
         return True
 
     def shutdown(self):
@@ -545,16 +546,16 @@ class VMNetXServer(gobject.GObject):
         if self._gc_timer is not None:
             glib.source_remove(self._gc_timer)
             self._gc_timer = None
-        states = self._tokens.values()
-        for state in states:
-            state.shutdown()
+        instances = self._instances.values()
+        for instance in instances:
+            instance.shutdown()
         conns = list(self._unauthenticated_conns)
         for conn in conns:
             conn.shutdown()
         self._check_shutdown()
 
     def _check_shutdown(self):
-        if (self._shutting_down and not self._tokens
+        if (self._shutting_down and not self._instances
                 and not self._unauthenticated_conns):
             self._shutting_down = False
             self.emit('shutdown')

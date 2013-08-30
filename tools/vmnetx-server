@@ -41,7 +41,7 @@ DESCRIPTION = 'Export VMNetX VMs via remote network protocol.'
 
 DEFAULT_PORT = 18923
 DEFAULT_GC_INTERVAL = 5  # seconds
-DEFAULT_TOKEN_TIMEOUT = 60 * 5  # seconds
+DEFAULT_INSTANCE_TIMEOUT = 60 * 5  # seconds
 DEFAULT_HTTP_HOST = '127.0.0.1'
 DEFAULT_HTTP_PORT = 18924
 
@@ -78,10 +78,10 @@ def parse_config(path):
     if not isinstance(options['gc_interval'], int):
         raise ValueError("Invalid GC timeout")
 
-    options['token_timeout'] = config.get('token_timeout',
-            DEFAULT_TOKEN_TIMEOUT)
-    if not isinstance(options['token_timeout'], int):
-        raise ValueError("Invalid token timeout")
+    options['instance_timeout'] = config.get('instance_timeout',
+            DEFAULT_INSTANCE_TIMEOUT)
+    if not isinstance(options['instance_timeout'], int):
+        raise ValueError("Invalid instance timeout")
 
     return options
 
@@ -121,8 +121,9 @@ default_server = 'http://%s:%s' % (DEFAULT_HTTP_HOST, DEFAULT_HTTP_PORT)
 parser = OptionParser(usage=USAGE, version=VERSION, description=DESCRIPTION)
 parser.add_option('-d', '--debug', dest='debug', action='store_true',
         help='Enable debug messages')
-parser.add_option('-c', '--create-token', dest='create_token', metavar='URL',
-        help='URL of the VM for which the token is created')
+parser.add_option('-c', '--create-instance', dest='create_instance',
+        metavar='URL',
+        help='URL of the VM for which the instance is created')
 parser.add_option('-S', '--server', dest='server', metavar='URL',
         default=os.getenv('VMNETX_SERVER') or default_server,
         help=('URL of the server to query (default: $VMNETX_SERVER or %s)'
@@ -139,7 +140,7 @@ opts, args = parser.parse_args()
 
 if opts.debug:
     loglevel = logging.DEBUG
-elif opts.create_token or opts.status:
+elif opts.create_instance or opts.status:
     loglevel = logging.WARNING
 else:
     loglevel = logging.INFO
@@ -172,16 +173,16 @@ if opts.status:
             instance['last_seen'] = local_time.strftime('%Y-%m-%d %H:%M:%S')
             print fmt % instance
     else:
-        print 'No tokens exist'
-elif opts.create_token:
+        print 'No instances exist'
+elif opts.create_instance:
     if opts.secret is None:
-        raise ValueError('Creating token requires --secret-key')
+        raise ValueError('Creating instance requires --secret-key')
     payload = {
-        "url": opts.create_token,
+        "url": opts.create_instance,
         "user_ident": opts.user_ident,
     }
     headers = {"X-Secret-Key": opts.secret}
-    r = requests.post(urljoin(opts.server, 'token'),
+    r = requests.post(urljoin(opts.server, 'instance'),
             data=json.dumps(payload), headers=headers)
     if r.status_code != requests.codes.ok:
         sys.stderr.write('Server replied with code %d\n' % r.status_code)
