@@ -67,8 +67,8 @@ class HttpServer(Flask):
             return Response('Incorrect secret key', 403)
 
         current_time = datetime.now(tzutc()).isoformat()
-        status = self._server.get_status()
-        return jsonify(current_time=current_time, status=status)
+        instances = self._server.get_status()
+        return jsonify(current_time=current_time, instances=instances)
 
     @_check_running
     def _create_token(self):

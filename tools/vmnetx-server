@@ -155,9 +155,9 @@ if opts.status:
         sys.exit(1)
 
     data = json.loads(r.text)
-    status = data['status']
+    instances = data['instances']
 
-    if status:
+    if instances:
         fmt = ('%(vm_name)-30.30s %(user_ident)-19.19s ' +
                 '%(status)-8.8s %(last_seen)-19.19s')
         print fmt % {
@@ -166,11 +166,11 @@ if opts.status:
             'status': 'Status',
             'last_seen': 'Last Seen',
         }
-        for entry in status:
-            parsed_time = parse_date(entry['last_seen'])
+        for instance in instances:
+            parsed_time = parse_date(instance['last_seen'])
             local_time = parsed_time.astimezone(tzlocal())
-            entry['last_seen'] = local_time.strftime('%Y-%m-%d %H:%M:%S')
-            print fmt % entry
+            instance['last_seen'] = local_time.strftime('%Y-%m-%d %H:%M:%S')
+            print fmt % instance
     else:
         print 'No tokens exist'
 elif opts.create_token:
