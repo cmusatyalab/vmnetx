@@ -57,28 +57,31 @@ class HttpServer(Flask):
         return wrapper
     # pylint: enable=E0213,W0212
 
-    @_check_running
-    def _status(self):
-        try:
-            secret_key = request.headers['X-Secret-Key']
-        except KeyError:
-            return Response('Missing secret key', 403)
-        if secret_key != self._options['secret_key']:
-            return Response('Incorrect secret key', 403)
+    # We are a decorator, accessing protected members of our own class
+    # pylint: disable=E0213,W0212
+    def _need_auth(func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            try:
+                secret_key = request.headers['X-Secret-Key']
+            except KeyError:
+                return Response('Missing secret key', 403)
+            if secret_key != self._options['secret_key']:
+                return Response('Incorrect secret key', 403)
+            return func(self, *args, **kwargs)
+        return wrapper
+    # pylint: enable=E0213,W0212
 
+    @_check_running
+    @_need_auth
+    def _status(self):
         current_time = datetime.now(tzutc()).isoformat()
         instances = self._server.get_status()
         return jsonify(current_time=current_time, instances=instances)
 
     @_check_running
+    @_need_auth
     def _create_instance(self):
-        try:
-            secret_key = request.headers['X-Secret-Key']
-        except KeyError:
-            return Response('Missing secret key', 403)
-        if secret_key != self._options['secret_key']:
-            return Response('Incorrect secret key', 403)
-
         try:
             args = json.loads(request.data)
         except ValueError:
