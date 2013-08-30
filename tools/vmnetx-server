@@ -162,7 +162,7 @@ if opts.status:
         fmt = ('%(vm_name)-30.30s %(user_ident)-19.19s ' +
                 '%(status)-8.8s %(last_seen)-19.19s')
         print fmt % {
-            'vm_name': 'VM name',
+            'vm_name': 'VM Name',
             'user_ident': 'User Identifier',
             'status': 'Status',
             'last_seen': 'Last Seen',
