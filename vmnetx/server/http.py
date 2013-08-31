@@ -116,9 +116,9 @@ class HttpServer(Flask):
 
     @_check_running
     @_need_auth
-    def _destroy_instance(self, id):
+    def _destroy_instance(self, instance_id):
         try:
-            self._server.destroy_instance(id)
+            self._server.destroy_instance(instance_id)
             return Response('', 204)
         except KeyError:
             return Response('Not found', 404)
