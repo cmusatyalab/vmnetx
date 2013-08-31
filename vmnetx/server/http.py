@@ -42,7 +42,7 @@ class HttpServer(Flask):
         self.add_url_rule('/instance', 'status', self._status)
         self.add_url_rule('/instance', 'create-instance',
                 self._create_instance, methods=['POST'])
-        self.add_url_rule('/instance/<id>', 'destroy-instance',
+        self.add_url_rule('/instance/<instance_id>', 'destroy-instance',
                 self._destroy_instance, methods=['DELETE'])
 
     # We are a decorator, accessing protected members of our own class
