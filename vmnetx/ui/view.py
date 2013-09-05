@@ -21,7 +21,6 @@ from distutils.version import LooseVersion
 import glib
 import gobject
 import gtk
-import gtkvnc
 import logging
 import pango
 
@@ -39,6 +38,14 @@ try:
 except ImportError:
     pass
 # pylint: enable=C0103
+
+# VNC viewer is technically mandatory, but we defer ImportErrors until
+# VNCWidget instantiation as a convenience for thin-client installs
+# which will never use it
+try:
+    import gtkvnc
+except ImportError:
+    pass
 
 # pylint chokes on Gtk widgets, #112550
 # pylint: disable=R0924
@@ -176,6 +183,9 @@ class AspectBin(gtk.Bin):
 
 class VNCWidget(_ViewerWidget):
     def __init__(self, max_mouse_rate=None):
+        # Ensure silent import succeeded.  If not, fail loudly this time.
+        import gtkvnc
+
         _ViewerWidget.__init__(self, max_mouse_rate)
         aspect = AspectBin()
         self.add(aspect)
