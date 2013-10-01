@@ -42,9 +42,9 @@ MEMORY_FILENAME = 'memory.img'
 
 
 # We want this to be a public attribute
-# pylint: disable=C0103
+# pylint: disable=invalid-name
 schema = etree.XMLSchema(etree.parse(SCHEMA_PATH))
-# pylint: enable=C0103
+# pylint: enable=invalid-name
 
 
 class BadPackageError(DetailException):
@@ -60,8 +60,6 @@ class _HttpError(Exception):
 class _HttpFile(object):
     '''A read-only file-like object backed by HTTP Range requests.'''
 
-    # pylint doesn't understand named tuples
-    # pylint: disable=E1103
     def __init__(self, url, scheme=None, username=None, password=None,
             buffer_size=64 << 10):
         if scheme == 'Basic':
@@ -147,7 +145,6 @@ class _HttpFile(object):
                         for name, value in self._session.cookies.iteritems())
         except requests.exceptions.RequestException, e:
             raise _HttpError(str(e))
-    # pylint: enable=E1103
 
     def __enter__(self):
         return self
@@ -281,8 +278,6 @@ class _HttpFile(object):
 class _FileFile(file):
     '''An _HttpFile-compatible file-like object for local files.'''
 
-    # pylint doesn't understand named tuples
-    # pylint: disable=E1103
     def __init__(self, url):
         # Process URL
         parsed = urlsplit(url)
@@ -304,7 +299,6 @@ class _FileFile(file):
         self.etag = None
         self.last_modified = datetime.fromtimestamp(
                 int(os.fstat(self.fileno()).st_mtime), tzutc())
-    # pylint: enable=E1103
 
 
 class _PackageObject(object):
@@ -360,8 +354,6 @@ class _PackageObject(object):
 
 
 class Package(object):
-    # pylint doesn't understand named tuples
-    # pylint: disable=E1103
     def __init__(self, url, scheme=None, username=None, password=None):
         self.url = url
 
@@ -400,7 +392,6 @@ class Package(object):
             raise BadPackageError('Manifest XML does not validate', str(e))
         except (zipfile.BadZipfile, _HttpError), e:
             raise BadPackageError(str(e))
-    # pylint: enable=E1103
 
     @classmethod
     def create(cls, out, name, domain_xml, disk_path, memory_path=None):
@@ -429,8 +420,7 @@ class Package(object):
 
 
 # We access protected members in assertions.
-# pylint is confused by Popen.terminate().
-# pylint: disable=W0212,E1101
+# pylint: disable=protected-access
 def _main():
     from tempfile import mkdtemp
     import subprocess
@@ -514,7 +504,7 @@ def _main():
         proc.terminate()
         os.unlink(tfile)
         os.rmdir(tdir)
-# pylint: enable=W0212,E1101
+# pylint: enable=protected-access
 
 
 if __name__ == '__main__':

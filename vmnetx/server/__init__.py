@@ -206,7 +206,7 @@ class _WorkerThreadFuture(object):
         Thread(target=self._run).start()
 
     # We intentionally catch most exceptions
-    # pylint: disable=W0703
+    # pylint: disable=broad-except
     def _run(self):
         # Called in worker thread
         result = exception = None
@@ -221,7 +221,7 @@ class _WorkerThreadFuture(object):
             for cb in self._callbacks:
                 self._fire_callback(cb)
             self._callbacks = []
-    # pylint: enable=W0703
+    # pylint: enable=broad-except
 
     def _fire_callback(self, callback):
         if self._exception is not None:
@@ -358,10 +358,10 @@ class _Instance(gobject.GObject):
                 self.emit('destroy')
 
     # Unused keyword arguments
-    # pylint: disable=W0613
+    # pylint: disable=unused-argument
     def _controller_shutdown_finished(self, result=None, exception=None):
         self.emit('destroy')
-    # pylint: enable=W0613
+    # pylint: enable=unused-argument
 
     def shutdown(self):
         if self._valid:
@@ -385,7 +385,7 @@ class _MainLoopFuture(object):
         glib.idle_add(self._run, priority=glib.PRIORITY_DEFAULT)
 
     # We intentionally catch most exceptions
-    # pylint: disable=W0703
+    # pylint: disable=broad-except
     def _run(self):
         # Called from event loop thread
         try:
@@ -393,17 +393,17 @@ class _MainLoopFuture(object):
         except Exception, e:
             self._exception = e
         self._event.set()
-    # pylint: enable=W0703
+    # pylint: enable=broad-except
 
     # pylint thinks we're raising None, but we explicitly check for this
-    # pylint: disable=E0702
+    # pylint: disable=raising-bad-type
     def get(self):
         # Called from HTTP worker thread
         self._event.wait()
         if self._exception is not None:
             raise self._exception
         return self._result
-    # pylint: enable=E0702
+    # pylint: enable=raising-bad-type
 
 
 class VMNetXServer(gobject.GObject):

@@ -47,7 +47,7 @@ class HttpServer(Flask):
                 self._destroy_instance, methods=['DELETE'])
 
     # We are a decorator, accessing protected members of our own class
-    # pylint: disable=E0213,W0212
+    # pylint: disable=no-self-argument,protected-access
     def _check_running(func):
         @wraps(func)
         def wrapper(self, *args, **kwargs):
@@ -58,10 +58,10 @@ class HttpServer(Flask):
             except ServerUnavailableError:
                 return Response('Server unavailable', 503)
         return wrapper
-    # pylint: enable=E0213,W0212
+    # pylint: enable=no-self-argument,protected-access
 
     # We are a decorator, accessing protected members of our own class
-    # pylint: disable=E0213,W0212
+    # pylint: disable=no-self-argument,protected-access
     def _need_auth(func):
         @wraps(func)
         def wrapper(self, *args, **kwargs):
@@ -73,7 +73,7 @@ class HttpServer(Flask):
                 return Response('Incorrect secret key', 403)
             return func(self, *args, **kwargs)
         return wrapper
-    # pylint: enable=E0213,W0212
+    # pylint: enable=no-self-argument,protected-access
 
     @_check_running
     @_need_auth

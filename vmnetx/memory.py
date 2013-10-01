@@ -37,8 +37,6 @@ class LibvirtQemuMemoryHeader(object):
     COMPRESS_RAW = 0
     COMPRESS_XZ = 3
 
-    # pylint is confused by "\0", #111799
-    # pylint: disable=W1401
     def __init__(self, fh):
         # Read header struct
         fh.seek(0)
@@ -62,7 +60,6 @@ class LibvirtQemuMemoryHeader(object):
         self.xml = fh.read(self._xml_len - 1).rstrip('\0')
         if fh.read(1) != '\0':
             raise MemoryImageError('Missing NUL byte after XML')
-    # pylint: enable=W1401
 
     def seek_body(self, fh):
         fh.seek(self.HEADER_LENGTH + self._xml_len)

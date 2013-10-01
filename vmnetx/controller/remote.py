@@ -111,8 +111,6 @@ class RemoteController(Controller):
     PHASE_RUN = 1
     PHASE_STOP = 2
 
-    # pylint is confused by named tuples
-    # pylint: disable=E1103
     def __init__(self, url, use_spice=True):
         Controller.__init__(self)
         if not use_spice:
@@ -134,7 +132,6 @@ class RemoteController(Controller):
         self._handlers = []
         self._backoff = BackoffTimer()
         self._backoff.connect('attempt', self._attempt_connection)
-    # pylint: enable=E1103
 
     @Controller._ensure_state(Controller.STATE_UNINITIALIZED)
     def initialize(self):

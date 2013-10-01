@@ -84,8 +84,6 @@ class VMNetXUI(object):
             # Icon not installed in search path
             pass
 
-    # We intentionally catch all exceptions
-    # pylint: disable=W0702
     def run(self):
         try:
             # Attempt to catch SIGTERM.  This is dubious, but not more so
@@ -175,7 +173,6 @@ class VMNetXUI(object):
             if self._controller is not None:
                 self._controller.shutdown()
             logging.shutdown()
-    # pylint: enable=W0702
 
     def _signal(self, _signum, _frame):
         raise KeyboardInterrupt
@@ -243,8 +240,6 @@ class VMNetXUI(object):
             glib.timeout_add(self.RESUME_CHECK_DELAY,
                     self._startup_check_screenshot)
 
-    # pylint doesn't like '\0'
-    # pylint: disable=W1401
     def _startup_check_screenshot(self):
         # If qemu doesn't like a memory image, it may sit and spin rather
         # than failing properly.  Recover from this case.
@@ -258,7 +253,6 @@ class VMNetXUI(object):
             self._warn_bad_memory()
             # Terminate the VM; the vm-stopped handler will restart it
             self._controller.stop_vm()
-    # pylint: enable=W1401
 
     def _network_disconnect(self, _obj):
         if self._network_warning is None:

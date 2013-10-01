@@ -36,21 +36,18 @@ STRICT_SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'schema',
         'libvirt', 'domain.rng')
 
 # We want these to be public attributes
-# pylint: disable=C0103
+# pylint: disable=invalid-name
 safe_schema = etree.XMLSchema(etree.parse(SAFE_SCHEMA_PATH))
 strict_schema = etree.RelaxNG(file=STRICT_SCHEMA_PATH)
-# pylint: enable=C0103
+# pylint: enable=invalid-name
 
 
 class DomainXMLError(DetailException):
     pass
 
 
-# This is a class, not an constant
-# pylint: disable=C0103
 _Emulator = namedtuple('_Emulator', ('os_type', 'domain_type', 'arch',
         'machine', 'canonical_machine', 'path'))
-# pylint: enable=C0103
 
 
 class DomainXML(object):
@@ -116,8 +113,6 @@ class DomainXML(object):
         if metadata is not None:
             metadata.getparent().remove(metadata)
 
-    # pylint is confused by Popen.returncode
-    # pylint: disable=E1101
     def _validate(self, mode, safe=True):
         # Parse XML
         try:
@@ -161,7 +156,6 @@ class DomainXML(object):
                     raise DomainXMLError(
                             'Domain XML unsupported by installed libvirt',
                             (out.strip() + '\n' + err.strip()).strip())
-    # pylint: enable=E1101
 
     def get_for_storage(self, disk_type='qcow2', keep_uuid=False):
         # Parse XML

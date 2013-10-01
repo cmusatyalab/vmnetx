@@ -1,6 +1,6 @@
 # Avoid variable name warning
-# pylint: disable=C0103
+# pylint: disable=invalid-name
 libexec_path = '@pkglibexecdir@'
-# pylint: enable=C0103
+# pylint: enable=invalid-name
 
 __version__ = '@version@'

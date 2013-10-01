@@ -77,8 +77,6 @@ class Controller(gobject.GObject):
         self.username = None
         self.password = None
 
-    # pylint doesn't understand named tuples
-    # pylint: disable=E1103
     @classmethod
     def get_for_ref(cls, package_ref, use_spice):
         # Convert package_ref to URL
@@ -107,7 +105,6 @@ class Controller(gobject.GObject):
         except ImportError:
             raise MachineExecutionError(('%s execution of virtual machines ' +
                     'is not supported on this system') % category)
-    # pylint: enable=E1103
 
     def initialize(self):
         raise NotImplementedError
@@ -214,9 +211,6 @@ class Statistic(gobject.GObject):
 gobject.type_register(Statistic)
 
 
-# pylint complains about the missing  __setitem__ and __delitem__, but we
-# don't intend to allow array writes
-# pylint: disable=R0924
 class ChunkStateArray(gobject.GObject):
     INVALID = 0  # Beyond EOF.  Never stored in chunks array.
     MISSING = 1
@@ -277,4 +271,3 @@ class ChunkStateArray(gobject.GObject):
                     self._chunks[chunk] = state
                     c.emit(chunk)
 gobject.type_register(ChunkStateArray)
-# pylint: enable=R0924

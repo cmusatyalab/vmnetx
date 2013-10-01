@@ -28,9 +28,9 @@ SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'schema',
         'reference.xsd')
 
 # We want this to be a public attribute
-# pylint: disable=C0103
+# pylint: disable=invalid-name
 schema = etree.XMLSchema(etree.parse(SCHEMA_PATH))
-# pylint: enable=C0103
+# pylint: enable=invalid-name
 
 
 class BadReferenceError(DetailException):

@@ -21,10 +21,7 @@ import dbus
 from distutils.version import LooseVersion
 import gobject
 import grp
-# pylint doesn't understand hashlib.sha256
-# pylint: disable=E0611
 from hashlib import sha256
-# pylint: enable=E0611
 import json
 import libvirt
 import logging
@@ -61,8 +58,6 @@ LibvirtEventImpl().register()
 
 
 class _ReferencedObject(object):
-    # pylint doesn't understand named tuples
-    # pylint: disable=E1103
     def __init__(self, label, info, username=None, password=None,
             chunk_size=131072):
         self.label = label
@@ -89,11 +84,10 @@ class _ReferencedObject(object):
                 sha256(self._cache_info).hexdigest())
         # Hash collisions will allow cache poisoning!
         self.cache = os.path.join(self._urlpath, label, str(chunk_size))
-    # pylint: enable=E1103
 
     # We must access Cookie._rest to perform case-insensitive lookup of
     # the HttpOnly attribute
-    # pylint: disable=W0212
+    # pylint: disable=protected-access
     @property
     def vmnetfs_config(self):
         # Write URL and validators into file for ease of debugging.
@@ -146,7 +140,7 @@ class _ReferencedObject(object):
                 e('chunk-size', str(self.chunk_size)),
             ),
         )
-    # pylint: enable=W0212
+    # pylint: enable=protected-access
 
 
 class _QemuWatchdog(object):
@@ -456,10 +450,7 @@ class LocalController(Controller):
         ver = LooseVersion(match.group(1))
         if ver >= LooseVersion('1.0') and ver < LooseVersion('1.1'):
             # Ubuntu 12.04
-            # Yes, pylint, the URL is too long.
-            # pylint: disable=C0301
             # https://bugs.launchpad.net/ubuntu/+source/qemu-kvm-spice/+bug/970234
-            # pylint: enable=C0301
             return False
         return True
 
@@ -475,7 +466,7 @@ class LocalController(Controller):
         threading.Thread(name='vmnetx-startup', target=self._startup).start()
 
     # We intentionally catch all exceptions
-    # pylint: disable=W0702
+    # pylint: disable=bare-except
     def _startup(self):
         # Thread function.
         try:
@@ -526,7 +517,7 @@ class LocalController(Controller):
             gobject.idle_add(self.emit, 'vm-started', have_memory)
         finally:
             self._startup_running = False
-    # pylint: enable=W0702
+    # pylint: enable=bare-except
 
     def _load_progress(self, _obj, count, total):
         if self._have_memory and self.state == self.STATE_STARTING:

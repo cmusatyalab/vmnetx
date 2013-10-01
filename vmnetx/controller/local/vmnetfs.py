@@ -23,10 +23,10 @@ from ...util import DetailException
 
 # system.py is built at install time, so pylint may fail to import it.
 # Also avoid warning on variable name.
-# pylint: disable=F0401,C0103
+# pylint: disable=import-error,invalid-name
 libexec_path = ''
 from ...system import libexec_path, __file__ as system_module_path
-# pylint: enable=F0401,C0103
+# pylint: enable=import-error,invalid-name
 
 NS = 'http://olivearchive.org/xmlns/vmnetx/vmnetfs'
 NSP = '{' + NS + '}'
@@ -34,9 +34,9 @@ SCHEMA_PATH = os.path.join(os.path.dirname(system_module_path), 'schema',
         'vmnetfs.xsd')
 
 # We want this to be a public attribute
-# pylint: disable=C0103
+# pylint: disable=invalid-name
 schema = etree.XMLSchema(etree.parse(SCHEMA_PATH))
-# pylint: enable=C0103
+# pylint: enable=invalid-name
 
 
 class VMNetFSError(DetailException):
@@ -56,9 +56,6 @@ class VMNetFS(object):
         self._pipe = None
         self.mountpoint = None
 
-    # pylint is confused by Popen.returncode and the values returned from
-    # Popen.communicate()
-    # pylint: disable=E1101,E1103
     def start(self):
         read, write = os.pipe()
         try:
@@ -84,7 +81,6 @@ class VMNetFS(object):
             raise
         finally:
             os.close(read)
-    # pylint: enable=E1101,E1103
 
     def terminate(self):
         if self._pipe is not None:

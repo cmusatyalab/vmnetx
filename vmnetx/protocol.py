@@ -515,7 +515,7 @@ class ClientEndpoint(_Endpoint):
     # We're accessing a protected member of this class, but pylint doesn't
     # know that.
     # This is a decorator, it doesn't take "self".
-    # pylint: disable=W0212,E0213
+    # pylint: disable=protected-access,no-self-argument
     def _need_send_state(state):
         def decorator(func):
             @wraps(func)
@@ -526,7 +526,7 @@ class ClientEndpoint(_Endpoint):
                 return func(self, *args, **kwargs)
             return wrapper
         return decorator
-    # pylint: enable=W0212,E0213
+    # pylint: enable=protected-access,no-self-argument
 
     @_need_send_state(STATE_UNAUTHENTICATED)
     def send_authenticate(self, token):

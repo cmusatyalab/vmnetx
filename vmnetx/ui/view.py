@@ -28,7 +28,7 @@ from ..controller import ChunkStateArray
 from ..util import ErrorBuffer, BackoffTimer
 
 # have_spice_viewer is a variable, not a constant
-# pylint: disable=C0103
+# pylint: disable=invalid-name
 have_spice_viewer = False
 try:
     import SpiceClientGtk
@@ -37,7 +37,7 @@ try:
         have_spice_viewer = True
 except ImportError:
     pass
-# pylint: enable=C0103
+# pylint: enable=invalid-name
 
 # VNC viewer is technically mandatory, but we defer ImportErrors until
 # VNCWidget instantiation as a convenience for thin-client installs
@@ -47,8 +47,8 @@ try:
 except ImportError:
     pass
 
-# pylint chokes on Gtk widgets, #112550
-# pylint: disable=R0924
+# pylint chokes on Gtk widgets
+# pylint: disable=incomplete-protocol
 
 class _ViewerWidget(gtk.EventBox):
     __gsignals__ = {
@@ -182,6 +182,8 @@ class AspectBin(gtk.Bin):
 
 
 class VNCWidget(_ViewerWidget):
+    # Don't warn on reimport of gtkvnc
+    # pylint: disable=redefined-outer-name
     def __init__(self, max_mouse_rate=None):
         # Ensure silent import succeeded.  If not, fail loudly this time.
         import gtkvnc
@@ -204,6 +206,7 @@ class VNCWidget(_ViewerWidget):
         self._vnc.set_pointer_grab(True)
         self._vnc.set_keyboard_grab(True)
         self._vnc.set_scaling(True)
+    # pylint: enable=redefined-outer-name
 
     def _resize(self, _wid, width, height):
         self.emit('viewer-resize', width, height)
@@ -738,14 +741,14 @@ Dark gray: Not present"""
         self.connect('expose-event', self._expose)
 
     # pylint doesn't understand allocation.width
-    # pylint: disable=E1101
+    # pylint: disable=no-member
     @property
     def valid_rows(self):
         """Return the number of rows where at least one pixel corresponds
         to a chunk."""
         row_width = self.allocation.width
         return (len(self._map) + row_width - 1) // row_width
-    # pylint: enable=E1101
+    # pylint: enable=no-member
 
     def _realize(self, _widget):
         self._map_chunk_handler = self._map.connect('chunk-state-changed',
@@ -773,7 +776,7 @@ Dark gray: Not present"""
         self.set_size_request(30, self.valid_rows)
 
     # pylint doesn't understand allocation.width or window.cairo_create()
-    # pylint: disable=E1101
+    # pylint: disable=no-member
     def _expose(self, _widget, event):
         # This function is optimized; be careful when changing it.
         # Localize variables for performance (!!)
@@ -828,17 +831,17 @@ Dark gray: Not present"""
             if state != default_state:
                 rectangle(first_x, y, area_x + area_width - first_x, 1)
                 fill()
-    # pylint: enable=E1101
+    # pylint: enable=no-member
 
     # pylint doesn't understand allocation.width
-    # pylint: disable=E1101
+    # pylint: disable=no-member
     def _chunk_changed(self, _map, first, last):
         width = self.allocation.width
         for row in xrange(first // width, last // width + 1):
             row_first = max(width * row, first) % width
             row_last = min(width * (row + 1) - 1, last) % width
             self.queue_draw_area(row_first, row, row_last - row_first + 1, 1)
-    # pylint: enable=E1101
+    # pylint: enable=no-member
 
     def _image_resized(self, _map, _chunks):
         self.queue_resize_no_redraw()
@@ -1091,21 +1094,15 @@ class PasswordWindow(gtk.Dialog):
         table.show_all()
         self._invalid.hide()
 
-    # pylint < 0.25.1 doesn't understand @foo.setter
-    # pylint: disable=E0202
     @property
     def username(self):
         return self._username.get_text()
-    # pylint: enable=E0202
 
-    # pylint < 0.25.1 doesn't understand @foo.setter
-    # pylint: disable=E0102,E0202,E1101
     @username.setter
     def username(self, value):
         # Side effect: set focus to password field
         self._username.set_text(value)
         self._password.grab_focus()
-    # pylint: enable=E0102,E0202,E1101
 
     @property
     def password(self):
@@ -1210,4 +1207,4 @@ class FatalErrorWindow(gtk.MessageDialog):
         self.get_action_area().get_children()[0].grab_focus()
         content.show_all()
 
-# pylint: enable=R0924
+# pylint: enable=incomplete-protocol

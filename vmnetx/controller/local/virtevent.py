@@ -26,7 +26,7 @@ import libvirt
 from threading import Lock
 
 # We use short argument names
-# pylint: disable=C0103
+# pylint: disable=invalid-name
 
 class _EventHandle(object):
     def __init__(self, id, fd, cb, data, free_func):
