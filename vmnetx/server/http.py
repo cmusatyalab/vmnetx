@@ -23,7 +23,8 @@ import json
 import logging
 from urlparse import urlunsplit
 
-from ..package import Package, NeedAuthentication
+from ..package import Package
+from ..util import NeedAuthentication
 
 _log = logging.getLogger(__name__)
 

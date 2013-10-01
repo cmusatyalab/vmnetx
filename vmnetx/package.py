@@ -29,7 +29,7 @@ from urlparse import urlsplit
 import zipfile
 
 from .system import __version__
-from .util import DetailException
+from .util import DetailException, NeedAuthentication
 
 NS = 'http://olivearchive.org/xmlns/vmnetx/package'
 NSP = '{' + NS + '}'
@@ -49,14 +49,6 @@ schema = etree.XMLSchema(etree.parse(SCHEMA_PATH))
 
 class BadPackageError(DetailException):
     pass
-
-
-class NeedAuthentication(Exception):
-    def __init__(self, host, realm, scheme):
-        Exception.__init__(self, 'Authentication required')
-        self.host = host
-        self.realm = realm
-        self.scheme = scheme
 
 
 class _HttpError(Exception):

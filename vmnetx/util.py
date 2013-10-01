@@ -28,6 +28,14 @@ class DetailException(Exception):
             self.detail = detail
 
 
+class NeedAuthentication(Exception):
+    def __init__(self, host, realm, scheme):
+        Exception.__init__(self, 'Authentication required')
+        self.host = host
+        self.realm = realm
+        self.scheme = scheme
+
+
 class ErrorBuffer(gobject.GObject):
     def __init__(self, message=None):
         gobject.GObject.__init__(self)

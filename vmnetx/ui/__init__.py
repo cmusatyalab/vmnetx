@@ -26,9 +26,8 @@ import signal
 from tempfile import NamedTemporaryFile
 
 from ..controller import Controller
-from ..package import NeedAuthentication
 from ..system import __version__
-from ..util import get_cache_dir
+from ..util import NeedAuthentication, get_cache_dir
 from .view import (VMWindow, LoadProgressWindow, PasswordWindow,
         SaveMediaWindow, ErrorWindow, FatalErrorWindow, IgnorableErrorWindow,
         have_spice_viewer)
