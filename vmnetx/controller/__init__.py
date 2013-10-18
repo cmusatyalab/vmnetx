@@ -136,7 +136,10 @@ class Controller(gobject.GObject):
             # Get error code
             err = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
             if err:
-                callback(error=os.strerror(err))
+                # os.strerror() can't convert WinSock error codes, but the
+                # socket module has an undocumented mapping table
+                errorTab = getattr(socket, 'errorTab', {})
+                callback(error=errorTab.get(err, os.strerror(err)))
                 sock.close()
             else:
                 sock.setblocking(1)
@@ -148,7 +151,8 @@ class Controller(gobject.GObject):
             sock.setblocking(0)
             sock.connect(address)
         except socket.error, e:
-            if e.errno == errno.EINPROGRESS:
+            # EWOULDBLOCK on Windows (actually WSAEWOULDBLOCK)
+            if e.errno in (errno.EINPROGRESS, errno.EWOULDBLOCK):
                 glib.io_add_watch(sock, glib.IO_OUT, ready)
             else:
                 callback(error=str(e))

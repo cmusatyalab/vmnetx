@@ -15,7 +15,6 @@
 # for more details.
 #
 
-import errno
 import gobject
 import os
 import sys
@@ -137,12 +136,9 @@ def get_temp_dir():
 
 
 def ensure_dir(path):
-    try:
+    # Not atomic, but avoids hardcoding errno values for Windows
+    if not os.path.isdir(path):
         os.makedirs(path)
-    except OSError, e:
-        if e.errno == errno.EEXIST and os.path.isdir(path):
-            return
-        raise
 
 
 def setup_libvirt():

@@ -456,7 +456,7 @@ class VMNetXServer(gobject.GObject):
             try:
                 sock, _addr = self._listen.accept()
             except socket.error, e:
-                if e.errno == errno.EAGAIN:
+                if e.errno in (errno.EAGAIN, errno.EWOULDBLOCK):
                     return True
                 else:
                     _log.exception('Accepting connection')

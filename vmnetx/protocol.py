@@ -97,7 +97,7 @@ class _AsyncSocket(gobject.GObject):
                 buf = self._sock.recv(self._recv_remaining or
                         self.DEFAULT_RECV_BUF)
             except socket.error, e:
-                if e.errno != errno.EAGAIN:
+                if e.errno not in (errno.EAGAIN, errno.EWOULDBLOCK):
                     self.shutdown()
             else:
                 if buf == '':
