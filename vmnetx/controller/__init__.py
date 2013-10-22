@@ -131,7 +131,7 @@ class Controller(gobject.GObject):
     @staticmethod
     def _connect_socket(address, callback):
         def ready(sock, cond):
-            if not (cond & glib.IO_OUT):
+            if not (cond & (glib.IO_OUT | glib.IO_ERR)):
                 return True
             # Get error code
             err = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
@@ -153,7 +153,8 @@ class Controller(gobject.GObject):
         except socket.error, e:
             # EWOULDBLOCK on Windows (actually WSAEWOULDBLOCK)
             if e.errno in (errno.EINPROGRESS, errno.EWOULDBLOCK):
-                glib.io_add_watch(sock, glib.IO_OUT, ready)
+                # IO_ERR on Windows
+                glib.io_add_watch(sock, glib.IO_OUT | glib.IO_ERR, ready)
             else:
                 callback(error=str(e))
                 sock.close()
