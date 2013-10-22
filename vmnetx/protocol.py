@@ -115,25 +115,30 @@ class _AsyncSocket(gobject.GObject):
                         self._update()
 
         if cond & glib.IO_OUT:
-            try:
-                count = self._sock.send(self._send_buf)
-            except socket.error, e:
-                if e.errno not in (errno.EAGAIN, errno.EWOULDBLOCK):
-                    self._send_closed = True
-                    self._send_buf = ''
-                    self._update()
-            else:
-                self._send_buf = self._send_buf[count:]
-                if not self._send_buf:
-                    self._update()
+            self._try_send()
 
         return True
+
+    def _try_send(self):
+        try:
+            while self._send_buf:
+                count = self._sock.send(self._send_buf)
+                self._send_buf = self._send_buf[count:]
+        except socket.error, e:
+            if e.errno not in (errno.EAGAIN, errno.EWOULDBLOCK):
+                self._send_closed = True
+                self._send_buf = ''
+        self._update()
 
     def send(self, buf):
         if self._send_closing or self._send_closed:
             raise IOError('Socket closed')
         self._send_buf += buf
-        self._update()
+        # On Windows, glib uses WSAEventSelect() to detect events, and that
+        # only reports writability once after connect and once after a write
+        # returns EWOULDBLOCK.  Attempt to transmit even without an IO_OUT
+        # notification.
+        glib.idle_add(self._try_send, priority=glib.PRIORITY_DEFAULT)
 
     def recv(self, callback, count=None):
         '''Call callback when count bytes have been received.  If count is
