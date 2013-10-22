@@ -117,10 +117,11 @@ class _AsyncSocket(gobject.GObject):
         if cond & glib.IO_OUT:
             try:
                 count = self._sock.send(self._send_buf)
-            except socket.error:
-                self._send_closed = True
-                self._send_buf = ''
-                self._update()
+            except socket.error, e:
+                if e.errno not in (errno.EAGAIN, errno.EWOULDBLOCK):
+                    self._send_closed = True
+                    self._send_buf = ''
+                    self._update()
             else:
                 self._send_buf = self._send_buf[count:]
                 if not self._send_buf:
