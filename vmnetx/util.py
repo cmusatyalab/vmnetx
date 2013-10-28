@@ -20,6 +20,13 @@ import os
 import sys
 import traceback
 
+# Compatibility wrappers
+if sys.platform == 'win32':
+    from .win32 import dup
+else:
+    dup = os.dup
+
+
 class DetailException(Exception):
     def __init__(self, msg, detail=None):
         Exception.__init__(self, msg)

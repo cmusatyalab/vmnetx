@@ -27,7 +27,7 @@ from tempfile import NamedTemporaryFile
 
 from ..controller import Controller
 from ..system import __version__
-from ..util import NeedAuthentication, get_cache_dir
+from ..util import NeedAuthentication, get_cache_dir, dup
 from .view import (VMWindow, LoadProgressWindow, PasswordWindow,
         SaveMediaWindow, ErrorWindow, FatalErrorWindow, IgnorableErrorWindow,
         have_spice_viewer)
@@ -230,7 +230,7 @@ class VMNetXUI(object):
             if error is not None:
                 self._wind.set_viewer_fd(data, None)
             else:
-                self._wind.set_viewer_fd(data, os.dup(sock.fileno()))
+                self._wind.set_viewer_fd(data, dup(sock.fileno()))
                 sock.close()
         self._controller.connect_viewer(done)
 

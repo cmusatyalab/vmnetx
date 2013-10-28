@@ -15,6 +15,7 @@ nobase_python_PYTHON = \
 	vmnetx/protocol.py \
 	vmnetx/reference.py \
 	vmnetx/util.py \
+	vmnetx/win32.py \
 	vmnetx/controller/__init__.py \
 	vmnetx/controller/remote.py \
 	vmnetx/ui/__init__.py \
