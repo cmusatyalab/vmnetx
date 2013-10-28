@@ -17,14 +17,16 @@
 
 import gobject
 import os
+import socket
 import sys
 import traceback
 
 # Compatibility wrappers
 if sys.platform == 'win32':
-    from .win32 import dup
+    from .win32 import dup, socketpair
 else:
     dup = os.dup
+    socketpair = socket.socketpair
 
 
 class DetailException(Exception):

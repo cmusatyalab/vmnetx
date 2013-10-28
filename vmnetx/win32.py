@@ -17,7 +17,9 @@
 
 from ctypes import *
 from ctypes.wintypes import *
+import errno
 import os
+from select import select
 import socket
 import sys
 
@@ -109,3 +111,44 @@ def dup(s):
     if s2 == INVALID_SOCKET:
         raise IOError('Cannot unserialize socket: %s' % _get_wsa_error())
     return s2
+
+
+def socketpair():
+    '''Create a pair of connected TCP sockets.'''
+    for i in range(100):
+        listener = socket.socket()
+        try:
+            # Listen
+            listener.bind(('localhost', 0))
+            listener.listen(0)
+
+            # Connect
+            a = socket.socket()
+            a.setblocking(0)
+            try:
+                a.connect(listener.getsockname())
+            except socket.error, e:
+                if e.errno != errno.EWOULDBLOCK:
+                    raise
+
+            # Accept
+            b, peer = listener.accept()
+
+            # Confirm that the connection we accepted is the one we made
+            if peer != a.getsockname():
+                raise IOError('Someone else connected to us')
+
+            # Confirm connection completion
+            _, w, x = select([], [a], [a], 0.5)
+            if a not in w:
+                raise IOError('Connect failed')
+
+            # Set blocking and return
+            a.setblocking(1)
+            return a, b
+        except (socket.error, IOError):
+            pass
+        finally:
+            listener.close()
+    else:
+        raise IOError("Couldn't create socket pair")

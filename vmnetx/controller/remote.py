@@ -18,12 +18,11 @@
 import gobject
 import gtk
 import logging
-import socket
 from urlparse import urlsplit
 
 from . import Controller, MachineExecutionError
 from ..protocol import ClientEndpoint, EndpointStateError
-from ..util import ErrorBuffer, BackoffTimer
+from ..util import ErrorBuffer, BackoffTimer, socketpair
 
 _log = logging.getLogger(__name__)
 
@@ -51,7 +50,7 @@ class _ViewerConnection(object):
     def _attaching_viewer(self, _endp):
         if self._callback is None:
             return
-        a, b = socket.socketpair()
+        a, b = socketpair()
         self._endp.start_forwarding(a)
         self._callback(sock=b)
         self._callback = None
