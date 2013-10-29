@@ -414,7 +414,6 @@ class StatusBarWidget(gtk.HBox):
             return icon
 
         escape_label = gtk.Label('Ctrl-Alt')
-        escape_label.set_alignment(0.5, 0.8)
         escape_label.set_padding(3, 0)
         self.pack_start(escape_label, expand=False)
 
