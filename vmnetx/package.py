@@ -28,12 +28,12 @@ import struct
 from urlparse import urlsplit
 import zipfile
 
-from .system import __version__
+from .system import __version__, schemadir
 from .util import DetailException, NeedAuthentication
 
 NS = 'http://olivearchive.org/xmlns/vmnetx/package'
 NSP = '{' + NS + '}'
-SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'schema', 'package.xsd')
+SCHEMA_PATH = os.path.join(schemadir, 'package.xsd')
 
 MANIFEST_FILENAME = 'vmnetx-package.xml'
 DOMAIN_FILENAME = 'domain.xml'

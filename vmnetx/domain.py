@@ -24,16 +24,15 @@ import subprocess
 from tempfile import NamedTemporaryFile
 import uuid
 
+from .system import schemadir
 from .util import DetailException
 
 # vmnetx-specific metadata extensions
 NS = 'http://olivearchive.org/xmlns/vmnetx/domain-metadata'
 NSP = '{' + NS + '}'
 
-SAFE_SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'schema',
-        'domain.xsd')
-STRICT_SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'schema',
-        'libvirt', 'domain.rng')
+SAFE_SCHEMA_PATH = os.path.join(schemadir, 'domain.xsd')
+STRICT_SCHEMA_PATH = os.path.join(schemadir, 'libvirt', 'domain.rng')
 
 # We want these to be public attributes
 # pylint: disable=invalid-name

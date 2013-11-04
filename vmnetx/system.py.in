@@ -1,6 +1,20 @@
+import os
+import sys
+
 # Avoid variable name warning
 # pylint: disable=invalid-name
 libexec_path = '@pkglibexecdir@'
 # pylint: enable=invalid-name
+
+# Avoid variable name warning
+# Protected member is part of the PyInstaller API
+# pylint: disable=invalid-name,protected-access
+if getattr(sys, 'frozen', False):
+    # Running in PyInstaller environment; __file__ doesn't work
+    # Hardcode location within PyInstaller bundle for now
+    schemadir = os.path.join(sys._MEIPASS, 'share', 'vmnetx', 'schema')
+else:
+    schemadir = os.path.join(os.path.dirname(__file__), 'schema')
+# pylint: enable=invalid-name,protected-access
 
 __version__ = '@version@'

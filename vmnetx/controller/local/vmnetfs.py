@@ -25,13 +25,12 @@ from ...util import DetailException
 # Also avoid warning on variable name.
 # pylint: disable=import-error,invalid-name
 libexec_path = ''
-from ...system import libexec_path, __file__ as system_module_path
+from ...system import libexec_path, schemadir
 # pylint: enable=import-error,invalid-name
 
 NS = 'http://olivearchive.org/xmlns/vmnetx/vmnetfs'
 NSP = '{' + NS + '}'
-SCHEMA_PATH = os.path.join(os.path.dirname(system_module_path), 'schema',
-        'vmnetfs.xsd')
+SCHEMA_PATH = os.path.join(schemadir, 'vmnetfs.xsd')
 
 # We want this to be a public attribute
 # pylint: disable=invalid-name

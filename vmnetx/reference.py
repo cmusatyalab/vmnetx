@@ -19,13 +19,13 @@ from lxml import etree
 from lxml.builder import ElementMaker
 import os
 
+from .system import schemadir
 from .util import DetailException
 
 
 NS = 'http://olivearchive.org/xmlns/vmnetx/reference'
 NSP = '{' + NS + '}'
-SCHEMA_PATH = os.path.join(os.path.dirname(__file__), 'schema',
-        'reference.xsd')
+SCHEMA_PATH = os.path.join(schemadir, 'reference.xsd')
 
 # We want this to be a public attribute
 # pylint: disable=invalid-name
