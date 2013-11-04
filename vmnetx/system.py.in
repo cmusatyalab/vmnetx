@@ -3,7 +3,7 @@ import sys
 
 # Avoid variable name warning
 # pylint: disable=invalid-name
-libexec_path = '@pkglibexecdir@'
+libexecdir = '@pkglibexecdir@'
 # pylint: enable=invalid-name
 
 # Avoid variable name warning

@@ -24,8 +24,8 @@ from ...util import DetailException
 # system.py is built at install time, so pylint may fail to import it.
 # Also avoid warning on variable name.
 # pylint: disable=import-error,invalid-name
-libexec_path = ''
-from ...system import libexec_path, schemadir
+libexecdir = ''
+from ...system import libexecdir, schemadir
 # pylint: enable=import-error,invalid-name
 
 NS = 'http://olivearchive.org/xmlns/vmnetx/vmnetfs'
@@ -49,7 +49,7 @@ class VMNetFS(object):
         except etree.DocumentInvalid, e:
             raise VMNetFSError('Argument XML does not validate', str(e))
 
-        self._vmnetfs_path = os.path.join(libexec_path, 'vmnetfs')
+        self._vmnetfs_path = os.path.join(libexecdir, 'vmnetfs')
         self._args = etree.tostring(tree, pretty_print=True, encoding='UTF-8',
                 xml_declaration=True)
         self._pipe = None
