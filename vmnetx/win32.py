@@ -15,8 +15,9 @@
 # for more details.
 #
 
-from ctypes import *
-from ctypes.wintypes import *
+from ctypes import (windll, c_int, c_uint, c_uint8, c_uint32, c_uint64,
+        Structure, POINTER, byref)
+from ctypes.wintypes import BYTE, DWORD, WORD
 import errno
 import os
 from select import select
