@@ -606,8 +606,8 @@ class VMActionGroup(gtk.ActionGroup):
             ('restart', 'gtk-refresh', None, None, 'Restart', self._restart),
             ('quit', 'gtk-quit', None, None, 'Quit', self._quit),
         ), user_data=parent)
-        add_nonstock('screenshot', 'Screenshot', 'Take Screenshot', 'camera',
-                self._screenshot)
+        add_nonstock('screenshot', 'Screenshot', 'Take Screenshot',
+                'camera-photo', self._screenshot)
         self.add_toggle_actions((
             ('show-activity', 'gtk-properties', 'Activity', None,
                     'Show virtual machine activity', self._show_activity),
