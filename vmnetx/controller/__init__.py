@@ -138,8 +138,8 @@ class Controller(gobject.GObject):
             if err:
                 # os.strerror() can't convert WinSock error codes, but the
                 # socket module has an undocumented mapping table
-                errorTab = getattr(socket, 'errorTab', {})
-                callback(error=errorTab.get(err, os.strerror(err)))
+                errortab = getattr(socket, 'errorTab', {})
+                callback(error=errortab.get(err, os.strerror(err)))
                 sock.close()
             else:
                 sock.setblocking(1)

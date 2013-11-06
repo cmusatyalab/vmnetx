@@ -22,11 +22,14 @@ import sys
 import traceback
 
 # Compatibility wrappers
+# We don't use the imports ourselves and we don't control their names
+# pylint: disable=unused-import,invalid-name
 if sys.platform == 'win32':
     from .win32 import dup, socketpair
 else:
     dup = os.dup
     socketpair = socket.socketpair
+# pylint: enable=unused-import,invalid-name
 
 
 class DetailException(Exception):

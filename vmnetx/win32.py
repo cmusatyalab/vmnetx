@@ -24,6 +24,9 @@ from select import select
 import socket
 import sys
 
+# We use the Win32 naming scheme when wrapping its objects
+# pylint: disable=invalid-name
+
 _winsock = windll.ws2_32
 
 
@@ -85,7 +88,8 @@ WSADuplicateSocket.restype = c_int
 
 
 WSASocket = _winsock.WSASocketA
-WSASocket.argtypes = [c_int, c_int, c_int, POINTER(WSAPROTOCOL_INFO), c_uint, DWORD]
+WSASocket.argtypes = [c_int, c_int, c_int, POINTER(WSAPROTOCOL_INFO),
+        c_uint, DWORD]
 WSASocket.restype = SOCKET
 
 
@@ -116,7 +120,7 @@ def dup(s):
 
 def socketpair():
     '''Create a pair of connected TCP sockets.'''
-    for i in range(100):
+    for _ in range(100):
         listener = socket.socket()
         try:
             # Listen
@@ -140,7 +144,7 @@ def socketpair():
                 raise IOError('Someone else connected to us')
 
             # Confirm connection completion
-            _, w, x = select([], [a], [a], 0.5)
+            _, w, _ = select([], [a], [a], 0.5)
             if a not in w:
                 raise IOError('Connect failed')
 
@@ -151,5 +155,7 @@ def socketpair():
             pass
         finally:
             listener.close()
-    else:
-        raise IOError("Couldn't create socket pair")
+
+    raise IOError("Couldn't create socket pair")
+
+# pylint: enable=invalid-name
