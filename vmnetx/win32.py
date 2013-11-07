@@ -16,8 +16,8 @@
 #
 
 from ctypes import (windll, c_int, c_uint, c_uint8, c_uint32, c_uint64,
-        Structure, POINTER, byref)
-from ctypes.wintypes import BYTE, DWORD, WORD
+        c_wchar_p, Structure, POINTER, byref)
+from ctypes.wintypes import BYTE, DWORD, WORD, HRESULT, HANDLE, LPVOID
 import errno
 import os
 from select import select
@@ -28,6 +28,8 @@ import sys
 # pylint: disable=invalid-name
 
 _winsock = windll.ws2_32
+_shell32 = windll.shell32
+_ole32 = windll.ole32
 
 
 if sys.maxsize > (1 << 31):
@@ -39,15 +41,22 @@ else:
 
 
 WSA_FLAG_OVERLAPPED = 0x01
+KF_FLAG_INIT = 0x800
+KF_FLAG_CREATE = 0x8000
 
 
+EightByte = BYTE * 8
 class GUID(Structure):
     _fields_ = [
         ('Data1', DWORD),
         ('Data2', WORD),
         ('Data3', WORD),
-        ('Data4', BYTE * 8),
+        ('Data4', EightByte),
     ]
+
+
+FOLDERID_LocalAppData = GUID(0xf1b32785, 0x6fba, 0x4fcf,
+        EightByte(0x9d, 0x55, 0x7b, 0x8e, 0x7f, 0x15, 0x70, 0x91))
 
 
 class WSAPROTOCOLCHAIN(Structure):
@@ -96,6 +105,17 @@ WSASocket.restype = SOCKET
 WSAGetLastError = _winsock.WSAGetLastError
 WSAGetLastError.argtypes = []
 WSAGetLastError.restype = c_int
+
+
+SHGetKnownFolderPath = _shell32.SHGetKnownFolderPath
+SHGetKnownFolderPath.argtypes = [POINTER(GUID), DWORD, HANDLE,
+        POINTER(c_wchar_p)]
+SHGetKnownFolderPath.restype = HRESULT
+
+
+CoTaskMemFree = _ole32.CoTaskMemFree
+CoTaskMemFree.argtypes = [LPVOID]
+CoTaskMemFree.restype = None
 
 
 def _get_wsa_error():
@@ -157,5 +177,15 @@ def socketpair():
             listener.close()
 
     raise IOError("Couldn't create socket pair")
+
+
+def get_local_appdata_dir():
+    outptr = c_wchar_p()
+    # Raises WindowsError on failure
+    SHGetKnownFolderPath(FOLDERID_LocalAppData,
+            KF_FLAG_CREATE | KF_FLAG_INIT, None, byref(outptr))
+    ret = outptr.value
+    CoTaskMemFree(outptr)
+    return ret
 
 # pylint: enable=invalid-name

@@ -25,7 +25,7 @@ import traceback
 # We don't use the imports ourselves and we don't control their names
 # pylint: disable=unused-import,invalid-name
 if sys.platform == 'win32':
-    from .win32 import dup, socketpair
+    from .win32 import dup, socketpair, get_local_appdata_dir
 else:
     dup = os.dup
     socketpair = socket.socketpair
@@ -130,10 +130,14 @@ gobject.type_register(BackoffTimer)
 
 
 def get_cache_dir():
-    base = os.environ.get('XDG_CACHE_HOME')
-    if not base:
-        base = os.path.join(os.environ['HOME'], '.cache')
-    path = os.path.join(base, 'vmnetx')
+    if sys.platform == 'win32':
+        path = os.path.join(get_local_appdata_dir(), 'VMNetX', 'Cache')
+    else:
+        base = os.environ.get('XDG_CACHE_HOME')
+        if not base:
+            base = os.path.join(os.environ['HOME'], '.cache')
+        path = os.path.join(base, 'vmnetx')
+
     if not os.path.exists(path):
         os.makedirs(path)
     return path
