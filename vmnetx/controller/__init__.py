@@ -21,6 +21,8 @@ import glib
 import gobject
 import os
 import socket
+import sys
+from urllib import pathname2url
 from urlparse import urlsplit, urlunsplit
 
 from ..reference import PackageReference, BadReferenceError
@@ -82,14 +84,17 @@ class Controller(gobject.GObject):
         # Convert package_ref to URL
         url = package_ref
         parsed = urlsplit(url)
-        if parsed.scheme == '':
+        # With absolute paths on Windows, the drive letter is parsed into the
+        # scheme field
+        if (parsed.scheme == '' or
+                (sys.platform == 'win32' and len(parsed.scheme) == 1)):
             # Local file path.  Try to parse the file as a package reference.
             try:
                 url = PackageReference.parse(parsed.path).url
             except BadReferenceError:
                 # Failed.  Assume it's a package.
-                url = urlunsplit(('file', '', os.path.abspath(parsed.path),
-                        '', ''))
+                url = urlunsplit(('file', '',
+                        pathname2url(os.path.abspath(url)), '', ''))
 
         # Return correct controller
         parsed = urlsplit(url)
