@@ -139,14 +139,6 @@ def get_cache_dir():
     return path
 
 
-def get_temp_dir():
-    path = os.environ.get('XDG_RUNTIME_DIR')
-    if path:
-        return path
-    else:
-        return '/tmp'
-
-
 def ensure_dir(path):
     # Not atomic, but avoids hardcoding errno values for Windows
     if not os.path.isdir(path):
