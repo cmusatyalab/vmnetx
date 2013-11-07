@@ -1,3 +1,9 @@
+VMNetX 0.4.1 (2013-11-07)
+-------------------------
+
+- Support client on Windows (remote execution only)
+- Add administrative interface for terminating a `vmnetx-server` VM
+
 VMNetX 0.4.0 (2013-08-28)
 -------------------------
 
