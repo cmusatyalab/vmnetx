@@ -27,6 +27,9 @@ import sys
 # We use the Win32 naming scheme when wrapping its objects
 # pylint: disable=invalid-name
 
+# Any DLL loaded here will be bundled by PyInstaller by default.  This is
+# undesirable for system libraries.  To prevent it, modify the exclusion
+# list in vmnetx-packaging/windows/build.sh.
 _winsock = windll.ws2_32
 _shell32 = windll.shell32
 _ole32 = windll.ole32
