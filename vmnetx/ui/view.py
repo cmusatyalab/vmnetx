@@ -470,6 +470,7 @@ class VMWindow(gtk.Window):
         self._agrp.connect('user-screenshot', self._screenshot)
 
         self.set_title(name)
+        self.connect('window-state-event', self._window_state_changed)
         self.connect('delete-event',
                 lambda _wid, _ev:
                 self._agrp.get_action('quit').activate() or True)
@@ -483,6 +484,9 @@ class VMWindow(gtk.Window):
         else:
             self._activity = None
 
+        self._viewer_width, self._viewer_height = self.INITIAL_VIEWER_SIZE
+        self._is_fullscreen = False
+
         box = gtk.VBox()
         self.add(box)
 
@@ -493,6 +497,7 @@ class VMWindow(gtk.Window):
         tbar.set_icon_size(gtk.ICON_SIZE_LARGE_TOOLBAR)
         tbar.insert(item('quit'), -1)
         tbar.insert(item('restart'), -1)
+        tbar.insert(item('fullscreen'), -1)
         tbar.insert(item('screenshot'), -1)
         tbar.insert(gtk.SeparatorToolItem(), -1)
         tbar.insert(item('show-activity'), -1)
@@ -508,9 +513,9 @@ class VMWindow(gtk.Window):
         self._viewer.connect('viewer-connect', self._viewer_connected)
         self._viewer.connect('viewer-disconnect', self._viewer_disconnected)
         box.pack_start(self._viewer)
-        w, h = self.INITIAL_VIEWER_SIZE
-        self.set_geometry_hints(self._viewer, min_width=w, max_width=w,
-                min_height=h, max_height=h)
+        self.set_geometry_hints(self._viewer,
+                min_width=self._viewer_width, max_width=self._viewer_width,
+                min_height=self._viewer_height, max_height=self._viewer_height)
         self._viewer.grab_focus()
 
         self._statusbar = StatusBarWidget(self._viewer, is_remote)
@@ -562,14 +567,19 @@ class VMWindow(gtk.Window):
         self._agrp.set_viewer_connected(False)
         self.emit('viewer-disconnect')
 
-    def _viewer_resized(self, _wid, width, height):
-        # Update window geometry constraints for the new guest size.
+    def _update_window_size_constraints(self):
+        # If fullscreen, constrain nothing.
+        if self._is_fullscreen:
+            self.set_geometry_hints(self._viewer)
+            return
+
+        # Update window geometry constraints for the guest screen size.
         # We would like to use min_aspect and max_aspect as well, but they
         # seem to apply to the whole window rather than the geometry widget.
         self.set_geometry_hints(self._viewer,
-                min_width=int(width * self.MIN_SCALE),
-                min_height=int(height * self.MIN_SCALE),
-                max_width=width, max_height=height)
+                min_width=int(self._viewer_width * self.MIN_SCALE),
+                min_height=int(self._viewer_height * self.MIN_SCALE),
+                max_width=self._viewer_width, max_height=self._viewer_height)
 
         # Resize the window to the largest size that can comfortably fit on
         # the screen, constrained by the maximums.
@@ -578,6 +588,18 @@ class VMWindow(gtk.Window):
         geom = screen.get_monitor_geometry(monitor)
         ow, oh = self.SCREEN_SIZE_FUDGE
         self.resize(max(1, geom.width + ow), max(1, geom.height + oh))
+
+    def _viewer_resized(self, _wid, width, height):
+        self._viewer_width = width
+        self._viewer_height = height
+        self._update_window_size_constraints()
+
+    def _window_state_changed(self, _obj, event):
+        if event.changed_mask & gtk.gdk.WINDOW_STATE_FULLSCREEN:
+            self._is_fullscreen = bool(event.new_window_state &
+                    gtk.gdk.WINDOW_STATE_FULLSCREEN)
+            self._agrp.get_action('fullscreen').set_active(self._is_fullscreen)
+            self._update_window_size_constraints()
 
     def _screenshot(self, _obj):
         self.emit('user-screenshot', self._viewer.get_pixbuf())
@@ -610,6 +632,8 @@ class VMActionGroup(gtk.ActionGroup):
         add_nonstock('screenshot', 'Screenshot', 'Take Screenshot',
                 'camera-photo', self._screenshot)
         self.add_toggle_actions((
+            ('fullscreen', 'gtk-fullscreen', 'Full screen', None,
+                    'Toggle full screen', self._fullscreen),
             ('show-activity', 'gtk-properties', 'Activity', None,
                     'Show virtual machine activity', self._show_activity),
             ('show-log', 'gtk-file', 'Log', None,
@@ -653,6 +677,12 @@ class VMActionGroup(gtk.ActionGroup):
     def _quit(self, _action, parent):
         self._confirm(parent, 'user-quit',
                 'Really quit?  All changes will be lost.')
+
+    def _fullscreen(self, action, parent):
+        if action.get_active():
+            parent.fullscreen()
+        else:
+            parent.unfullscreen()
 
     def _show_activity(self, action, parent):
         parent.show_activity(action.get_active())
