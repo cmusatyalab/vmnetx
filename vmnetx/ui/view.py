@@ -486,16 +486,17 @@ class VMWindow(gtk.Window):
         box = gtk.VBox()
         self.add(box)
 
+        def item(name):
+            return self._agrp.get_action(name).create_tool_item()
         tbar = gtk.Toolbar()
         tbar.set_style(gtk.TOOLBAR_ICONS)
         tbar.set_icon_size(gtk.ICON_SIZE_LARGE_TOOLBAR)
-        tbar.insert(self._agrp.get_action('quit').create_tool_item(), -1)
-        tbar.insert(self._agrp.get_action('restart').create_tool_item(), -1)
-        tbar.insert(self._agrp.get_action('screenshot').create_tool_item(), -1)
+        tbar.insert(item('quit'), -1)
+        tbar.insert(item('restart'), -1)
+        tbar.insert(item('screenshot'), -1)
         tbar.insert(gtk.SeparatorToolItem(), -1)
-        tbar.insert(self._agrp.get_action('show-activity').create_tool_item(),
-                -1)
-        tbar.insert(self._agrp.get_action('show-log').create_tool_item(), -1)
+        tbar.insert(item('show-activity'), -1)
+        tbar.insert(item('show-log'), -1)
         box.pack_start(tbar, expand=False)
 
         if use_spice:
