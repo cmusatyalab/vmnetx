@@ -15,9 +15,12 @@
 # for more details.
 #
 
+from comtypes import CoClass, COMMETHOD, GUID as COMGUID, IUnknown, wireHWND
+from comtypes.client import CreateObject
 from ctypes import (windll, c_int, c_uint, c_uint8, c_uint32, c_uint64,
-        c_wchar_p, Structure, POINTER, byref)
-from ctypes.wintypes import BYTE, DWORD, WORD, HRESULT, HANDLE, LPVOID
+        c_ushort, c_ulong, c_ulonglong, c_wchar_p, Structure, POINTER, byref)
+from ctypes.wintypes import (BYTE, DWORD, WORD, HRESULT, HANDLE, LPVOID,
+        tagRECT)
 import errno
 import os
 from select import select
@@ -46,6 +49,7 @@ else:
 WSA_FLAG_OVERLAPPED = 0x01
 KF_FLAG_INIT = 0x800
 KF_FLAG_CREATE = 0x8000
+TBPF_NOPROGRESS = 0
 
 
 EightByte = BYTE * 8
@@ -121,6 +125,96 @@ CoTaskMemFree.argtypes = [LPVOID]
 CoTaskMemFree.restype = None
 
 
+class tagTHUMBBUTTON(Structure):
+    _fields_ = [
+        ('dwMask', c_ulong),
+        ('iId', c_uint),
+        ('iBitmap', c_uint),
+        ('hIcon', POINTER(IUnknown)),
+        ('szTip', c_ushort * 260),
+        ('dwFlags', c_ulong),
+    ]
+
+
+class ITaskbarList(IUnknown):
+    _iid_ = COMGUID('{56FDF342-FD6D-11D0-958A-006097C9A090}')
+    _methods_ = [
+        COMMETHOD([], HRESULT, 'HrInit'),
+        COMMETHOD([], HRESULT, 'AddTab',
+                  ( ['in'], c_int, 'hwnd' )),
+        COMMETHOD([], HRESULT, 'DeleteTab',
+                  ( ['in'], c_int, 'hwnd' )),
+        COMMETHOD([], HRESULT, 'ActivateTab',
+                  ( ['in'], c_int, 'hwnd' )),
+        COMMETHOD([], HRESULT, 'SetActivateAlt',
+                  ( ['in'], c_int, 'hwnd' )),
+    ]
+
+
+class ITaskbarList2(ITaskbarList):
+    _iid_ = COMGUID('{602D4995-B13A-429B-A66E-1935E44F4317}')
+    _methods_ = [
+        COMMETHOD([], HRESULT, 'MarkFullscreenWindow',
+                  ( ['in'], c_int, 'hwnd' ),
+                  ( ['in'], c_int, 'fFullscreen' )),
+    ]
+
+
+class ITaskbarList3(ITaskbarList2):
+    _iid_ = COMGUID('{EA1AFB91-9E28-4B86-90E9-9E9F8A5EEFAF}')
+    _methods_ = [
+        COMMETHOD([], HRESULT, 'SetProgressValue',
+                  ( ['in'], c_int, 'hwnd' ),
+                  ( ['in'], c_ulonglong, 'ullCompleted' ),
+                  ( ['in'], c_ulonglong, 'ullTotal' )),
+        COMMETHOD([], HRESULT, 'SetProgressState',
+                  ( ['in'], c_int, 'hwnd' ),
+                  ( ['in'], c_int, 'tbpFlags' )),
+        COMMETHOD([], HRESULT, 'RegisterTab',
+                  ( ['in'], c_int, 'hwndTab' ),
+                  ( ['in'], wireHWND, 'hwndMDI' )),
+        COMMETHOD([], HRESULT, 'UnregisterTab',
+                  ( ['in'], c_int, 'hwndTab' )),
+        COMMETHOD([], HRESULT, 'SetTabOrder',
+                  ( ['in'], c_int, 'hwndTab' ),
+                  ( ['in'], c_int, 'hwndInsertBefore' )),
+        COMMETHOD([], HRESULT, 'SetTabActive',
+                  ( ['in'], c_int, 'hwndTab' ),
+                  ( ['in'], c_int, 'hwndMDI' ),
+                  ( ['in'], c_int, 'tbatFlags' )),
+        COMMETHOD([], HRESULT, 'ThumbBarAddButtons',
+                  ( ['in'], c_int, 'hwnd' ),
+                  ( ['in'], c_uint, 'cButtons' ),
+                  ( ['in'], POINTER(tagTHUMBBUTTON), 'pButton' )),
+        COMMETHOD([], HRESULT, 'ThumbBarUpdateButtons',
+                  ( ['in'], c_int, 'hwnd' ),
+                  ( ['in'], c_uint, 'cButtons' ),
+                  ( ['in'], POINTER(tagTHUMBBUTTON), 'pButton' )),
+        COMMETHOD([], HRESULT, 'ThumbBarSetImageList',
+                  ( ['in'], c_int, 'hwnd' ),
+                  ( ['in'], POINTER(IUnknown), 'himl' )),
+        COMMETHOD([], HRESULT, 'SetOverlayIcon',
+                  ( ['in'], c_int, 'hwnd' ),
+                  ( ['in'], POINTER(IUnknown), 'hIcon' ),
+                  ( ['in'], c_wchar_p, 'pszDescription' )),
+        COMMETHOD([], HRESULT, 'SetThumbnailTooltip',
+                  ( ['in'], c_int, 'hwnd' ),
+                  ( ['in'], c_wchar_p, 'pszTip' )),
+        COMMETHOD([], HRESULT, 'SetThumbnailClip',
+                  ( ['in'], c_int, 'hwnd' ),
+                  ( ['in'], POINTER(tagRECT), 'prcClip' )),
+    ]
+
+
+class TaskbarList(CoClass):
+    _com_interfaces_ = [ITaskbarList3]
+    _reg_clsid_ = COMGUID('{56FDF344-FD6D-11D0-958A-006097C9A090}')
+
+
+_taskbar = CreateObject(TaskbarList)
+_taskbar.HrInit()
+
+
 def _get_wsa_error():
     err = WSAGetLastError()
     try:
@@ -190,5 +284,13 @@ def get_local_appdata_dir():
     ret = outptr.value
     CoTaskMemFree(outptr)
     return ret
+
+
+def set_window_progress(window, progress):
+    hwnd = window.window.handle
+    if progress is None:
+        _taskbar.SetProgressState(hwnd, TBPF_NOPROGRESS)
+    else:
+        _taskbar.SetProgressValue(hwnd, int(progress * 1000), 1000)
 
 # pylint: enable=invalid-name

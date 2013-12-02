@@ -23,9 +23,15 @@ import gobject
 import gtk
 import logging
 import pango
+import sys
 
 from ..controller import ChunkStateArray
 from ..util import ErrorBuffer, BackoffTimer
+
+if sys.platform == 'win32':
+    from ..win32 import set_window_progress
+else:
+    set_window_progress = lambda window, progress: None
 
 # have_spice_viewer is a variable, not a constant
 # pylint: disable=invalid-name
@@ -1023,6 +1029,7 @@ class LoadProgressWindow(gtk.Dialog):
     def __init__(self, parent):
         gtk.Dialog.__init__(self, parent.get_title(), parent, gtk.DIALOG_MODAL,
                 (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL))
+        self._parent = parent
         self.set_resizable(False)
         self.connect('response', self._response)
 
@@ -1049,7 +1056,7 @@ class LoadProgressWindow(gtk.Dialog):
         box.pack_start(label)
 
     def _destroy(self, _wid):
-        pass
+        set_window_progress(self._parent, None)
 
     def progress(self, count, total):
         if total != 0:
@@ -1057,9 +1064,11 @@ class LoadProgressWindow(gtk.Dialog):
         else:
             fraction = 1
         self._progress.set_fraction(fraction)
+        set_window_progress(self._parent, fraction)
 
     def _response(self, _wid, _id):
         self.hide()
+        set_window_progress(self._parent, None)
         self.emit('user-cancel')
 gobject.type_register(LoadProgressWindow)
 
