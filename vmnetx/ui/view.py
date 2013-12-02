@@ -1016,9 +1016,6 @@ class ActivityWindow(gtk.Window):
 
 
 class LoadProgressWindow(gtk.Dialog):
-    PULSE_INITIAL_DELAY = 750  # ms
-    PULSE_INTERVAL = 100  # ms
-
     __gsignals__ = {
         'user-cancel': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
@@ -1030,7 +1027,6 @@ class LoadProgressWindow(gtk.Dialog):
         self.connect('response', self._response)
 
         self._progress = gtk.ProgressBar()
-        self._timer = None
         self.connect('destroy', self._destroy)
 
         box = self.get_content_area()
@@ -1053,9 +1049,7 @@ class LoadProgressWindow(gtk.Dialog):
         box.pack_start(label)
 
     def _destroy(self, _wid):
-        if self._timer is not None:
-            glib.source_remove(self._timer)
-            self._timer = None
+        pass
 
     def progress(self, count, total):
         if total != 0:
@@ -1063,19 +1057,6 @@ class LoadProgressWindow(gtk.Dialog):
         else:
             fraction = 1
         self._progress.set_fraction(fraction)
-        # qemu can take a long time to finish starting up after it loads the
-        # memory image.  Alert the user that something is still happening.
-        if fraction == 1 and self._timer is None:
-            self._timer = glib.timeout_add(self.PULSE_INITIAL_DELAY,
-                    self._timer_tick)
-        elif fraction != 1 and self._timer is not None:
-            glib.source_remove(self._timer)
-            self._timer = None
-
-    def _timer_tick(self):
-        self._progress.pulse()
-        self._timer = glib.timeout_add(self.PULSE_INTERVAL, self._timer_tick)
-        return False
 
     def _response(self, _wid, _id):
         self.hide()
