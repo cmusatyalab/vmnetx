@@ -23,6 +23,7 @@ import json
 import logging
 import os
 import signal
+import sys
 from tempfile import NamedTemporaryFile
 
 from ..controller import Controller
@@ -31,6 +32,11 @@ from ..util import NeedAuthentication, get_cache_dir, dup
 from .view import (VMWindow, LoadProgressWindow, PasswordWindow,
         SaveMediaWindow, ErrorWindow, FatalErrorWindow, IgnorableErrorWindow,
         have_spice_viewer)
+
+if sys.platform == 'win32':
+    from ..win32 import windows_vmnetx_init as platform_init
+else:
+    platform_init = lambda: None
 
 _log = logging.getLogger(__name__)
 
@@ -89,6 +95,9 @@ class VMNetXUI(object):
             # Attempt to catch SIGTERM.  This is dubious, but not more so
             # than the default handling of SIGINT.
             signal.signal(signal.SIGTERM, self._signal)
+
+            # Platform-specific initialization
+            platform_init()
 
             # Create controller
             self._controller = Controller.get_for_ref(self._package_ref,

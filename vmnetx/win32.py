@@ -120,6 +120,12 @@ SHGetKnownFolderPath.argtypes = [POINTER(GUID), DWORD, HANDLE,
 SHGetKnownFolderPath.restype = HRESULT
 
 
+SetCurrentProcessExplicitAppUserModelID = \
+        _shell32.SetCurrentProcessExplicitAppUserModelID
+SetCurrentProcessExplicitAppUserModelID.argtypes = [c_wchar_p]
+SetCurrentProcessExplicitAppUserModelID.restype = HRESULT
+
+
 CoTaskMemFree = _ole32.CoTaskMemFree
 CoTaskMemFree.argtypes = [LPVOID]
 CoTaskMemFree.restype = None
@@ -292,5 +298,9 @@ def set_window_progress(window, progress):
         _taskbar.SetProgressState(hwnd, TBPF_NOPROGRESS)
     else:
         _taskbar.SetProgressValue(hwnd, int(progress * 1000), 1000)
+
+
+def windows_vmnetx_init():
+    SetCurrentProcessExplicitAppUserModelID('Olive.VMNetX')
 
 # pylint: enable=invalid-name
