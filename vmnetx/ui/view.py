@@ -31,7 +31,8 @@ from ..util import ErrorBuffer, BackoffTimer
 if sys.platform == 'win32':
     from ..win32 import set_window_progress
 else:
-    set_window_progress = lambda window, progress: None
+    def set_window_progress(_window, _progress):
+        pass
 
 # have_spice_viewer is a variable, not a constant
 # pylint: disable=invalid-name

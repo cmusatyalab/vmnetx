@@ -15,8 +15,11 @@
 # for more details.
 #
 
+# No comtypes on Linux
+# pylint: disable=import-error
 from comtypes import CoClass, COMMETHOD, GUID as COMGUID, IUnknown, wireHWND
 from comtypes.client import CreateObject
+# pylint: enable=import-error
 from ctypes import (windll, c_int, c_uint, c_uint8, c_uint32, c_uint64,
         c_ushort, c_ulong, c_ulonglong, c_wchar_p, Structure, POINTER, byref)
 from ctypes.wintypes import (BYTE, DWORD, WORD, HRESULT, HANDLE, LPVOID,
@@ -28,7 +31,8 @@ import socket
 import sys
 
 # We use the Win32 naming scheme when wrapping its objects
-# pylint: disable=invalid-name
+# comtypes doesn't provide initializers
+# pylint: disable=invalid-name,no-init
 
 # Any DLL loaded here will be bundled by PyInstaller by default.  This is
 # undesirable for system libraries.  To prevent it, modify the exclusion
@@ -303,4 +307,4 @@ def set_window_progress(window, progress):
 def windows_vmnetx_init():
     SetCurrentProcessExplicitAppUserModelID('Olive.VMNetX')
 
-# pylint: enable=invalid-name
+# pylint: enable=invalid-name,no-init

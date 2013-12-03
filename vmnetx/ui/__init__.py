@@ -36,7 +36,8 @@ from .view import (VMWindow, LoadProgressWindow, PasswordWindow,
 if sys.platform == 'win32':
     from ..win32 import windows_vmnetx_init as platform_init
 else:
-    platform_init = lambda: None
+    def platform_init():
+        pass
 
 _log = logging.getLogger(__name__)
 
