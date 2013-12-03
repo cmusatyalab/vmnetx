@@ -273,6 +273,7 @@ class LocalController(Controller):
         self._memory_image_path = None
         self._fs = None
         self._conn = None
+        self._conn_callbacks = []
         self._startup_running = False
         self._stop_thread = None
         self._domain_xml = None
@@ -320,9 +321,10 @@ class LocalController(Controller):
 
         # Set up libvirt connection
         self._conn = libvirt.open('qemu:///session')
-        self._conn.domainEventRegisterAny(None,
+        cb = self._conn.domainEventRegisterAny(None,
                 libvirt.VIR_DOMAIN_EVENT_ID_LIFECYCLE, self._lifecycle_event,
                 None)
+        self._conn_callbacks.append(cb)
 
         # Get emulator path
         emulator = domain_xml.detect_emulator(self._conn)
@@ -566,6 +568,10 @@ class LocalController(Controller):
             self._stop_thread.join()
         # Close libvirt connection
         if self._conn is not None:
+            # We must deregister callbacks or the conn won't fully close
+            for cb in self._conn_callbacks:
+                self._conn.domainEventDeregisterAny(cb)
+            del self._conn_callbacks[:]
             self._conn.close()
             self._conn = None
         # Terminate vmnetfs
