@@ -41,10 +41,10 @@ else:
 
 _log = logging.getLogger(__name__)
 
-class _UsernameCache(object):
-    def __init__(self):
+class _StateCache(object):
+    def __init__(self, filename):
         self._cachedir = get_cache_dir()
-        self._path = os.path.join(self._cachedir, 'usernames')
+        self._path = os.path.join(self._cachedir, filename)
 
     def _load(self):
         try:
@@ -52,6 +52,17 @@ class _UsernameCache(object):
                 return json.load(fh)
         except IOError:
             return {}
+
+    def _save(self, map):
+        with NamedTemporaryFile(dir=self._cachedir, delete=False) as fh:
+            json.dump(map, fh)
+            fh.write('\n')
+        os.rename(fh.name, self._path)
+
+
+class _UsernameCache(_StateCache):
+    def __init__(self):
+        _StateCache.__init__(self, 'usernames')
 
     def get(self, host, realm):
         try:
@@ -62,10 +73,7 @@ class _UsernameCache(object):
     def put(self, host, realm, username):
         map = self._load()
         map.setdefault(host, {})[realm] = username
-        with NamedTemporaryFile(dir=self._cachedir, delete=False) as fh:
-            json.dump(map, fh)
-            fh.write('\n')
-        os.rename(fh.name, self._path)
+        self._save(map)
 
 
 class VMNetXUI(object):
