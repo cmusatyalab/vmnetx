@@ -386,6 +386,17 @@ class LocalController(Controller):
             raise MachineExecutionError(
                     'Will not execute virtual machines as root')
 
+        # Check for VT support
+        with open('/proc/cpuinfo') as fh:
+            for line in fh:
+                elts = line.split(':', 1)
+                if elts[0].rstrip() == 'flags':
+                    flags = elts[1].split()
+                    if 'vmx' not in flags and 'svm' not in flags:
+                        raise MachineExecutionError('Your CPU does not ' +
+                                'support hardware virtualization extensions')
+                    break
+
         try:
             obj = dbus.SystemBus().get_object(cls.AUTHORIZER_NAME,
                     cls.AUTHORIZER_PATH)
