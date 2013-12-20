@@ -153,6 +153,8 @@ def ensure_dir(path):
         os.makedirs(path)
 
 
+# WindowsError isn't undefined on Windows
+# pylint: disable=undefined-variable
 def rename(old, new):
     if sys.platform == 'win32':
         # os.rename() cannot clobber existing file.  Not atomic!
@@ -161,6 +163,7 @@ def rename(old, new):
         except WindowsError:
             pass
     os.rename(old, new)
+# pylint: enable=undefined-variable
 
 
 def open_browser(url):
