@@ -1,3 +1,14 @@
+VMNetX 0.4.2 (2013-12-20)
+-------------------------
+
+- Add fullscreen button
+- Periodically check for new VMNetX release
+- Linux: Improve error message in thick-client mode if CPU not supported
+- Windows: Draw loading progress bar in taskbar button
+- Windows: Install per-user by default
+- Windows: Improve platform integration
+- Server: Fix authentication failures after 20 VM launches
+
 VMNetX 0.4.1 (2013-11-07)
 -------------------------
 
