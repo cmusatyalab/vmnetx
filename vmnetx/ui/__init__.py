@@ -33,7 +33,7 @@ import webbrowser
 from ..controller import Controller
 from ..system import __version__, update_check_url
 from ..util import (NeedAuthentication, get_cache_dir, get_requests_session,
-        dup)
+        dup, rename)
 from .view import (VMWindow, LoadProgressWindow, PasswordWindow,
         SaveMediaWindow, ErrorWindow, FatalErrorWindow, IgnorableErrorWindow,
         UpdateWindow, have_spice_viewer)
@@ -62,7 +62,7 @@ class _StateCache(object):
         with NamedTemporaryFile(dir=self._cachedir, delete=False) as fh:
             json.dump(map, fh)
             fh.write('\n')
-        os.rename(fh.name, self._path)
+        rename(fh.name, self._path)
 
 
 class _UsernameCache(_StateCache):

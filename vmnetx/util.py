@@ -151,6 +151,16 @@ def ensure_dir(path):
         os.makedirs(path)
 
 
+def rename(old, new):
+    if sys.platform == 'win32':
+        # os.rename() cannot clobber existing file.  Not atomic!
+        try:
+            os.unlink(new)
+        except WindowsError:
+            pass
+    os.rename(old, new)
+
+
 def setup_libvirt():
     import libvirt
 
