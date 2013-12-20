@@ -29,12 +29,11 @@ import signal
 import sys
 from tempfile import NamedTemporaryFile
 from urlparse import urlsplit
-import webbrowser
 
 from ..controller import Controller
 from ..system import __version__, update_check_url
 from ..util import (NeedAuthentication, get_cache_dir, get_requests_session,
-        dup, rename)
+        open_browser, dup, rename)
 from .view import (VMWindow, LoadProgressWindow, PasswordWindow,
         SaveMediaWindow, ErrorWindow, FatalErrorWindow, IgnorableErrorWindow,
         UpdateWindow, have_spice_viewer)
@@ -148,10 +147,7 @@ class _UpdateState(_StateCache):
         self._save(map)
 
     def update(self):
-        try:
-            webbrowser.open(self._update_url)
-        except webbrowser.Error:
-            pass
+        open_browser(self._update_url)
 
 
 class VMNetXUI(object):

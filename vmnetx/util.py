@@ -18,8 +18,10 @@
 import gobject
 import os
 import socket
+import subprocess
 import sys
 import traceback
+import webbrowser
 
 from .system import __version__
 
@@ -159,6 +161,20 @@ def rename(old, new):
         except WindowsError:
             pass
     os.rename(old, new)
+
+
+def open_browser(url):
+    if sys.platform == 'win32':
+        # ShellExecute() hangs the process.  Hacky workaround.
+        si = subprocess.STARTUPINFO()
+        si.dwFlags = subprocess.STARTF_USESHOWWINDOW
+        si.wShowWindow = subprocess.SW_HIDE
+        subprocess.call(['start', url], shell=True, startupinfo=si)
+    else:
+        try:
+            webbrowser.open(url)
+        except webbrowser.Error:
+            pass
 
 
 def setup_libvirt():
