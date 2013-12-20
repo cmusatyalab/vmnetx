@@ -28,6 +28,7 @@ import requests
 import signal
 import sys
 from tempfile import NamedTemporaryFile
+from urlparse import urlsplit
 import webbrowser
 
 from ..controller import Controller
@@ -116,6 +117,9 @@ class _UpdateState(_StateCache):
             self.current_version = info['version']
             self.release_date = dateutil.parser.parse(info['release-date'])
             self._update_url = info['update-url']
+            # Prevent file:/// URLs, etc.
+            if urlsplit(self._update_url).scheme not in ('http', 'https'):
+                return
         except (requests.exceptions.RequestException, KeyError, ValueError):
             return
 
