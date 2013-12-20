@@ -1204,9 +1204,14 @@ class UpdateWindow(gtk.MessageDialog):
                     self.ICON_SIZE, 0)
         self.set_image(gtk.image_new_from_pixbuf(icon))
         self.set_title('Update Available')
+        datestr = '%s %s, %s' % (
+            date.strftime('%B'),
+            date.strftime('%d').lstrip('0'),
+            date.strftime('%Y')
+        )
         self.format_secondary_markup(
                 'VMNetX <b>%s</b> was released on <b>%s</b>.' % (
-                urllib.quote(version), date.strftime('%B %-d, %Y')))
+                urllib.quote(version), datestr))
         self.add_buttons('Skip this version', gtk.RESPONSE_REJECT,
                 'Remind me later', gtk.RESPONSE_CLOSE,
                 'Download update', gtk.RESPONSE_ACCEPT)
