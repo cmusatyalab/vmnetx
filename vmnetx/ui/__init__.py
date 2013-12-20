@@ -32,7 +32,8 @@ import webbrowser
 
 from ..controller import Controller
 from ..system import __version__, update_check_url
-from ..util import NeedAuthentication, get_cache_dir, dup
+from ..util import (NeedAuthentication, get_cache_dir, get_requests_session,
+        dup)
 from .view import (VMWindow, LoadProgressWindow, PasswordWindow,
         SaveMediaWindow, ErrorWindow, FatalErrorWindow, IgnorableErrorWindow,
         UpdateWindow, have_spice_viewer)
@@ -108,7 +109,8 @@ class _UpdateState(_StateCache):
             pass
 
         try:
-            req = requests.get(update_check_url)
+            sesn = get_requests_session()
+            req = sesn.get(update_check_url)
             req.raise_for_status()
             info = json.loads(req.text)
             self.current_version = info['version']

@@ -21,6 +21,8 @@ import socket
 import sys
 import traceback
 
+from .system import __version__
+
 # Compatibility wrappers
 # We don't use the imports ourselves and we don't control their names
 # pylint: disable=unused-import,invalid-name
@@ -159,3 +161,16 @@ def setup_libvirt():
     # global state, since the Python bindings don't provide a way to do this
     # per-connection.
     libvirt.registerErrorHandler(lambda _ctx, _error: None, None)
+
+
+def get_requests_session():
+    import requests
+    session = requests.Session()
+    if hasattr(requests.utils, 'default_user_agent'):
+        session.headers['User-Agent'] = 'vmnetx/%s %s' % (
+                __version__, requests.utils.default_user_agent())
+    else:
+        # requests < 0.13.3
+        session.headers['User-Agent'] = 'vmnetx/%s python-requests/%s' % (
+                __version__, requests.__version__)
+    return session

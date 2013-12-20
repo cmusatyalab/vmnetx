@@ -28,8 +28,8 @@ import struct
 from urlparse import urlsplit
 import zipfile
 
-from .system import __version__, schemadir
-from .util import DetailException, NeedAuthentication
+from .system import schemadir
+from .util import DetailException, NeedAuthentication, get_requests_session
 
 NS = 'http://olivearchive.org/xmlns/vmnetx/package'
 NSP = '{' + NS + '}'
@@ -77,15 +77,7 @@ class _HttpFile(object):
         self._buffer = ''
         self._buffer_offset = 0
         self._buffer_size = buffer_size
-        self._session = requests.Session()
-        if hasattr(requests.utils, 'default_user_agent'):
-            self._session.headers['User-Agent'] = 'vmnetx/%s %s' % (
-                    __version__, requests.utils.default_user_agent())
-        else:
-            # requests < 0.13.3
-            self._session.headers['User-Agent'] = \
-                    'vmnetx/%s python-requests/%s' % (
-                    __version__, requests.__version__)
+        self._session = get_requests_session()
 
         # Debugging
         self._last_case = None
