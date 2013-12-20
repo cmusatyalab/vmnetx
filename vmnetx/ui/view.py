@@ -24,6 +24,7 @@ import gtk
 import logging
 import pango
 import sys
+import urllib
 
 from ..controller import ChunkStateArray
 from ..util import ErrorBuffer, BackoffTimer
@@ -1177,6 +1178,48 @@ class SaveMediaWindow(gtk.FileChooserDialog):
         image.show()
         self.set_preview_widget(frame)
         self.set_use_preview_label(False)
+
+
+class UpdateWindow(gtk.MessageDialog):
+    ICON_SIZE = 64
+
+    __gsignals__ = {
+        'user-defer-update': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'user-skip-release': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'user-update': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+    }
+
+    def __init__(self, parent, version, date):
+        gtk.MessageDialog.__init__(self, parent,
+                gtk.DIALOG_DESTROY_WITH_PARENT, gtk.MESSAGE_INFO,
+                gtk.BUTTONS_NONE, 'VMNetX update available')
+        theme = gtk.icon_theme_get_default()
+        try:
+            icon = theme.load_icon('vmnetx', 256, 0)
+            icon = icon.scale_simple(self.ICON_SIZE, self.ICON_SIZE,
+                    gtk.gdk.INTERP_BILINEAR)
+        except glib.GError:
+            # VMNetX icon not installed in search path
+            icon = theme.load_icon('software-update-available',
+                    self.ICON_SIZE, 0)
+        self.set_image(gtk.image_new_from_pixbuf(icon))
+        self.set_title('Update Available')
+        self.format_secondary_markup(
+                'VMNetX <b>%s</b> was released on <b>%s</b>.' % (
+                urllib.quote(version), date.strftime('%B %-d, %Y')))
+        self.add_buttons('Skip this version', gtk.RESPONSE_REJECT,
+                'Remind me later', gtk.RESPONSE_CLOSE,
+                'Download update', gtk.RESPONSE_ACCEPT)
+        self.set_default_response(gtk.RESPONSE_ACCEPT)
+        self.connect('response', self._response)
+
+    def _response(self, _wid, response):
+        if response == gtk.RESPONSE_ACCEPT:
+            self.emit('user-update')
+        elif response == gtk.RESPONSE_REJECT:
+            self.emit('user-skip-release')
+        else:
+            self.emit('user-defer-update')
 
 
 class ErrorWindow(gtk.MessageDialog):

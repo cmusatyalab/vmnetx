@@ -43,6 +43,21 @@ AS_CASE(["$enable_local_execution"], [yes|no], [], [
 AC_MSG_RESULT([$enable_local_execution])
 AM_CONDITIONAL([ENABLE_LOCAL_EXECUTION], [test $enable_local_execution = yes])
 
+# Enable update checking?
+AC_ARG_ENABLE([update-checking],
+        [AS_HELP_STRING([--enable-update-checking=URL],
+        [periodically check for new versions @<:@default=yes@:>@])], [],
+        [enable_update_checking="https://olivearchive.org/vmnetx/source/latest.json"])
+AC_MSG_CHECKING([URL for update checking])
+AS_CASE(["$enable_update_checking"], [no], [
+    UPDATE_CHECK_URL=""
+    AC_MSG_RESULT([disabled])
+], [
+    UPDATE_CHECK_URL="$enable_update_checking"
+    AC_MSG_RESULT([$enable_update_checking])
+])
+AC_SUBST([UPDATE_CHECK_URL])
+
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_LIBTOOL

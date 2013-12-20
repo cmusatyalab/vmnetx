@@ -41,7 +41,8 @@ EXTRA_DIST += man/vmnetx.1.in
 vmnetx/system.py: vmnetx/system.py.in Makefile
 	$(AM_V_at)$(MKDIR_P) vmnetx
 	$(AM_V_GEN) sed -e "s:@pkglibexecdir@:$(pkglibexecdir):g" \
-		-e "s:@version@:$(VERSION):g" $< > $@
+		-e "s:@version@:$(VERSION):g" \
+		-e "s!@update_check_url@!$(UPDATE_CHECK_URL)!" $< > $@
 
 man/%: man/%.in Makefile
 	$(AM_V_at)$(MKDIR_P) man

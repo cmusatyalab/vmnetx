@@ -18,4 +18,9 @@ else:
     schemadir = os.path.join(os.path.dirname(__file__), 'schema')
 # pylint: enable=invalid-name,protected-access,no-member
 
+# Avoid variable name warning
+# pylint: disable=invalid-name
+update_check_url = '@update_check_url@' or None
+# pylint: enable=invalid-name
+
 __version__ = '@version@'

@@ -15,23 +15,27 @@
 # for more details.
 #
 
-from datetime import datetime
+from datetime import date, datetime, timedelta
+import dateutil.parser
+from distutils.version import LooseVersion
 import glib
 import gobject
 import gtk
 import json
 import logging
 import os
+import requests
 import signal
 import sys
 from tempfile import NamedTemporaryFile
+import webbrowser
 
 from ..controller import Controller
-from ..system import __version__
+from ..system import __version__, update_check_url
 from ..util import NeedAuthentication, get_cache_dir, dup
 from .view import (VMWindow, LoadProgressWindow, PasswordWindow,
         SaveMediaWindow, ErrorWindow, FatalErrorWindow, IgnorableErrorWindow,
-        have_spice_viewer)
+        UpdateWindow, have_spice_viewer)
 
 if sys.platform == 'win32':
     from ..win32 import windows_vmnetx_init as platform_init
@@ -76,7 +80,76 @@ class _UsernameCache(_StateCache):
         self._save(map)
 
 
+class _UpdateState(_StateCache):
+    DISABLED = 'disabled'
+    IGNORE = 'ignore'
+    NEXT_CHECK = 'next-check'
+
+    def __init__(self, defer_days):
+        _StateCache.__init__(self, 'update-checking')
+        self._defer_days = defer_days
+        self.have_update = False
+        self.current_version = None
+        self.release_date = None
+        self._update_url = None
+
+    def check_for_update(self):
+        if not update_check_url:
+            return
+
+        map = self._load()
+        if map.get(self.DISABLED):
+            return
+        next_check = map.get(self.NEXT_CHECK, '2000-01-01')
+        try:
+            if dateutil.parser.parse(next_check) > datetime.now():
+                return
+        except (TypeError, ValueError):
+            pass
+
+        try:
+            req = requests.get(update_check_url)
+            req.raise_for_status()
+            info = json.loads(req.text)
+            self.current_version = info['version']
+            self.release_date = dateutil.parser.parse(info['release-date'])
+            self._update_url = info['update-url']
+        except (requests.exceptions.RequestException, KeyError, ValueError):
+            return
+
+        if (self.current_version != map.get(self.IGNORE) and
+                LooseVersion(self.current_version) >
+                LooseVersion(__version__)):
+            self.have_update = True
+        else:
+            self.defer_update()
+
+    def _defer_update(self, map):
+        map[self.NEXT_CHECK] = (date.today() +
+                timedelta(days=self._defer_days)).isoformat()
+        if self.IGNORE in map and self.current_version != map[self.IGNORE]:
+            del map[self.IGNORE]
+
+    def defer_update(self):
+        map = self._load()
+        self._defer_update(map)
+        self._save(map)
+
+    def skip_release(self):
+        map = self._load()
+        self._defer_update(map)
+        map[self.IGNORE] = self.current_version
+        self._save(map)
+
+    def update(self):
+        try:
+            webbrowser.open(self._update_url)
+        except webbrowser.Error:
+            pass
+
+
 class VMNetXUI(object):
+    UPDATE_DEFER_DAYS = 7
     RESUME_CHECK_DELAY = 1000  # ms
 
     def __init__(self, package_ref):
@@ -91,6 +164,8 @@ class VMNetXUI(object):
         self._io_failed = False
         self._check_display = False
         self._bad_memory = False
+        self._update = _UpdateState(self.UPDATE_DEFER_DAYS)
+        self._update_wind = None
 
         try:
             icon = gtk.icon_theme_get_default().load_icon('vmnetx', 256, 0)
@@ -107,6 +182,9 @@ class VMNetXUI(object):
 
             # Platform-specific initialization
             platform_init()
+
+            # Check for update
+            self._update.check_for_update()
 
             # Create controller
             self._controller = Controller.get_for_ref(self._package_ref,
@@ -221,6 +299,7 @@ class VMNetXUI(object):
         self._wind.set_vm_running(True)
         self._wind.connect_viewer(self._controller.viewer_password)
         self._destroy_load_window()
+        self._show_update_window()
 
     def _startup_rejected_memory(self, _obj):
         self._destroy_load_window()
@@ -314,6 +393,8 @@ class VMNetXUI(object):
     def _shutdown(self, _obj=None):
         self._wind.show_activity(False)
         self._wind.show_log(False)
+        if self._update_wind:
+            self._update_wind.hide()
         self._wind.hide()
         gobject.idle_add(gtk.main_quit)
 
@@ -328,3 +409,26 @@ class VMNetXUI(object):
                 ew.run()
                 ew.destroy()
         sw.destroy()
+
+    def _show_update_window(self):
+        # Show update window if necessary
+        if self._update_wind or not self._update.have_update:
+            return
+        self._update_wind = UpdateWindow(self._wind,
+                self._update.current_version, self._update.release_date)
+        self._update_wind.connect('user-defer-update', self._update_defer)
+        self._update_wind.connect('user-skip-release', self._update_skip)
+        self._update_wind.connect('user-update', self._update_run)
+        self._update_wind.show_all()
+
+    def _update_defer(self, _wid):
+        self._update.defer_update()
+        self._update_wind.destroy()
+
+    def _update_skip(self, _wid):
+        self._update.skip_release()
+        self._update_wind.destroy()
+
+    def _update_run(self, _wid):
+        self._update.update()
+        self._update_wind.destroy()
