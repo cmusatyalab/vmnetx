@@ -346,7 +346,7 @@ class DomainXML(object):
                     bus='ps2',
                 ),
                 e.graphics(
-                    type='vnc',
+                    type='spice',
                     autoport='yes',
                 ),
                 e.sound(
