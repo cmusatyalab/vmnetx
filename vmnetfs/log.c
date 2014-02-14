@@ -15,6 +15,7 @@
  * for more details.
  */
 
+#include <stdio.h>
 #include <string.h>
 #include "vmnetfs-private.h"
 
@@ -28,6 +29,8 @@ struct vmnetfs_log {
     GMutex *lock;
     GQueue *messages;
     uint64_t remaining;
+    /* Optionally log to stderr */
+    bool stderr;
 };
 
 /* Handle log messages produced during early startup. */
@@ -75,6 +78,9 @@ static void glib_log_handler(const gchar *log_domain,
             message);
 
     g_mutex_lock(log->lock);
+    if (log->stderr) {
+        fprintf(stderr, "%s", str);
+    }
     if (log->messages != NULL) {
         if (log->remaining) {
             g_queue_push_tail(log->messages, str);
@@ -97,7 +103,7 @@ static void glib_log_handler(const gchar *log_domain,
 }
 
 /* Modifies global state: the glib log handler. */
-struct vmnetfs_log *_vmnetfs_log_init(void)
+struct vmnetfs_log *_vmnetfs_log_init(bool stderr)
 {
     struct vmnetfs_log *log;
 
@@ -106,6 +112,7 @@ struct vmnetfs_log *_vmnetfs_log_init(void)
     log->lock = g_mutex_new();
     log->messages = g_queue_new();
     log->remaining = STARTUP_BUFFER_SIZE;
+    log->stderr = stderr;
     g_log_set_default_handler(glib_log_handler, log);
     return log;
 }

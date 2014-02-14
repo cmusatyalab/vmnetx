@@ -441,8 +441,8 @@ static void run(FILE *pipe, const char *config_file)
     /* Free args */
     xmlFreeDoc(args);
 
-    /* Set up logging */
-    fs->log = _vmnetfs_log_init();
+    /* Set up logging.  Log to stderr if running in foreground. */
+    fs->log = _vmnetfs_log_init(config_file != NULL);
 
     /* Set up fuse */
     fs->fuse = _vmnetfs_fuse_new(fs, &err);

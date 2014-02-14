@@ -255,7 +255,7 @@ void _vmnetfs_cond_signal(struct vmnetfs_cond *cond);
 void _vmnetfs_cond_broadcast(struct vmnetfs_cond *cond);
 
 /* log */
-struct vmnetfs_log *_vmnetfs_log_init(void);
+struct vmnetfs_log *_vmnetfs_log_init(bool stderr);
 struct vmnetfs_stream_group *_vmnetfs_log_get_stream_group(
         struct vmnetfs_log *log);
 void _vmnetfs_log_close(struct vmnetfs_log *log);
