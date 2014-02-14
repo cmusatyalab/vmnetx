@@ -30,8 +30,6 @@
 #include <libxml/xpathInternals.h>
 #include "vmnetfs-private.h"
 
-#define IMAGE_ARG_COUNT 7
-
 static void _image_free(struct vmnetfs_image *img)
 {
     _vmnetfs_stream_group_free(img->io_stream);
