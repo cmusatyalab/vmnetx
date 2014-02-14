@@ -58,20 +58,14 @@ static void image_free(void *data)
     _image_free(img);
 }
 
-static xmlDocPtr read_arguments(GIOChannel *chan, GError **err)
+static xmlDocPtr parse_arguments(const char *data, gsize len, GError **err)
 {
     xmlDocPtr schema_doc = NULL;
     xmlSchemaParserCtxtPtr schema_parser = NULL;
     xmlSchemaPtr schema = NULL;
     xmlSchemaValidCtxtPtr validator = NULL;
-    gchar *config_data = NULL;
-    gsize config_len;
-    gsize bytes_read;
-    gsize terminator_pos;
-    gchar *endptr;
     xmlDocPtr doc = NULL;
     xmlDocPtr ret = NULL;
-    GError *my_err = NULL;
 
     /* Read schema */
     schema_doc = xmlReadFile(VMNETFS_SCHEMA_PATH, NULL, 0);
@@ -94,6 +88,55 @@ static xmlDocPtr read_arguments(GIOChannel *chan, GError **err)
     }
     validator = xmlSchemaNewValidCtxt(schema);
     g_assert(validator);
+
+    /* Parse XML document */
+    doc = xmlReadMemory(data, len, NULL, NULL, 0);
+    if (doc == NULL) {
+        g_set_error(err, VMNETFS_CONFIG_ERROR,
+                VMNETFS_CONFIG_ERROR_INVALID_CONFIG,
+                "Couldn't parse XML document");
+        goto out;
+    }
+
+    /* Validate XML document */
+    if (xmlSchemaValidateDoc(validator, doc)) {
+        g_set_error(err, VMNETFS_CONFIG_ERROR,
+                VMNETFS_CONFIG_ERROR_INVALID_CONFIG,
+                "Config XML did not validate");
+        goto out;
+    }
+
+    ret = doc;
+    doc = NULL;
+
+out:
+    if (doc) {
+        xmlFreeDoc(doc);
+    }
+    if (validator) {
+        xmlSchemaFreeValidCtxt(validator);
+    }
+    if (schema) {
+        xmlSchemaFree(schema);
+    }
+    if (schema_parser) {
+        xmlSchemaFreeParserCtxt(schema_parser);
+    }
+    if (schema_doc) {
+        xmlFreeDoc(schema_doc);
+    }
+    return ret;
+}
+
+static xmlDocPtr read_arguments(GIOChannel *chan, GError **err)
+{
+    gchar *config_data;
+    gsize config_len;
+    gsize bytes_read;
+    gsize terminator_pos;
+    gchar *endptr;
+    xmlDocPtr doc = NULL;
+    GError *my_err = NULL;
 
     /* Read length of XML document */
     g_io_channel_read_line(chan, &config_data, NULL, &terminator_pos,
@@ -139,43 +182,14 @@ static xmlDocPtr read_arguments(GIOChannel *chan, GError **err)
     }
 
     /* Parse XML document */
-    doc = xmlReadMemory(config_data, config_len, NULL, NULL, 0);
+    doc = parse_arguments(config_data, config_len, err);
     if (doc == NULL) {
-        g_set_error(err, VMNETFS_CONFIG_ERROR,
-                VMNETFS_CONFIG_ERROR_INVALID_CONFIG,
-                "Couldn't parse XML document");
         goto out;
     }
-
-    /* Validate XML document */
-    if (xmlSchemaValidateDoc(validator, doc)) {
-        g_set_error(err, VMNETFS_CONFIG_ERROR,
-                VMNETFS_CONFIG_ERROR_INVALID_CONFIG,
-                "Config XML did not validate");
-        goto out;
-    }
-
-    ret = doc;
-    doc = NULL;
 
 out:
-    if (doc) {
-        xmlFreeDoc(doc);
-    }
     g_free(config_data);
-    if (validator) {
-        xmlSchemaFreeValidCtxt(validator);
-    }
-    if (schema) {
-        xmlSchemaFree(schema);
-    }
-    if (schema_parser) {
-        xmlSchemaFreeParserCtxt(schema_parser);
-    }
-    if (schema_doc) {
-        xmlFreeDoc(schema_doc);
-    }
-    return ret;
+    return doc;
 }
 
 static xmlXPathContextPtr make_xpath_context(xmlDocPtr doc)
