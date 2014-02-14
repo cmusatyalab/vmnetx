@@ -128,7 +128,7 @@ out:
     return ret;
 }
 
-static xmlDocPtr read_arguments(GIOChannel *chan, GError **err)
+static xmlDocPtr read_arguments_from_chan(GIOChannel *chan, GError **err)
 {
     gchar *config_data;
     gsize config_len;
@@ -178,6 +178,28 @@ static xmlDocPtr read_arguments(GIOChannel *chan, GError **err)
         g_set_error(err, VMNETFS_CONFIG_ERROR,
                 VMNETFS_CONFIG_ERROR_INVALID_CONFIG,
                 "Couldn't read entire XML document");
+        goto out;
+    }
+
+    /* Parse XML document */
+    doc = parse_arguments(config_data, config_len, err);
+    if (doc == NULL) {
+        goto out;
+    }
+
+out:
+    g_free(config_data);
+    return doc;
+}
+
+static xmlDocPtr read_arguments_from_file(const char *path, GError **err)
+{
+    gchar *config_data;
+    gsize config_len;
+    xmlDocPtr doc = NULL;
+
+    /* Read XML document */
+    if (!g_file_get_contents(path, &config_data, &config_len, err)) {
         goto out;
     }
 
@@ -360,7 +382,7 @@ static gboolean shutdown_callback(void *data)
     return FALSE;
 }
 
-static void child(FILE *pipe)
+static void child(FILE *pipe, const char *config_file)
 {
     struct vmnetfs *fs;
     GThread *loop_thread = NULL;
@@ -384,7 +406,11 @@ static void child(FILE *pipe)
 
     /* Read and validate arguments */
     chan = g_io_channel_unix_new(0);
-    args = read_arguments(chan, &err);
+    if (config_file) {
+        args = read_arguments_from_file(config_file, &err);
+    } else {
+        args = read_arguments_from_chan(chan, &err);
+    }
     if (args == NULL) {
         fprintf(pipe, "%s\n", err->message);
         g_clear_error(&err);
@@ -478,13 +504,18 @@ static void setsignal(int signum, void (*handler)(int))
     sigaction(signum, &sa, NULL);
 }
 
-int main(int argc G_GNUC_UNUSED, char **argv G_GNUC_UNUSED)
+int main(int argc, char **argv)
 {
+    const char *config_file = NULL;
     int pipes[2];
     FILE *pipe_fh;
     pid_t pid;
 
     setsignal(SIGINT, SIG_IGN);
+
+    if (argc > 1) {
+        config_file = argv[1];
+    }
 
     if (pipe(pipes)) {
         fprintf(stderr, "Could not create pipes\n");
@@ -551,7 +582,7 @@ int main(int argc G_GNUC_UNUSED, char **argv G_GNUC_UNUSED)
         /* Ensure that signals generated from the terminal won't affect us */
         setpgid(0, 0);
 
-        child(pipe_fh);
+        child(pipe_fh, config_file);
         return 0;
     }
 }
