@@ -382,7 +382,7 @@ static gboolean shutdown_callback(void *data)
     return FALSE;
 }
 
-static void child(FILE *pipe, const char *config_file)
+static void run(FILE *pipe, const char *config_file)
 {
     struct vmnetfs *fs;
     GThread *loop_thread = NULL;
@@ -504,18 +504,26 @@ static void setsignal(int signum, void (*handler)(int))
     sigaction(signum, &sa, NULL);
 }
 
-int main(int argc, char **argv)
+static int run_in_foreground(const char *config_file)
 {
-    const char *config_file = NULL;
+    int pipe;
+    FILE *pipe_fh;
+
+    pipe = dup(2);
+    if (pipe == -1) {
+        fprintf(stderr, "Could not duplicate stderr\n");
+        return 1;
+    }
+    pipe_fh = fdopen(pipe, "w");
+    run(pipe_fh, config_file);
+    return 0;
+}
+
+static int fork_and_wait_for_startup(void)
+{
     int pipes[2];
     FILE *pipe_fh;
     pid_t pid;
-
-    setsignal(SIGINT, SIG_IGN);
-
-    if (argc > 1) {
-        config_file = argv[1];
-    }
 
     if (pipe(pipes)) {
         fprintf(stderr, "Could not create pipes\n");
@@ -582,7 +590,18 @@ int main(int argc, char **argv)
         /* Ensure that signals generated from the terminal won't affect us */
         setpgid(0, 0);
 
-        child(pipe_fh, config_file);
+        run(pipe_fh, NULL);
         return 0;
+    }
+}
+
+int main(int argc, char **argv)
+{
+    setsignal(SIGINT, SIG_IGN);
+
+    if (argc > 1) {
+        return run_in_foreground(argv[1]);
+    } else {
+        return fork_and_wait_for_startup();
     }
 }
