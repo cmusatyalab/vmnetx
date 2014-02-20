@@ -19,7 +19,6 @@
 from dateutil.parser import parse as parse_date
 from dateutil.tz import tzlocal
 import fcntl
-from getpass import getpass
 import glib
 import json
 import logging
