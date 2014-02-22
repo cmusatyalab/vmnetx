@@ -129,12 +129,15 @@ EXTRA_DIST += vmnetx.te
 
 man_MANS += \
 	man/vmnetx-generate.1 \
+	man/vmnetx-example-frontend.8 \
 	man/vmnetx-server.8
 CLEANFILES += \
 	man/vmnetx-generate.1 \
+	man/vmnetx-example-frontend.8 \
 	man/vmnetx-server.8
 EXTRA_DIST += \
 	man/vmnetx-generate.1.in \
+	man/vmnetx-example-frontend.8.in \
 	man/vmnetx-server.8.in
 
 dbusconfdir = $(sysconfdir)/dbus-1/system.d

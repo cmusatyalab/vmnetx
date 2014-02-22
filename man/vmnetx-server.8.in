@@ -12,7 +12,7 @@
 .\" or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 .\" for more details.
 .\"
-.TH VMNETX-SERVER 8 2013-08-23 "VMNetX @version@" "System Administration"
+.TH VMNETX-SERVER 8 2014-02-21 "VMNetX @version@" "System Administration"
 
 .SH NAME
 vmnetx-server \- Execute virtual machines on behalf of remote users
@@ -202,6 +202,7 @@ bug tracker and source repository are located at
 .SH SEE ALSO
 .BR vmnetx (1),
 .BR vmnetx-generate (1),
+.BR vmnetx-example-frontend (8),
 .BR qemu (1),
 .BR qemu-kvm (1)
 .\" This is allegedly a workaround for some troff -man implementations.

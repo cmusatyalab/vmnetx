@@ -1,0 +1,187 @@
+.\"
+.\" Copyright (C) 2012-2014 Carnegie Mellon University
+.\"
+.\" This program is free software; you can redistribute it and/or modify it
+.\" under the terms of version 2 of the GNU General Public License as published
+.\" by the Free Software Foundation.  A copy of the GNU General Public License
+.\" should have been distributed along with this program in the file
+.\" COPYING.
+.\"
+.\" This program is distributed in the hope that it will be useful, but
+.\" WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+.\" or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+.\" for more details.
+.\"
+.TH VMNETX-EXAMPLE-FRONTEND 8 2014-02-21 "VMNetX @version@" "System Administration"
+
+.SH NAME
+vmnetx-example-frontend \- Simple web frontend for VMNetX server
+
+.SH SYNOPSIS
+.B vmnetx-example-frontend
+.RI [ CONFIG-FILE... ]
+
+.SH DESCRIPTION
+.B vmnetx-example-frontend
+is a sample implementation of a web frontend for remote execution of VMNetX
+virtual machines.
+
+In the intended usage model, virtual machine image servers redirect clients
+to the
+.B vmnetx-example-frontend
+.IR launch\ URL ,
+specifying a
+.I package
+query parameter giving the URL to a
+.I .nxpk
+package on the image server.
+.B vmnetx-example-frontend
+then authenticates the user, creates a VM instance in the configured
+.BR vmnetx-server (8),
+and returns a
+.I .netx
+file to the client.
+When the user opens this file,
+.BR vmnetx (1)
+will be launched against that VM instance.
+
+.SH OPTIONS
+.TP
+.BR \-h ", " \-\^\-help
+Print a usage message summarizing these options, then exit.
+
+.TP
+.B \-\^\-version
+Print the version number of
+.B vmnetx-example-frontend
+and exit.
+
+.SH CONFIGURATION FILE
+The configuration file is written in Python.  It supports the following
+attributes:
+
+.TP
+.IR AUTH_REALM \ (default:\ 'Example\ VMNetX\ Frontend')
+The HTTP authentication realm that should be displayed when requesting
+authentication from clients.
+
+.TP
+.IR AUTH_USERS \ (no\ default)
+A dictionary of authentication credentials for users who should be permitted
+to launch VMs.
+Dictionary keys are usernames; values are the corresponding plaintext
+passwords.
+Passwords should not be considered secure, as they are stored and
+transmitted without encryption.
+
+.TP
+.IR DEBUG \ (default:\ False)
+Whether to enable debugging.
+
+.TP
+.IR HOST \ (default:\ '0.0.0.0')
+The address on which
+.B vmnetx-example-frontend
+should listen for HTTP connections.
+
+.TP
+.IR PORT \ (default:\ 8000)
+The TCP port on which
+.B vmnetx-example-frontend
+should listen for HTTP connections.
+
+.TP
+.IR REQUIRE_HTTPS \ (default:\ True)
+Whether to reject virtual machine images that are not served over an HTTPS
+connection.
+
+.TP
+.IR SECRET_KEY \ (no\ default)
+The authentication key required by the
+.BR vmnetx-server (8)
+instance in which virtual machines will be launched.
+
+.TP
+.IR SERVER \ (default:\ 'http://localhost:18924/')
+The URL to the
+.BR vmnetx-server (8)
+instance.
+
+.TP
+.IR TRUSTED_VM_HOSTS \ (no\ default)
+A whitelist of virtual machine image servers which are trusted to provide
+VMNetX packages.
+.B vmnetx-example-frontend
+will refuse to launch VMs that are not served from one of the hostnames
+in this list.
+
+.SH ENVIRONMENT
+.TP
+VMNETX_FRONTEND_SETTINGS
+The path to a configuration file that should be read before the files
+specified on the command line.
+
+.SH EXAMPLE
+A minimal configuration for a
+.BR vmnetx-server (8)
+running on
+.IR cloud.example.org :
+
+.in +4n
+.nf
+host: cloud.example.org
+secret_key: secr3t
+.fi
+.in
+
+The corresponding configuration for a
+.B vmnetx-example-frontend
+running on the same machine:
+
+.in +4n
+.nf
+AUTH_USERS = {
+    'bovik': 'tenure'
+}
+SECRET_KEY = 'secr3t'
+TRUSTED_VM_HOSTS = ['images.example.org']
+.fi
+.in
+
+With these settings,
+.I images.example.org
+can redirect clients to:
+
+.in +4n
+.I http://cloud.example.org/launch?package=https://images.example.org/image-1.nxpk
+.in
+
+.B vmnetx-example-frontend
+will authenticate each client against the
+.I AUTH_USERS
+dictionary, create a VM instance in the configured
+.BR vmnetx-server (8),
+and return a
+.I .netx
+file directing the client to connect to that VM instance.
+
+.SH COPYRIGHT
+Copyright 2006-2014 Carnegie Mellon University.
+.PP
+This program is free software; you can redistribute it and/or modify it
+under the terms of version 2 of the GNU General Public License as published
+by the Free Software Foundation. This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+
+.SH BUGS
+.BR vmnetx 's
+bug tracker and source repository are located at
+.RB < https://github.com/cmusatyalab/vmnetx >.
+
+.SH SEE ALSO
+.BR vmnetx (1),
+.BR vmnetx-server (8)
+.\" This is allegedly a workaround for some troff -man implementations.
+.br
