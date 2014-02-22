@@ -200,10 +200,10 @@ bug tracker and source repository are located at
 .RB < https://github.com/cmusatyalab/vmnetx >.
 
 .SH SEE ALSO
+.BR qemu (1),
+.BR qemu-kvm (1),
 .BR vmnetx (1),
 .BR vmnetx-generate (1),
-.BR vmnetx-example-frontend (8),
-.BR qemu (1),
-.BR qemu-kvm (1)
+.BR vmnetx-example-frontend (8)
 .\" This is allegedly a workaround for some troff -man implementations.
 .br

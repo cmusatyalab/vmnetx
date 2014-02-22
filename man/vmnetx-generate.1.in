@@ -12,7 +12,7 @@
 .\" or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 .\" for more details.
 .\"
-.TH VMNETX-GENERATE 1 2013-08-23 "VMNetX @version@" "User Commands"
+.TH VMNETX-GENERATE 1 2014-02-21 "VMNetX @version@" "User Commands"
 
 .SH NAME
 vmnetx-generate \- Construct a new VMNetX virtual machine image
@@ -185,10 +185,10 @@ bug tracker and source repository are located at
 .RB < https://github.com/cmusatyalab/vmnetx >.
 
 .SH SEE ALSO
-.BR vmnetx (1),
-.BR vmnetx-server (8),
-.BR virt-manager (1),
 .BR qemu (1),
-.BR qemu-kvm (1)
+.BR qemu-kvm (1),
+.BR virt-manager (1),
+.BR vmnetx (1),
+.BR vmnetx-server (8)
 .\" This is allegedly a workaround for some troff -man implementations.
 .br
