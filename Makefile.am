@@ -79,7 +79,7 @@ distuninstallcheck_listfiles = find . -path ./share/mime -prune -type f -o \
 if ENABLE_LOCAL_EXECUTION
 
 dist_bin_SCRIPTS += tools/vmnetx-generate
-dist_sbin_SCRIPTS = tools/vmnetx-server
+dist_sbin_SCRIPTS = tools/vmnetx-example-frontend tools/vmnetx-server
 
 pkglibexec_PROGRAMS = vmnetfs/vmnetfs
 vmnetfs_vmnetfs_SOURCES = \

@@ -1,0 +1,140 @@
+#!/usr/bin/env python
+#
+# vmnetx-example-frontend - Example web frontend for VMNetX server
+#
+# Copyright (C) 2012-2014 Carnegie Mellon University
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of version 2 of the GNU General Public License as published
+# by the Free Software Foundation.  A copy of the GNU General Public License
+# should have been distributed along with this program in the file
+# COPYING.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+# or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# for more details.
+#
+
+from base64 import b64decode
+from flask import Flask, request
+from functools import wraps
+import json
+from optparse import OptionParser
+import os
+import requests
+from urlparse import urljoin, urlsplit
+import yaml
+
+import vmnetx
+from vmnetx.reference import PackageReference
+
+# Web server
+HOST = '0.0.0.0'
+PORT = 8000
+DEBUG = False
+
+# vmnetx-server
+SERVER = 'http://localhost:18924/'
+SECRET_KEY = None
+
+# VM image server
+TRUSTED_VM_HOSTS = []
+REQUIRE_HTTPS = True
+
+# Local auth
+AUTH_REALM = 'Example VMNetX Frontend'
+AUTH_USERS = {}
+
+
+app = Flask(__name__)
+app.config.from_object(__name__)
+app.config.from_envvar('VMNETX_FRONTEND_SETTINGS', silent=True)
+
+
+def _authorize():
+    try:
+        auth_header = request.headers['Authorization']
+        method, rest = auth_header.split(' ', 1)
+        if method.lower() != 'basic':
+            return False
+        username, password = b64decode(rest).split(':', 1)
+        if app.config['AUTH_USERS'][username] == password:
+            request.user_id = username
+            return True
+    except (KeyError, ValueError):
+        pass
+    return False
+
+
+def _need_auth(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if not _authorize():
+            realm = app.config['AUTH_REALM']
+            headers = {
+                'WWW-Authenticate': 'Basic realm="%s"' % realm,
+            }
+            return ('Please log in.', 401, headers)
+        return func(*args, **kwargs)
+    return wrapper
+
+
+@app.route('/launch')
+@_need_auth
+def _launch():
+    # Get and check URL
+    url = request.args.get('package')
+    if url is None:
+        return ('Missing package URL', 400)
+    parts = urlsplit(url)
+    if parts.netloc.split(':')[0] not in app.config['TRUSTED_VM_HOSTS']:
+        return ('Forbidden URL', 403)
+    if app.config['REQUIRE_HTTPS'] and parts.scheme.lower() != 'https':
+        return ('HTTPS required', 403)
+
+    # Make request to vmnetx-server
+    payload = {
+        "url": url,
+        "user_ident": request.user_id,
+    }
+    headers = {
+        "X-Secret-Key": app.config['SECRET_KEY']
+    }
+    try:
+        r = requests.post(urljoin(app.config['SERVER'], 'instance'),
+                data=json.dumps(payload), headers=headers)
+        if r.status_code != requests.codes.ok:
+            return ('Server replied with code %d' % r.status_code, 503)
+    except requests.exceptions.RequestException:
+        return ('Server failed', 503)
+
+    # Build reference
+    data = json.loads(r.text)
+    ref = PackageReference(data['url'])
+
+    # Return response
+    headers = {
+        'Content-Type': 'application/x-vmnetx-reference+xml',
+    }
+    # If we set Content-Disposition on a .netx file, Firefox will ignore the
+    # "Remember this action next time" checkbox.  If we don't set it, Chrome
+    # won't launch vmnetx when the download is clicked.
+    if 'Chrome' in request.headers.get('User-Agent', ''):
+        headers['Content-Disposition'] = 'attachment; filename="launch.netx"'
+    return (ref.xml, 200, headers)
+
+
+if __name__ == '__main__':
+    USAGE = 'Usage: %prog [options] [config-file...]'
+    VERSION = '%prog ' + vmnetx.__version__
+    DESCRIPTION = 'Example web frontend for vmnetx-server.'
+
+    parser = OptionParser(usage=USAGE, version=VERSION,
+            description=DESCRIPTION)
+
+    opts, args = parser.parse_args()
+    for arg in args:
+        app.config.from_pyfile(os.path.abspath(arg))
+
+    app.run(host=app.config['HOST'], port=app.config['PORT'], threaded=True)
