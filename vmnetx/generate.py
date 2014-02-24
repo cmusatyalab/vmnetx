@@ -33,7 +33,15 @@ class MachineGenerationError(DetailException):
     pass
 
 
-def copy_memory(in_path, out_path, xml=None, compress=True):
+def copy_memory(in_path, out_path, xml=None, compress=True, verbose=True):
+    def report(line, newline=True):
+        if not verbose:
+            return
+        if newline:
+            print line
+        else:
+            print line,
+
     # Disable buffering on fin to ensure that the file offset inherited
     # by xz is exactly what we pass to seek()
     fin = open(in_path, 'r', 0)
@@ -59,12 +67,15 @@ def copy_memory(in_path, out_path, xml=None, compress=True):
         action = 'Copying and compressing'
     else:
         action = 'Copying'
-    print '%s memory image (%d MB)...' % (action, (total - fin.tell()) >> 20)
+    report('%s memory image (%d MB)...' % (action, (total - fin.tell()) >> 20))
 
     # Write body
     fout.flush()
     if compress:
-        ret = subprocess.call(['xz', '-9cv'], stdin=fin, stdout=fout)
+        cmd = ['xz', '-9c']
+        if verbose:
+            cmd.append('-v')
+        ret = subprocess.call(cmd, stdin=fin, stdout=fout)
         if ret:
             raise IOError('XZ compressor failed')
     else:
@@ -73,9 +84,9 @@ def copy_memory(in_path, out_path, xml=None, compress=True):
             if not buf:
                 break
             fout.write(buf)
-            print '  %3d%%\r' % (100 * fout.tell() / total),
+            report('  %3d%%\r' % (100 * fout.tell() / total), newline=False)
             sys.stdout.flush()
-        print
+        report('')
 
 
 def copy_disk(in_path, type, out_path, raw=False):
