@@ -41,6 +41,7 @@ def copy_memory(in_path, out_path, xml=None, compress=True, verbose=True):
             print line
         else:
             print line,
+            sys.stdout.flush()
 
     # Open files, read header
     fin = open(in_path, 'r')
@@ -84,7 +85,6 @@ def copy_memory(in_path, out_path, xml=None, compress=True, verbose=True):
         fout.write(buf)
         report('\r%s memory image: %3d%%' % (action,
                 100 * fin.tell() / total), newline=False)
-        sys.stdout.flush()
     report('')
 
     # Clean up
