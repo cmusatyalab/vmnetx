@@ -42,9 +42,8 @@ def copy_memory(in_path, out_path, xml=None, compress=True, verbose=True):
         else:
             print line,
 
-    # Disable buffering on fin to ensure that the file offset inherited
-    # by xz is exactly what we pass to seek()
-    fin = open(in_path, 'r', 0)
+    # Open files, read header
+    fin = open(in_path, 'r')
     fout = open(out_path, 'w')
     hdr = LibvirtQemuMemoryHeader(fin)
     # Ensure the input is uncompressed, even if we will not be compressing
@@ -59,7 +58,18 @@ def copy_memory(in_path, out_path, xml=None, compress=True, verbose=True):
         hdr.xml = xml
     hdr.write(fout, extend=True)
 
-    # Print size of uncompressed image
+    # Start compressor if desired
+    compressor = None
+    if compress:
+        fout.flush()
+        pipe_r, pipe_w = os.pipe()
+        compressor = subprocess.Popen(['xz', '-9c'], stdin=pipe_r,
+                stdout=fout, close_fds=True)
+        os.close(pipe_r)
+        fout.close()
+        fout = os.fdopen(pipe_w, 'w')
+
+    # Copy body; report progress
     fin.seek(0, 2)
     total = fin.tell()
     hdr.seek_body(fin)
@@ -67,26 +77,23 @@ def copy_memory(in_path, out_path, xml=None, compress=True, verbose=True):
         action = 'Copying and compressing'
     else:
         action = 'Copying'
-    report('%s memory image (%d MB)...' % (action, (total - fin.tell()) >> 20))
+    while True:
+        buf = fin.read(1 << 20)
+        if not buf:
+            break
+        fout.write(buf)
+        report('\r%s memory image: %3d%%' % (action,
+                100 * fin.tell() / total), newline=False)
+        sys.stdout.flush()
+    report('')
 
-    # Write body
-    fout.flush()
-    if compress:
-        cmd = ['xz', '-9c']
-        if verbose:
-            cmd.append('-v')
-        ret = subprocess.call(cmd, stdin=fin, stdout=fout)
-        if ret:
-            raise IOError('XZ compressor failed')
-    else:
-        while True:
-            buf = fin.read(1 << 20)
-            if not buf:
-                break
-            fout.write(buf)
-            report('  %3d%%\r' % (100 * fout.tell() / total), newline=False)
-            sys.stdout.flush()
-        report('')
+    # Clean up
+    fin.close()
+    fout.close()
+    if compressor:
+        compressor.wait()
+        if compressor.returncode:
+            raise IOError('Compressor failed')
 
 
 def copy_disk(in_path, type, out_path, raw=False):
