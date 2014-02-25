@@ -21,7 +21,7 @@ import os
 import struct
 import zipfile
 
-from .source import SourceError
+from .source import SourceError, SourceRange
 from .system import schemadir
 from .util import DetailException
 
@@ -45,15 +45,9 @@ class BadPackageError(DetailException):
     pass
 
 
-class _PackageObject(object):
+class _PackageObject(SourceRange):
     def __init__(self, zip, path, load_data=False):
-        self._source = zip.fp
-        self.url = self._source.url
-        self.etag = self._source.etag
-        self.last_modified = self._source.last_modified
-        self.cookies = self._source.cookies
-
-        # Calculate file offset and length
+        source = zip.fp
         try:
             info = zip.getinfo(path)
         except KeyError:
@@ -64,37 +58,18 @@ class _PackageObject(object):
         # its size.
         header_fmt = '<4s5H3I2H'
         header_len = struct.calcsize(header_fmt)
-        self._source.seek(info.header_offset)
+        source.seek(info.header_offset)
         magic, _, flags, compression, _, _, _, _, _, name_len, extra_len = \
-                struct.unpack(header_fmt, self._source.read(header_len))
+                struct.unpack(header_fmt, source.read(header_len))
         if magic != zipfile.stringFileHeader:
             raise BadPackageError('Member "%s" has invalid header' % path)
         if compression != zipfile.ZIP_STORED:
             raise BadPackageError('Member "%s" is compressed' % path)
         if flags & 0x1:
             raise BadPackageError('Member "%s" is encrypted' % path)
-        self.offset = info.header_offset + header_len + name_len + extra_len
-        self.size = info.file_size
-
-        if load_data:
-            # Eagerly read file data into memory, since _HttpFile likely has
-            # it in cache.
-            self._source.seek(self.offset)
-            self.data = self._source.read(self.size)
-        else:
-            self.data = None
-
-    def write_to_file(self, fh, buf_size=1 << 20):
-        if self.data is not None:
-            fh.write(self.data)
-        else:
-            self._source.seek(self.offset)
-            count = self.size
-            while count > 0:
-                cur = min(count, buf_size)
-                buf = self._source.read(cur)
-                fh.write(buf)
-                count -= len(buf)
+        SourceRange.__init__(self, source,
+                info.header_offset + header_len + name_len + extra_len,
+                info.file_size, load_data)
 
 
 class Package(object):

@@ -59,18 +59,18 @@ LibvirtEventImpl().register()
 
 
 class _ReferencedObject(object):
-    def __init__(self, label, info, username=None, password=None,
+    def __init__(self, label, range, username=None, password=None,
             chunk_size=131072):
         self.label = label
         self.username = username
         self.password = password
-        self.cookies = info.cookies
-        self.url = info.url
-        self.offset = info.offset
-        self.size = info.size
+        self.cookies = range.source.cookies
+        self.url = range.source.url
+        self.offset = range.offset
+        self.size = range.length
         self.chunk_size = chunk_size
-        self.etag = info.etag
-        self.last_modified = info.last_modified
+        self.etag = range.source.etag
+        self.last_modified = range.source.last_modified
 
         parsed_url = urlsplit(self.url)
         self._cache_info = json.dumps({

@@ -286,6 +286,37 @@ def source_open(url=None, scheme=None, username=None, password=None,
             raise ValueError('%s: URLs not supported' % parsed.scheme)
 
 
+class SourceRange(object):
+    def __init__(self, source, offset=0, length=None, load_data=False):
+        self.source = source
+        self.offset = offset
+        self.length = length
+
+        if self.length is None:
+            source.seek(0, 2)
+            self.length = source.tell()
+
+        if load_data:
+            # Eagerly read file data into memory, since _HttpSource likely
+            # has it in cache.
+            source.seek(self.offset)
+            self.data = source.read(self.length)
+        else:
+            self.data = None
+
+    def write_to_file(self, fh, buf_size=1 << 20):
+        if self.data is not None:
+            fh.write(self.data)
+        else:
+            self.source.seek(self.offset)
+            count = self.length
+            while count > 0:
+                cur = min(count, buf_size)
+                buf = self.source.read(cur)
+                fh.write(buf)
+                count -= len(buf)
+
+
 # We access protected members in assertions.
 # pylint: disable=protected-access
 def _main():
