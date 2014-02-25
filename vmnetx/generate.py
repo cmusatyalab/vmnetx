@@ -86,23 +86,24 @@ def copy_memory(in_path, out_path, xml=None, compression='xz', verbose=True):
 
     # Start compressor/decompressor if required
     processes = []
-    for command in (MEMORY_COMPRESS_COMMANDS[compress_out],
-            MEMORY_DECOMPRESS_COMMANDS[compress_in]):
-        if not command:
-            continue
-        pipe_r, pipe_w = os.pipe()
-        proc = subprocess.Popen(command, stdin=pipe_r, stdout=fout,
-                close_fds=True)
-        processes.append(proc)
-        os.close(pipe_r)
-        fout.close()
-        fout = os.fdopen(pipe_w, 'w')
+    if compress_in != compress_out:
+        for command in (MEMORY_COMPRESS_COMMANDS[compress_out],
+                MEMORY_DECOMPRESS_COMMANDS[compress_in]):
+            if not command:
+                continue
+            pipe_r, pipe_w = os.pipe()
+            proc = subprocess.Popen(command, stdin=pipe_r, stdout=fout,
+                    close_fds=True)
+            processes.append(proc)
+            os.close(pipe_r)
+            fout.close()
+            fout = os.fdopen(pipe_w, 'w')
 
     # Copy body; report progress
     fin.seek(0, 2)
     total = fin.tell()
     hdr.seek_body(fin)
-    if compress_out != hdr.COMPRESS_RAW:
+    if compress_in != compress_out and compress_out != hdr.COMPRESS_RAW:
         action = 'Copying and compressing'
     else:
         action = 'Copying'
