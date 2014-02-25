@@ -32,7 +32,6 @@ import time
 from .http import HttpServer, ServerUnavailableError
 from ..controller import Controller, MachineExecutionError, MachineStateError
 from ..controller.local import LocalController
-from ..package import Package
 from ..protocol import ServerEndpoint
 
 _log = logging.getLogger(__name__)
