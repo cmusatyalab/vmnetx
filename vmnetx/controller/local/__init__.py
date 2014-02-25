@@ -58,7 +58,7 @@ setup_libvirt()
 LibvirtEventImpl().register()
 
 
-class _ReferencedObject(object):
+class _Image(object):
     def __init__(self, label, range, username=None, password=None,
             chunk_size=131072):
         self.label = label
@@ -302,10 +302,10 @@ class LocalController(Controller):
         # Create vmnetfs config
         e = ElementMaker(namespace=VMNETFS_NS, nsmap={None: VMNETFS_NS})
         vmnetfs_config = e.config()
-        vmnetfs_config.append(_ReferencedObject('disk', package.disk,
+        vmnetfs_config.append(_Image('disk', package.disk,
                 username=self.username, password=self.password).vmnetfs_config)
         if package.memory:
-            vmnetfs_config.append(_ReferencedObject('memory', package.memory,
+            vmnetfs_config.append(_Image('memory', package.memory,
                     username=self.username,
                     password=self.password).vmnetfs_config)
 

@@ -45,7 +45,7 @@ class BadPackageError(DetailException):
     pass
 
 
-class _PackageObject(SourceRange):
+class _PackageMember(SourceRange):
     def __init__(self, zip, path, load_data=False):
         source = zip.fp
         try:
@@ -87,13 +87,13 @@ class Package(object):
 
             # Create attributes
             self.name = tree.get('name')
-            self.domain = _PackageObject(zip,
+            self.domain = _PackageMember(zip,
                     tree.find(NSP + 'domain').get('path'), True)
-            self.disk = _PackageObject(zip,
+            self.disk = _PackageMember(zip,
                     tree.find(NSP + 'disk').get('path'))
             memory = tree.find(NSP + 'memory')
             if memory is not None:
-                self.memory = _PackageObject(zip, memory.get('path'))
+                self.memory = _PackageMember(zip, memory.get('path'))
             else:
                 self.memory = None
         except etree.XMLSyntaxError, e:
