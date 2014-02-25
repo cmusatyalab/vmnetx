@@ -32,10 +32,12 @@ from .util import DetailException
 MEMORY_COMPRESS_COMMANDS = {
     LibvirtQemuMemoryHeader.COMPRESS_RAW: None,
     LibvirtQemuMemoryHeader.COMPRESS_XZ: ('xz', '-9c'),
+    LibvirtQemuMemoryHeader.COMPRESS_LZOP: ('lzop', '-c'),
 }
 MEMORY_DECOMPRESS_COMMANDS = {
     LibvirtQemuMemoryHeader.COMPRESS_RAW: None,
     LibvirtQemuMemoryHeader.COMPRESS_XZ: ('xz', '-dc'),
+    LibvirtQemuMemoryHeader.COMPRESS_LZOP: ('lzop', '-dc', '--ignore-warn'),
 }
 
 
@@ -43,7 +45,7 @@ class MachineGenerationError(DetailException):
     pass
 
 
-def copy_memory(in_path, out_path, xml=None, compress=True, verbose=True):
+def copy_memory(in_path, out_path, xml=None, compression='xz', verbose=True):
     def report(line, newline=True):
         if not verbose:
             return
@@ -63,7 +65,14 @@ def copy_memory(in_path, out_path, xml=None, compress=True, verbose=True):
     if compress_in not in MEMORY_DECOMPRESS_COMMANDS:
         raise MachineGenerationError('Cannot decode save format %d' %
                 compress_in)
-    compress_out = hdr.COMPRESS_XZ if compress else hdr.COMPRESS_RAW
+    if compression == 'xz':
+        compress_out = hdr.COMPRESS_XZ
+    elif compression == 'lzop':
+        compress_out = hdr.COMPRESS_LZOP
+    elif compression == None:
+        compress_out = hdr.COMPRESS_RAW
+    else:
+        raise ValueError('Unknown compression: %s' % compression)
     if compress_out not in MEMORY_COMPRESS_COMMANDS:
         raise MachineGenerationError('Cannot encode save format %d' %
                 compress_out)
@@ -93,7 +102,7 @@ def copy_memory(in_path, out_path, xml=None, compress=True, verbose=True):
     fin.seek(0, 2)
     total = fin.tell()
     hdr.seek_body(fin)
-    if compress:
+    if compress_out != hdr.COMPRESS_RAW:
         action = 'Copying and compressing'
     else:
         action = 'Copying'
@@ -161,7 +170,7 @@ def generate_machine(name, in_xml, out_file, compress=True):
         if os.path.exists(in_memory):
             temp_memory = NamedTemporaryFile(dir=out_dir, prefix='memory-')
             copy_memory(in_memory, temp_memory.name, domain_xml,
-                    compress=compress)
+                    compression='xz' if compress else None)
         else:
             print 'No memory image found'
 
@@ -215,7 +224,8 @@ def compress_machine(in_file, out_file, name=None):
                 print 'Extracting memory image...'
                 package.memory.write_to_file(temp_in)
                 temp_in.flush()
-                copy_memory(temp_in.name, temp_memory.name, domain_xml)
+                copy_memory(temp_in.name, temp_memory.name, domain_xml,
+                        compression='xz')
         else:
             print 'No memory image found'
 

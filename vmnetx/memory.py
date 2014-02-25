@@ -36,6 +36,7 @@ class LibvirtQemuMemoryHeader(object):
 
     COMPRESS_RAW = 0
     COMPRESS_XZ = 3
+    COMPRESS_LZOP = 4
 
     def __init__(self, fh):
         # Read header struct
