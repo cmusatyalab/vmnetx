@@ -22,7 +22,6 @@ import os
 import subprocess
 import sys
 from tempfile import NamedTemporaryFile
-from urlparse import urlunsplit
 
 from .domain import DomainXML, DomainXMLError
 from .memory import LibvirtQemuMemoryHeader
@@ -193,8 +192,7 @@ def generate_machine(name, in_xml, out_file, compress=True):
 def compress_machine(in_file, out_file, name=None):
     '''Read an uncompressed machine package and write a compressed one.'''
 
-    url = urlunsplit(('file', '', os.path.abspath(in_file), '', ''))
-    package = Package(source_open(url))
+    package = Package(source_open(filename=in_file))
 
     # Parse domain XML
     try:

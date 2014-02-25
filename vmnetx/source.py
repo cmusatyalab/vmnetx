@@ -22,7 +22,8 @@ from dateutil.tz import tzutc
 import os
 import re
 import requests
-from urlparse import urlsplit
+from urllib import pathname2url
+from urlparse import urlsplit, urlunsplit
 
 from .util import NeedAuthentication, get_requests_session
 
@@ -268,15 +269,21 @@ class _FileSource(file):
                 int(os.fstat(self.fileno()).st_mtime), tzutc())
 
 
-def source_open(url, scheme=None, username=None, password=None):
-    parsed = urlsplit(url)
-    if parsed.scheme == 'http' or parsed.scheme == 'https':
-        return _HttpSource(url, scheme=scheme, username=username,
-                password=password)
-    elif parsed.scheme == 'file':
+def source_open(url=None, scheme=None, username=None, password=None,
+        filename=None):
+    if filename:
+        url = urlunsplit(('file', '',
+                pathname2url(os.path.abspath(filename)), '', ''))
         return _FileSource(url)
     else:
-        raise ValueError('%s: URLs not supported' % parsed.scheme)
+        parsed = urlsplit(url)
+        if parsed.scheme == 'http' or parsed.scheme == 'https':
+            return _HttpSource(url, scheme=scheme, username=username,
+                    password=password)
+        elif parsed.scheme == 'file':
+            return _FileSource(url)
+        else:
+            raise ValueError('%s: URLs not supported' % parsed.scheme)
 
 
 # We access protected members in assertions.
