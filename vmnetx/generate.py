@@ -29,6 +29,16 @@ from .memory import LibvirtQemuMemoryHeader
 from .package import Package
 from .util import DetailException
 
+MEMORY_COMPRESS_COMMANDS = {
+    LibvirtQemuMemoryHeader.COMPRESS_RAW: None,
+    LibvirtQemuMemoryHeader.COMPRESS_XZ: ('xz', '-9c'),
+}
+MEMORY_DECOMPRESS_COMMANDS = {
+    LibvirtQemuMemoryHeader.COMPRESS_RAW: None,
+    LibvirtQemuMemoryHeader.COMPRESS_XZ: ('xz', '-dc'),
+}
+
+
 class MachineGenerationError(DetailException):
     pass
 
@@ -47,25 +57,34 @@ def copy_memory(in_path, out_path, xml=None, compress=True, verbose=True):
     fin = open(in_path, 'r')
     fout = open(out_path, 'w')
     hdr = LibvirtQemuMemoryHeader(fin)
-    # Ensure the input is uncompressed, even if we will not be compressing
-    if hdr.compressed != hdr.COMPRESS_RAW:
-        raise MachineGenerationError('Cannot recompress save format %d' %
-                hdr.compressed)
+
+    # Determine input and output compression
+    compress_in = hdr.compressed
+    if compress_in not in MEMORY_DECOMPRESS_COMMANDS:
+        raise MachineGenerationError('Cannot decode save format %d' %
+                compress_in)
+    compress_out = hdr.COMPRESS_XZ if compress else hdr.COMPRESS_RAW
+    if compress_out not in MEMORY_COMPRESS_COMMANDS:
+        raise MachineGenerationError('Cannot encode save format %d' %
+                compress_out)
 
     # Write header
-    if compress:
-        hdr.compressed = hdr.COMPRESS_XZ
+    hdr.compressed = compress_out
     if xml is not None:
         hdr.xml = xml
     hdr.write(fout, extend=True)
+    fout.flush()
 
-    # Start compressor if desired
-    compressor = None
-    if compress:
-        fout.flush()
+    # Start compressor/decompressor if required
+    processes = []
+    for command in (MEMORY_COMPRESS_COMMANDS[compress_out],
+            MEMORY_DECOMPRESS_COMMANDS[compress_in]):
+        if not command:
+            continue
         pipe_r, pipe_w = os.pipe()
-        compressor = subprocess.Popen(['xz', '-9c'], stdin=pipe_r,
-                stdout=fout, close_fds=True)
+        proc = subprocess.Popen(command, stdin=pipe_r, stdout=fout,
+                close_fds=True)
+        processes.append(proc)
         os.close(pipe_r)
         fout.close()
         fout = os.fdopen(pipe_w, 'w')
@@ -90,10 +109,10 @@ def copy_memory(in_path, out_path, xml=None, compress=True, verbose=True):
     # Clean up
     fin.close()
     fout.close()
-    if compressor:
-        compressor.wait()
-        if compressor.returncode:
-            raise IOError('Compressor failed')
+    for proc in reversed(processes):
+        proc.wait()
+        if proc.returncode:
+            raise IOError('Compressor/decompressor failed')
 
 
 def copy_disk(in_path, type, out_path, raw=False):
