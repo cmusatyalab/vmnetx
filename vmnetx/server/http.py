@@ -24,6 +24,7 @@ import logging
 from urlparse import urlunsplit
 
 from ..package import Package
+from ..source import source_open
 from ..util import NeedAuthentication
 
 _log = logging.getLogger(__name__)
@@ -98,10 +99,11 @@ class HttpServer(Flask):
         username = self._options['username']
         password = self._options['password']
         try:
-            package = Package(url)
+            source = source_open(url)
         except NeedAuthentication, e:
-            package = Package(url, scheme=e.scheme, username=username,
+            source = source_open(url, scheme=e.scheme, username=username,
                     password=password)
+        package = Package(source)
         id, token = self._server.create_instance(package, user_ident)
 
         host = self._options['host']

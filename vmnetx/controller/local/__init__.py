@@ -41,6 +41,7 @@ from wsgiref.handlers import format_date_time as format_rfc1123_date
 from ...domain import DomainXML
 from ...memory import LibvirtQemuMemoryHeader
 from ...package import Package
+from ...source import source_open
 from ...util import ErrorBuffer, ensure_dir, get_cache_dir, setup_libvirt
 from .. import Controller, MachineExecutionError, MachineStateError, Statistic
 from .monitor import (ChunkMapMonitor, LineStreamMonitor,
@@ -289,8 +290,9 @@ class LocalController(Controller):
 
         # Load package
         if self._package is None:
-            package = Package(self._url, scheme=self.scheme,
+            source = source_open(self._url, scheme=self.scheme,
                     username=self.username, password=self.password)
+            package = Package(source)
         else:
             package = self._package
 

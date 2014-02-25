@@ -107,6 +107,7 @@ nobase_python_PYTHON += \
 	vmnetx/generate.py \
 	vmnetx/memory.py \
 	vmnetx/package.py \
+	vmnetx/source.py \
 	vmnetx/controller/local/__init__.py \
 	vmnetx/controller/local/monitor.py \
 	vmnetx/controller/local/virtevent.py \
