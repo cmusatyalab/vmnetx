@@ -84,44 +84,47 @@ def copy_memory(in_path, out_path, xml=None, compression='xz', verbose=True):
     hdr.write(fout, extend=True)
     fout.flush()
 
-    # Start compressor/decompressor if required
     processes = []
-    if compress_in != compress_out:
-        for command in (MEMORY_COMPRESS_COMMANDS[compress_out],
-                MEMORY_DECOMPRESS_COMMANDS[compress_in]):
-            if not command:
-                continue
-            pipe_r, pipe_w = os.pipe()
-            proc = subprocess.Popen(command, stdin=pipe_r, stdout=fout,
-                    close_fds=True)
-            processes.append(proc)
-            os.close(pipe_r)
-            fout.close()
-            fout = os.fdopen(pipe_w, 'w')
+    try:
+        # Start compressor/decompressor if required
+        if compress_in != compress_out:
+            for command in (MEMORY_COMPRESS_COMMANDS[compress_out],
+                    MEMORY_DECOMPRESS_COMMANDS[compress_in]):
+                if not command:
+                    continue
+                pipe_r, pipe_w = os.pipe()
+                proc = subprocess.Popen(command, stdin=pipe_r, stdout=fout,
+                        close_fds=True)
+                processes.append(proc)
+                os.close(pipe_r)
+                fout.close()
+                fout = os.fdopen(pipe_w, 'w')
 
-    # Copy body; report progress
-    fin.seek(0, 2)
-    total = fin.tell()
-    hdr.seek_body(fin)
-    if compress_in != compress_out and compress_out != hdr.COMPRESS_RAW:
-        action = 'Copying and compressing'
-    else:
-        action = 'Copying'
-    while True:
-        buf = fin.read(1 << 20)
-        if not buf:
-            break
-        fout.write(buf)
-        report('\r%s memory image: %3d%%' % (action,
-                100 * fin.tell() / total), newline=False)
-    report('')
-
-    # Clean up
-    fin.close()
-    fout.close()
-    for proc in reversed(processes):
-        proc.wait()
-        if proc.returncode:
+        # Copy body; report progress
+        fin.seek(0, 2)
+        total = fin.tell()
+        hdr.seek_body(fin)
+        if compress_in != compress_out and compress_out != hdr.COMPRESS_RAW:
+            action = 'Copying and compressing'
+        else:
+            action = 'Copying'
+        while True:
+            buf = fin.read(1 << 20)
+            if not buf:
+                break
+            fout.write(buf)
+            report('\r%s memory image: %3d%%' % (action,
+                    100 * fin.tell() / total), newline=False)
+        report('')
+    finally:
+        # Clean up
+        fin.close()
+        fout.close()
+        failed = False
+        for proc in reversed(processes):
+            proc.wait()
+            failed = failed or proc.returncode
+        if failed:
             raise IOError('Compressor/decompressor failed')
 
 
