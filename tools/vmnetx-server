@@ -114,6 +114,10 @@ def setup_signals(server):
     signal.signal(signal.SIGTERM, sig_handler)
     signal.signal(signal.SIGINT, sig_handler)
 
+    # Ignore SIGPIPE so memory image recompression will get EPIPE if a
+    # compressor dies.
+    signal.signal(signal.SIGPIPE, signal.SIG_IGN)
+
 
 default_server = 'http://%s:%s' % (DEFAULT_HTTP_HOST, DEFAULT_HTTP_PORT)
 
