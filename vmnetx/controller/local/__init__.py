@@ -33,15 +33,18 @@ import re
 import signal
 import subprocess
 import sys
+from tempfile import NamedTemporaryFile
 import threading
+import time
 from urlparse import urlsplit, urlunsplit
 import uuid
 from wsgiref.handlers import format_date_time as format_rfc1123_date
 
 from ...domain import DomainXML
+from ...generate import copy_memory
 from ...memory import LibvirtQemuMemoryHeader
 from ...package import Package
-from ...source import source_open
+from ...source import source_open, SourceRange
 from ...util import ErrorBuffer, ensure_dir, get_cache_dir, setup_libvirt
 from .. import Controller, MachineExecutionError, MachineStateError, Statistic
 from .monitor import (ChunkMapMonitor, LineStreamMonitor,
@@ -85,6 +88,10 @@ class _Image(object):
                 sha256(self._cache_info).hexdigest())
         # Hash collisions will allow cache poisoning!
         self.cache = os.path.join(self._urlpath, label, str(chunk_size))
+
+    def get_recompressed_path(self, algorithm):
+        return os.path.join(self._urlpath, self.label,
+                'recompressed.%s' % algorithm)
 
     # We must access Cookie._rest to perform case-insensitive lookup of
     # the HttpOnly attribute
@@ -255,12 +262,55 @@ class _QemuWatchdog(object):
         self._stop = True
 
 
+class _MemoryRecompressor(object):
+    RECOMPRESSION_DELAY = 30000  # ms
+
+    def __init__(self, controller, algorithm, in_path, out_path):
+        self._algorithm = algorithm
+        self._in_path = in_path
+        self._out_path = out_path
+        self._have_run = False
+        controller.connect('vm-started', self._vm_started)
+
+    def _vm_started(self, _controller, _have_memory):
+        if self._have_run:
+            return
+        self._have_run = True
+        gobject.timeout_add(self.RECOMPRESSION_DELAY, self._timer_expired)
+
+    def _timer_expired(self):
+        threading.Thread(name='vmnetx-recompress-memory',
+                target=self._thread).start()
+
+    # We intentionally catch all exceptions
+    # pylint: disable=bare-except
+    def _thread(self):
+        if os.path.exists(self._out_path):
+            return
+        tempfile = NamedTemporaryFile(dir=os.path.dirname(self._out_path),
+                prefix=os.path.basename(self._out_path) + '-', delete=False)
+        _log.info('Recompressing memory image')
+        start = time.time()
+        try:
+            copy_memory(self._in_path, tempfile.name,
+                    compression=self._algorithm, verbose=False)
+        except:
+            _log.exception('Recompressing memory image failed')
+            os.unlink(tempfile.name)
+        else:
+            _log.info('Recompressed memory image in %.1f seconds',
+                    time.time() - start)
+            os.rename(tempfile.name, self._out_path)
+    # pylint: enable=bare-except
+
+
 class LocalController(Controller):
     AUTHORIZER_NAME = 'org.olivearchive.VMNetX.Authorizer'
     AUTHORIZER_PATH = '/org/olivearchive/VMNetX/Authorizer'
     AUTHORIZER_IFACE = 'org.olivearchive.VMNetX.Authorizer'
     STATS = ('bytes_read', 'bytes_written', 'chunk_dirties', 'chunk_fetches',
             'io_errors')
+    RECOMPRESSION_ALGORITHM = 'lzop'
     _environment_ready = False
 
     def __init__(self, url=None, package=None, use_spice=True,
@@ -305,9 +355,18 @@ class LocalController(Controller):
         vmnetfs_config.append(_Image('disk', package.disk,
                 username=self.username, password=self.password).vmnetfs_config)
         if package.memory:
-            vmnetfs_config.append(_Image('memory', package.memory,
-                    username=self.username,
-                    password=self.password).vmnetfs_config)
+            image = _Image('memory', package.memory, username=self.username,
+                    password=self.password)
+            # Use recompressed memory image if available
+            recompressed_path = image.get_recompressed_path(
+                    self.RECOMPRESSION_ALGORITHM)
+            if os.path.exists(recompressed_path):
+                # When started from vmnetx, logging isn't up yet
+                gobject.idle_add(lambda:
+                        _log.info('Using recompressed memory image'))
+                image = _Image('memory',
+                        SourceRange(source_open(filename=recompressed_path)))
+            vmnetfs_config.append(image.vmnetfs_config)
 
         # Start vmnetfs
         self._fs = VMNetFS(vmnetfs_config)
@@ -318,6 +377,10 @@ class LocalController(Controller):
         if package.memory:
             memory_path = os.path.join(self._fs.mountpoint, 'memory')
             self._memory_image_path = os.path.join(memory_path, 'image')
+            # Create recompressed memory image if missing
+            if not os.path.exists(recompressed_path):
+                _MemoryRecompressor(self, self.RECOMPRESSION_ALGORITHM,
+                        self._memory_image_path, recompressed_path)
         else:
             memory_path = self._memory_image_path = None
 
