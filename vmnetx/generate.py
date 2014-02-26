@@ -45,7 +45,8 @@ class MachineGenerationError(DetailException):
     pass
 
 
-def copy_memory(in_path, out_path, xml=None, compression='xz', verbose=True):
+def copy_memory(in_path, out_path, xml=None, compression='xz', verbose=True,
+        low_priority=False):
     def report(line, newline=True):
         if not verbose:
             return
@@ -92,6 +93,10 @@ def copy_memory(in_path, out_path, xml=None, compression='xz', verbose=True):
                     MEMORY_DECOMPRESS_COMMANDS[compress_in]):
                 if not command:
                     continue
+                if low_priority:
+                    # Python < 3.3 doesn't have os.setpriority(), so we use
+                    # the command-line utility
+                    command = ['nice'] + list(command)
                 pipe_r, pipe_w = os.pipe()
                 proc = subprocess.Popen(command, stdin=pipe_r, stdout=fout,
                         close_fds=True)

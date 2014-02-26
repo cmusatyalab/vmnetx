@@ -293,7 +293,8 @@ class _MemoryRecompressor(object):
         start = time.time()
         try:
             copy_memory(self._in_path, tempfile.name,
-                    compression=self._algorithm, verbose=False)
+                    compression=self._algorithm, verbose=False,
+                    low_priority=True)
         except:
             _log.exception('Recompressing memory image failed')
             os.unlink(tempfile.name)
