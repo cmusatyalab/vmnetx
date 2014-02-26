@@ -20,51 +20,6 @@
 #include <errno.h>
 #include "vmnetfs-private.h"
 
-struct io_cursor {
-    /* Public fields; do not modify */
-    uint64_t chunk;
-    uint64_t offset;
-    uint64_t length;
-    uint64_t buf_offset;
-
-    /* Private fields */
-    struct vmnetfs_image *img;
-    uint64_t start;
-    uint64_t count;
-};
-
-/* The cursor is assumed to be allocated on the stack; this just fills
-   it in. */
-static void io_start(struct vmnetfs_image *img, struct io_cursor *cur,
-        uint64_t start, uint64_t count)
-{
-    memset(cur, 0, sizeof(*cur));
-    cur->img = img;
-    cur->start = start;
-    cur->count = count;
-}
-
-/* Populate the public fields of the cursor with information on the next
-   chunk in the I/O, starting from the first, given that the last I/O
-   completed @count bytes.  Returns true if we produced a valid chunk,
-   false if done with this I/O.  Assumes an infinite-size image. */
-static bool io_chunk(struct io_cursor *cur, uint64_t count)
-{
-    uint64_t position;
-
-    cur->buf_offset += count;
-    if (cur->buf_offset >= cur->count) {
-        /* Done */
-        return false;
-    }
-    position = cur->start + cur->buf_offset;
-    cur->chunk = position / cur->img->chunk_size;
-    cur->offset = position - cur->chunk * cur->img->chunk_size;
-    cur->length = MIN(cur->img->chunk_size - cur->offset,
-            cur->count - cur->buf_offset);
-    return true;
-}
-
 static int image_getattr(void *dentry_ctx, struct stat *st)
 {
     struct vmnetfs_image *img = dentry_ctx;
@@ -106,64 +61,66 @@ static int image_read(struct vmnetfs_fuse_fh *fh, void *buf, uint64_t start,
         uint64_t count)
 {
     struct vmnetfs_image *img = fh->data;
-    struct io_cursor cur;
+    struct vmnetfs_cursor cur;
     GError *err = NULL;
     uint64_t read = 0;
 
     _vmnetfs_stream_group_write(img->io_stream, "read %"PRIu64"+%"PRIu64"\n",
             start, count);
-    for (io_start(img, &cur, start, count); io_chunk(&cur, read); ) {
-        read = _vmnetfs_io_read_chunk(img, buf + cur.buf_offset, cur.chunk,
+    for (_vmnetfs_cursor_start(img, &cur, start, count);
+            _vmnetfs_cursor_chunk(&cur, read); ) {
+        read = _vmnetfs_io_read_chunk(img, buf + cur.io_offset, cur.chunk,
                 cur.offset, cur.length, &err);
         if (err) {
             if (g_error_matches(err, VMNETFS_IO_ERROR,
                     VMNETFS_IO_ERROR_INTERRUPTED)) {
                 g_clear_error(&err);
-                return (int) (cur.buf_offset + read) ?: -EINTR;
+                return (int) (cur.io_offset + read) ?: -EINTR;
             } else if (g_error_matches(err, VMNETFS_IO_ERROR,
                     VMNETFS_IO_ERROR_EOF)) {
                 g_clear_error(&err);
-                return cur.buf_offset + read;
+                return cur.io_offset + read;
             } else {
                 g_warning("%s", err->message);
                 g_clear_error(&err);
                 _vmnetfs_u64_stat_increment(img->io_errors, 1);
-                return (int) (cur.buf_offset + read) ?: -EIO;
+                return (int) (cur.io_offset + read) ?: -EIO;
             }
         }
         _vmnetfs_u64_stat_increment(img->bytes_read, cur.length);
     }
-    return cur.buf_offset;
+    return cur.io_offset;
 }
 
 static int image_write(struct vmnetfs_fuse_fh *fh, const void *buf,
         uint64_t start, uint64_t count)
 {
     struct vmnetfs_image *img = fh->data;
-    struct io_cursor cur;
+    struct vmnetfs_cursor cur;
     GError *err = NULL;
     uint64_t written = 0;
 
     _vmnetfs_stream_group_write(img->io_stream, "write %"PRIu64"+%"PRIu64"\n",
             start, count);
-    for (io_start(img, &cur, start, count); io_chunk(&cur, written); ) {
-        written = _vmnetfs_io_write_chunk(img, buf + cur.buf_offset, cur.chunk,
+    for (_vmnetfs_cursor_start(img, &cur, start, count);
+            _vmnetfs_cursor_chunk(&cur, written); ) {
+        written = _vmnetfs_io_write_chunk(img, buf + cur.io_offset, cur.chunk,
                 cur.offset, cur.length, &err);
         if (err) {
             if (g_error_matches(err, VMNETFS_IO_ERROR,
                     VMNETFS_IO_ERROR_INTERRUPTED)) {
                 g_clear_error(&err);
-                return (int) (cur.buf_offset + written) ?: -EINTR;
+                return (int) (cur.io_offset + written) ?: -EINTR;
             } else {
                 g_warning("%s", err->message);
                 g_clear_error(&err);
                 _vmnetfs_u64_stat_increment(img->io_errors, 1);
-                return (int) (cur.buf_offset + written) ?: -EIO;
+                return (int) (cur.io_offset + written) ?: -EIO;
             }
         }
         _vmnetfs_u64_stat_increment(img->bytes_written, cur.length);
     }
-    return cur.buf_offset;
+    return cur.io_offset;
 }
 
 static const struct vmnetfs_fuse_ops image_ops = {

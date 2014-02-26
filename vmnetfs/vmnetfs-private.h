@@ -97,6 +97,18 @@ struct vmnetfs_fuse_ops {
     bool nonseekable;
 };
 
+struct vmnetfs_cursor {
+    /* All fields are read-only */
+    uint64_t chunk;
+    uint64_t offset;
+    uint64_t length;
+    uint64_t io_offset;  // offset in the entire I/O operation
+
+    struct vmnetfs_image *img;
+    uint64_t start;
+    uint64_t count;
+};
+
 #define VMNETFS_CONFIG_ERROR _vmnetfs_config_error_quark()
 #define VMNETFS_FUSE_ERROR _vmnetfs_fuse_error_quark()
 #define VMNETFS_IO_ERROR _vmnetfs_io_error_quark()
@@ -271,5 +283,8 @@ bool _vmnetfs_safe_pread(const char *file, int fd, void *buf, uint64_t count,
         uint64_t offset, GError **err);
 bool _vmnetfs_safe_pwrite(const char *file, int fd, const void *buf,
         uint64_t count, uint64_t offset, GError **err);
+void _vmnetfs_cursor_start(struct vmnetfs_image *img,
+        struct vmnetfs_cursor *cur, uint64_t start, uint64_t count);
+bool _vmnetfs_cursor_chunk(struct vmnetfs_cursor *cur, uint64_t count);
 
 #endif

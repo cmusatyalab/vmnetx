@@ -85,3 +85,35 @@ bool _vmnetfs_safe_pwrite(const char *file, int fd, const void *buf,
     }
     return true;
 }
+
+/* The cursor is assumed to be allocated on the stack; this just fills
+   it in. */
+void _vmnetfs_cursor_start(struct vmnetfs_image *img,
+        struct vmnetfs_cursor *cur, uint64_t start, uint64_t count)
+{
+    memset(cur, 0, sizeof(*cur));
+    cur->img = img;
+    cur->start = start;
+    cur->count = count;
+}
+
+/* Populate the public fields of the cursor with information on the next
+   chunk in the I/O, starting from the first, given that the last I/O
+   completed @count bytes.  Returns true if we produced a valid chunk,
+   false if done with this I/O.  Assumes an infinite-size image. */
+bool _vmnetfs_cursor_chunk(struct vmnetfs_cursor *cur, uint64_t count)
+{
+    uint64_t position;
+
+    cur->io_offset += count;
+    if (cur->io_offset >= cur->count) {
+        /* Done */
+        return false;
+    }
+    position = cur->start + cur->io_offset;
+    cur->chunk = position / cur->img->chunk_size;
+    cur->offset = position - cur->chunk * cur->img->chunk_size;
+    cur->length = MIN(cur->img->chunk_size - cur->offset,
+            cur->count - cur->io_offset);
+    return true;
+}
