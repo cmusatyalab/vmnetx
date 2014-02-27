@@ -157,8 +157,8 @@ void _vmnetfs_fuse_stats_populate(struct vmnetfs_fuse_dentry *dir,
         struct vmnetfs_image *img);
 void _vmnetfs_fuse_stream_populate(struct vmnetfs_fuse_dentry *dir,
         struct vmnetfs_image *img);
-void _vmnetfs_fuse_stream_populate_log(struct vmnetfs_fuse_dentry *dir,
-        struct vmnetfs_log *log, const char *name);
+void _vmnetfs_fuse_stream_populate_root(struct vmnetfs_fuse_dentry *dir,
+        struct vmnetfs *fs);
 bool _vmnetfs_interrupted(void);
 int _vmnetfs_fuse_readonly_pseudo_file_getattr(void *dentry_ctx,
         struct stat *st);
