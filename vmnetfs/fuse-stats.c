@@ -25,12 +25,6 @@ static char *format_u64(uint64_t val)
     return g_strdup_printf("%"PRIu64"\n", val);
 }
 
-static int stat_getattr(void *dentry_ctx G_GNUC_UNUSED, struct stat *st)
-{
-    st->st_mode = S_IFREG | 0400;
-    return 0;
-}
-
 static int u64_stat_open(void *dentry_ctx, struct vmnetfs_fuse_fh *fh)
 {
     struct vmnetfs_stat *stat = dentry_ctx;
@@ -69,19 +63,6 @@ static int chunks_open(void *dentry_ctx, struct vmnetfs_fuse_fh *fh)
     return 0;
 }
 
-static int stat_read(struct vmnetfs_fuse_fh *fh, void *buf, uint64_t start,
-        uint64_t count)
-{
-    uint64_t cur;
-
-    if (fh->length <= start) {
-        return 0;
-    }
-    cur = MIN(count, fh->length - start);
-    memcpy(buf, fh->buf + start, cur);
-    return cur;
-}
-
 static int stat_poll(struct vmnetfs_fuse_fh *fh, struct fuse_pollhandle *ph,
         bool *readable)
 {
@@ -103,32 +84,27 @@ static int image_size_poll(struct vmnetfs_fuse_fh *fh,
     return 0;
 }
 
-static void stat_release(struct vmnetfs_fuse_fh *fh)
-{
-    g_free(fh->buf);
-}
-
 static const struct vmnetfs_fuse_ops u64_stat_ops = {
-    .getattr = stat_getattr,
+    .getattr = _vmnetfs_fuse_readonly_pseudo_file_getattr,
     .open = u64_stat_open,
-    .read = stat_read,
+    .read = _vmnetfs_fuse_buffered_file_read,
     .poll = stat_poll,
-    .release = stat_release,
+    .release = _vmnetfs_fuse_buffered_file_release,
 };
 
 static const struct vmnetfs_fuse_ops u32_fixed_ops = {
-    .getattr = stat_getattr,
+    .getattr = _vmnetfs_fuse_readonly_pseudo_file_getattr,
     .open = u32_fixed_open,
-    .read = stat_read,
-    .release = stat_release,
+    .read = _vmnetfs_fuse_buffered_file_read,
+    .release = _vmnetfs_fuse_buffered_file_release,
 };
 
 static const struct vmnetfs_fuse_ops chunks_ops = {
-    .getattr = stat_getattr,
+    .getattr = _vmnetfs_fuse_readonly_pseudo_file_getattr,
     .open = chunks_open,
-    .read = stat_read,
+    .read = _vmnetfs_fuse_buffered_file_read,
     .poll = image_size_poll,
-    .release = stat_release,
+    .release = _vmnetfs_fuse_buffered_file_release,
 };
 
 void _vmnetfs_fuse_stats_populate(struct vmnetfs_fuse_dentry *dir,

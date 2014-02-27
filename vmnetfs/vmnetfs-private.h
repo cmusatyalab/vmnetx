@@ -160,6 +160,11 @@ void _vmnetfs_fuse_stream_populate(struct vmnetfs_fuse_dentry *dir,
 void _vmnetfs_fuse_stream_populate_log(struct vmnetfs_fuse_dentry *dir,
         struct vmnetfs_log *log, const char *name);
 bool _vmnetfs_interrupted(void);
+int _vmnetfs_fuse_readonly_pseudo_file_getattr(void *dentry_ctx,
+        struct stat *st);
+int _vmnetfs_fuse_buffered_file_read(struct vmnetfs_fuse_fh *fh, void *buf,
+        uint64_t start, uint64_t count);
+void _vmnetfs_fuse_buffered_file_release(struct vmnetfs_fuse_fh *fh);
 
 /* io */
 bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err);

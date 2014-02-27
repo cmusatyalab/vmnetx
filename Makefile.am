@@ -87,6 +87,7 @@ vmnetfs_vmnetfs_SOURCES = \
 	vmnetfs/cond.c \
 	vmnetfs/fuse.c \
 	vmnetfs/fuse-image.c \
+	vmnetfs/fuse-misc.c \
 	vmnetfs/fuse-stats.c \
 	vmnetfs/fuse-stream.c \
 	vmnetfs/io.c \

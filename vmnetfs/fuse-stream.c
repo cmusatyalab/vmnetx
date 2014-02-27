@@ -18,12 +18,6 @@
 #include <errno.h>
 #include "vmnetfs-private.h"
 
-static int stream_getattr(void *dentry_ctx G_GNUC_UNUSED, struct stat *st)
-{
-    st->st_mode = S_IFREG | 0400;
-    return 0;
-}
-
 static int stream_open(void *dentry_ctx, struct vmnetfs_fuse_fh *fh)
 {
     struct vmnetfs_stream_group *sgrp = dentry_ctx;
@@ -75,7 +69,7 @@ static void stream_release(struct vmnetfs_fuse_fh *fh)
 }
 
 static const struct vmnetfs_fuse_ops stream_ops = {
-    .getattr = stream_getattr,
+    .getattr = _vmnetfs_fuse_readonly_pseudo_file_getattr,
     .open = stream_open,
     .read = stream_read,
     .poll = stream_poll,
