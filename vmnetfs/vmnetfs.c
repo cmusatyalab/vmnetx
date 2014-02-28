@@ -270,6 +270,21 @@ static uint64_t xpath_get_uint(xmlXPathContextPtr ctx, const char *xpath)
     return ret;
 }
 
+static void xpath_censor(xmlXPathContextPtr ctx, const char *xpath)
+{
+    xmlXPathObjectPtr result;
+    int i;
+
+    result = xmlXPathEval(BAD_CAST xpath, ctx);
+    if (result && result->nodesetval) {
+        for (i = 0; i < result->nodesetval->nodeNr; i++) {
+            xmlNodeSetContent(result->nodesetval->nodeTab[i],
+                    (const xmlChar *) "XXXXX");
+        }
+    }
+    xmlXPathFreeObject(result);
+}
+
 static bool image_add(GHashTable *images, xmlDocPtr args,
         xmlNodePtr image_args, GError **err)
 {
@@ -288,6 +303,7 @@ static bool image_add(GHashTable *images, xmlDocPtr args,
             "v:origin/v:credentials/v:username/text()");
     img->password = xpath_get_str(ctx,
             "v:origin/v:credentials/v:password/text()");
+    xpath_censor(ctx, "v:origin/v:credentials/v:password/text()");
     img->read_base = xpath_get_str(ctx, "v:cache/v:path/text()");
     img->fetch_offset = xpath_get_uint(ctx, "v:origin/v:offset/text()");
     img->initial_size = xpath_get_uint(ctx, "v:size/text()");
@@ -304,6 +320,7 @@ static bool image_add(GHashTable *images, xmlDocPtr args,
         xmlFree(content);
     }
     xmlXPathFreeObject(obj);
+    xpath_censor(ctx, "v:origin/v:cookies/v:cookie/text()");
 
     img->io_stream = _vmnetfs_stream_group_new(NULL, NULL);
     img->bytes_read = _vmnetfs_stat_new();
@@ -391,6 +408,7 @@ static void run(FILE *pipe, const char *config_file)
     xmlDocPtr args;
     xmlXPathContextPtr xpath;
     xmlXPathObjectPtr obj;
+    xmlChar *xstr;
     int i;
     GError *err = NULL;
 
@@ -437,6 +455,12 @@ static void run(FILE *pipe, const char *config_file)
     }
     xmlXPathFreeObject(obj);
     xmlXPathFreeContext(xpath);
+
+    /* Serialize config to string.  Sensitive information has already been
+       removed during image_add(). */
+    xmlDocDumpFormatMemory(args, &xstr, NULL, 1);
+    fs->censored_config = g_strdup((const char *) xstr);
+    xmlFree(xstr);
 
     /* Free args */
     xmlFreeDoc(args);
@@ -490,6 +514,7 @@ out:
     _vmnetfs_fuse_free(fs->fuse);
     g_hash_table_destroy(fs->images);
     _vmnetfs_log_destroy(fs->log);
+    g_free(fs->censored_config);
     g_slice_free(struct vmnetfs, fs);
     g_io_channel_unref(chan);
 }

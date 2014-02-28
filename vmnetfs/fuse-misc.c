@@ -43,3 +43,30 @@ void _vmnetfs_fuse_buffered_file_release(struct vmnetfs_fuse_fh *fh)
 {
     g_free(fh->buf);
 }
+
+static int string_fixed_getattr(void *dentry_ctx, struct stat *st)
+{
+    st->st_mode = S_IFREG | 0400;
+    st->st_size = strlen(dentry_ctx);
+    return 0;
+}
+
+static int string_fixed_open(void *dentry_ctx, struct vmnetfs_fuse_fh *fh)
+{
+    fh->buf = dentry_ctx;
+    fh->length = strlen(fh->buf);
+    return 0;
+}
+
+static const struct vmnetfs_fuse_ops string_fixed_ops = {
+    .getattr = string_fixed_getattr,
+    .open = string_fixed_open,
+    .read = _vmnetfs_fuse_buffered_file_read,
+};
+
+void _vmnetfs_fuse_misc_populate_root(struct vmnetfs_fuse_dentry *dir,
+        struct vmnetfs *fs)
+{
+    _vmnetfs_fuse_add_file(dir, "config", &string_fixed_ops,
+            fs->censored_config);
+}

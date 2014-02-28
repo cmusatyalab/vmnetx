@@ -29,6 +29,7 @@ struct vmnetfs {
     struct vmnetfs_fuse *fuse;
     struct vmnetfs_log *log;
     GMainLoop *glib_loop;
+    char *censored_config;
 };
 
 struct vmnetfs_image {
@@ -158,6 +159,8 @@ void _vmnetfs_fuse_stats_populate(struct vmnetfs_fuse_dentry *dir,
 void _vmnetfs_fuse_stream_populate(struct vmnetfs_fuse_dentry *dir,
         struct vmnetfs_image *img);
 void _vmnetfs_fuse_stream_populate_root(struct vmnetfs_fuse_dentry *dir,
+        struct vmnetfs *fs);
+void _vmnetfs_fuse_misc_populate_root(struct vmnetfs_fuse_dentry *dir,
         struct vmnetfs *fs);
 bool _vmnetfs_interrupted(void);
 int _vmnetfs_fuse_readonly_pseudo_file_getattr(void *dentry_ctx,
