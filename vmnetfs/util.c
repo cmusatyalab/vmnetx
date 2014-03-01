@@ -106,14 +106,10 @@ bool _vmnetfs_cursor_chunk(struct vmnetfs_cursor *cur, uint64_t count)
     uint64_t position;
 
     cur->io_offset += count;
-    if (cur->io_offset >= cur->count) {
-        /* Done */
-        return false;
-    }
     position = cur->start + cur->io_offset;
     cur->chunk = position / cur->img->chunk_size;
     cur->offset = position - cur->chunk * cur->img->chunk_size;
     cur->length = MIN(cur->img->chunk_size - cur->offset,
             cur->count - cur->io_offset);
-    return true;
+    return cur->io_offset < cur->count;
 }
