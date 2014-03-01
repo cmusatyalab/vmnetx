@@ -162,12 +162,11 @@ static bool G_GNUC_WARN_UNUSED_RESULT chunk_trylock_ensure_size(
     return ret;
 }
 
-static void chunk_unlock(struct vmnetfs_image *img, uint64_t chunk)
+/* chunk_state lock must be held. */
+static void _chunk_unlock(struct chunk_state *cs, uint64_t chunk)
 {
-    struct chunk_state *cs = img->chunk_state;
     struct chunk_lock *cl;
 
-    g_mutex_lock(cs->lock);
     cl = g_hash_table_lookup(cs->chunk_locks, &chunk);
     g_assert(cl != NULL);
     if (cl->waiters > 0) {
@@ -178,6 +177,14 @@ static void chunk_unlock(struct vmnetfs_image *img, uint64_t chunk)
         _vmnetfs_cond_free(cl->available);
         g_slice_free(struct chunk_lock, cl);
     }
+}
+
+static void chunk_unlock(struct vmnetfs_image *img, uint64_t chunk)
+{
+    struct chunk_state *cs = img->chunk_state;
+
+    g_mutex_lock(cs->lock);
+    _chunk_unlock(cs, chunk);
     g_mutex_unlock(cs->lock);
 }
 
