@@ -84,7 +84,7 @@ bool _vmnetfs_cond_wait(struct vmnetfs_cond *cond, GMutex *lock)
 
     /* Wait for event, provided that FUSE was not already interrupted
        before we blocked signals */
-    if (!_vmnetfs_interrupted()) {
+    if (!_vmnetfs_fuse_interrupted()) {
         sigdelset(&mask, SIGUSR1);
         sigsuspend(&mask);
     }
@@ -98,7 +98,7 @@ bool _vmnetfs_cond_wait(struct vmnetfs_cond *cond, GMutex *lock)
     /* Re-acquire parent lock */
     g_mutex_lock(lock);
 
-    return _vmnetfs_interrupted();
+    return _vmnetfs_fuse_interrupted();
 }
 
 static void signal_cond(struct cond_waiter *waiter, int32_t *max)

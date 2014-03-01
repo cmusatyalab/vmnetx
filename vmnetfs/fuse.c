@@ -446,7 +446,7 @@ void _vmnetfs_fuse_free(struct vmnetfs_fuse *fuse)
 }
 
 /* Return true if the current FUSE request was interrupted. */
-bool _vmnetfs_interrupted(void)
+bool _vmnetfs_fuse_interrupted(void)
 {
     return fuse_interrupted();
 }

@@ -188,13 +188,18 @@ static void chunk_unlock(struct vmnetfs_image *img, uint64_t chunk)
     g_mutex_unlock(cs->lock);
 }
 
+static bool io_interrupted(void *data G_GNUC_UNUSED)
+{
+    return _vmnetfs_fuse_interrupted();
+}
+
 /* Fetch the specified byte range from the image. */
 static bool fetch_data(struct vmnetfs_image *img, void *buf, uint64_t start,
         uint64_t count, GError **err)
 {
     return _vmnetfs_transport_fetch(img->cpool, img->url, img->username,
             img->password, img->etag, img->last_modified, buf,
-            start + img->fetch_offset, count, err);
+            start + img->fetch_offset, count, io_interrupted, NULL, err);
 }
 
 bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err)

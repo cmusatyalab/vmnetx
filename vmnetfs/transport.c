@@ -39,6 +39,8 @@ struct connection {
     uint64_t offset;
     uint64_t length;
     char *etag;
+    should_cancel_fn *should_cancel;
+    void *should_cancel_arg;
 };
 
 static size_t header_callback(void *data, size_t size, size_t nmemb,
@@ -77,11 +79,17 @@ static size_t write_callback(void *data, size_t size, size_t nmemb,
     return count;
 }
 
-static int progress_callback(void *private G_GNUC_UNUSED,
+static int progress_callback(void *private,
         double dltotal G_GNUC_UNUSED, double dlnow G_GNUC_UNUSED,
         double ultotal G_GNUC_UNUSED, double ulnow G_GNUC_UNUSED)
 {
-    return _vmnetfs_interrupted();
+    struct connection *conn = private;
+    bool cancel = false;
+
+    if (conn->should_cancel) {
+        cancel = conn->should_cancel(conn->should_cancel_arg);
+    }
+    return cancel;
 }
 
 static void conn_free(struct connection *conn)
@@ -174,6 +182,12 @@ static struct connection *conn_new(struct connection_pool *pool,
         g_set_error(err, VMNETFS_TRANSPORT_ERROR,
                 VMNETFS_TRANSPORT_ERROR_FATAL,
                 "Couldn't set progress callback");
+        goto bad;
+    }
+    if (curl_easy_setopt(conn->curl, CURLOPT_PROGRESSDATA, conn)) {
+        g_set_error(err, VMNETFS_TRANSPORT_ERROR,
+                VMNETFS_TRANSPORT_ERROR_FATAL,
+                "Couldn't set progress data");
         goto bad;
     }
     if (curl_easy_setopt(conn->curl, CURLOPT_ERRORBUFFER, conn->errbuf)) {
@@ -388,6 +402,7 @@ static bool check_validators(struct connection *conn, const char *etag,
 static bool fetch(struct connection_pool *cpool, const char *url,
         const char *username, const char *password, const char *etag,
         time_t last_modified, void *buf, uint64_t offset, uint64_t length,
+        should_cancel_fn *should_cancel, void *should_cancel_arg,
         GError **err)
 {
     struct connection *conn;
@@ -429,6 +444,8 @@ static bool fetch(struct connection_pool *cpool, const char *url,
     conn->buf = buf;
     conn->offset = 0;
     conn->length = length;
+    conn->should_cancel = should_cancel;
+    conn->should_cancel_arg = should_cancel_arg;
 
     code = curl_easy_perform(conn->curl);
     switch (code) {
@@ -475,6 +492,7 @@ out:
 bool _vmnetfs_transport_fetch(struct connection_pool *cpool, const char *url,
         const char *username, const char *password, const char *etag,
         time_t last_modified, void *buf, uint64_t offset, uint64_t length,
+        should_cancel_fn *should_cancel, void *should_cancel_arg,
         GError **err)
 {
     GError *my_err = NULL;
@@ -486,7 +504,7 @@ bool _vmnetfs_transport_fetch(struct connection_pool *cpool, const char *url,
             sleep(TRANSPORT_RETRY_DELAY);
         }
         if (fetch(cpool, url, username, password, etag, last_modified, buf,
-                offset, length, &my_err)) {
+                offset, length, should_cancel, should_cancel_arg, &my_err)) {
             return true;
         }
         if (!g_error_matches(my_err, VMNETFS_TRANSPORT_ERROR,
