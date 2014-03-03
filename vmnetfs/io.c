@@ -43,7 +43,6 @@ struct stream_state {
     /* Private to stream thread */
     char *buf;
     struct vmnetfs_cursor cur;
-    GError *err;
 };
 
 static struct chunk_state *chunk_state_new(uint64_t initial_size)
@@ -215,7 +214,8 @@ static bool fetch_data(struct vmnetfs_image *img, void *buf, uint64_t start,
             start + img->fetch_offset, count, io_interrupted, NULL, err);
 }
 
-static bool stream_callback(void *arg, const void *buf, uint64_t count)
+static bool stream_callback(void *arg, const void *buf, uint64_t count,
+        GError **err)
 {
     struct vmnetfs_image *img = arg;
     struct stream_state *state = img->stream;
@@ -232,7 +232,7 @@ static bool stream_callback(void *arg, const void *buf, uint64_t count)
         if (cur_count == cur->length) {
             /* End of chunk */
             if (!_vmnetfs_ll_pristine_write_chunk(img, state->buf,
-                    cur->chunk, cur->offset + cur->length, &state->err)) {
+                    cur->chunk, cur->offset + cur->length, err)) {
                 return false;
             }
             if (cur->offset + cur->length == img->chunk_size) {
@@ -283,11 +283,6 @@ static bool do_stream(struct vmnetfs_image *img, GError **err)
     g_mutex_unlock(cs->lock);
 
     /* Handle fetch errors */
-    if (state->err) {
-        /* Callback errors override transport errors */
-        g_clear_error(&my_err);
-        g_propagate_error(&my_err, state->err);
-    }
     if (my_err) {
         g_propagate_prefixed_error(err, my_err,
                 "Image streaming failed after %"G_GUINT64_FORMAT" bytes: ",

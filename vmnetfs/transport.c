@@ -35,6 +35,7 @@ struct connection {
     struct connection_pool *pool;
     CURL *curl;
     char errbuf[CURL_ERROR_SIZE];
+    GError *err;
     char *buf;
     stream_fn *callback;
     void *arg;
@@ -76,8 +77,10 @@ static size_t write_callback(void *data, size_t size, size_t nmemb,
     struct connection *conn = private;
     uint64_t count = MIN(size * nmemb, conn->length - conn->offset);
 
+    g_return_val_if_fail(conn->err == NULL, 0);
+
     if (conn->callback) {
-        if (!conn->callback(conn->arg, data, count)) {
+        if (!conn->callback(conn->arg, data, count, &conn->err)) {
             return 0;
         }
     } else {
@@ -462,8 +465,14 @@ static bool fetch(struct connection_pool *cpool, const char *url,
     conn->length = length;
     conn->should_cancel = should_cancel;
     conn->should_cancel_arg = should_cancel_arg;
+    g_assert(conn->err == NULL);
 
     code = curl_easy_perform(conn->curl);
+    if (conn->err) {
+        g_propagate_error(err, conn->err);
+        conn->err = NULL;
+        goto out;
+    }
     switch (code) {
     case CURLE_OK:
         if (conn->offset != length) {

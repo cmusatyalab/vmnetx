@@ -214,7 +214,8 @@ bool _vmnetfs_ll_modified_set_size(struct vmnetfs_image *img,
         uint64_t current_size, uint64_t new_size, GError **err);
 
 /* transport */
-typedef bool (stream_fn)(void *arg, const void *buf, uint64_t count);
+typedef bool (stream_fn)(void *arg, const void *buf, uint64_t count,
+        GError **err);
 typedef bool (should_cancel_fn)(void *arg);
 bool _vmnetfs_transport_init(void);
 struct connection_pool *_vmnetfs_transport_pool_new(GError **err);
