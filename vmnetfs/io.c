@@ -1,7 +1,7 @@
 /*
  * vmnetfs - virtual machine network execution virtual filesystem
  *
- * Copyright (C) 2006-2012 Carnegie Mellon University
+ * Copyright (C) 2006-2014 Carnegie Mellon University
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as published
@@ -15,6 +15,7 @@
  * for more details.
  */
 
+#include <string.h>
 #include <inttypes.h>
 #include "vmnetfs-private.h"
 
@@ -31,6 +32,18 @@ struct chunk_lock {
     struct vmnetfs_cond *available;
     bool busy;
     uint32_t waiters;
+};
+
+struct stream_state {
+    uint64_t start_chunk;
+    uint64_t chunks;
+    GThread *thread;
+    gint stop;  /* atomic operations only */
+
+    /* Private to stream thread */
+    char *buf;
+    struct vmnetfs_cursor cur;
+    GError *err;
 };
 
 static struct chunk_state *chunk_state_new(uint64_t initial_size)
@@ -202,6 +215,171 @@ static bool fetch_data(struct vmnetfs_image *img, void *buf, uint64_t start,
             start + img->fetch_offset, count, io_interrupted, NULL, err);
 }
 
+static bool stream_callback(void *arg, const void *buf, uint64_t count)
+{
+    struct vmnetfs_image *img = arg;
+    struct stream_state *state = img->stream;
+    struct vmnetfs_cursor *cur = &state->cur;
+    const char *data = buf;
+    uint64_t cur_count = 0;
+
+    while (_vmnetfs_cursor_chunk(cur, cur_count) && count > 0) {
+        cur_count = MIN(count, cur->length);
+        memcpy(state->buf + cur->offset, data, cur_count);
+        data += cur_count;
+        count -= cur_count;
+
+        if (cur_count == cur->length) {
+            /* End of chunk */
+            if (!_vmnetfs_ll_pristine_write_chunk(img, state->buf,
+                    cur->chunk, cur->offset + cur->length, &state->err)) {
+                return false;
+            }
+            if (cur->offset + cur->length == img->chunk_size) {
+                /* We are advancing to the next chunk, so release lock */
+                chunk_unlock(img, cur->chunk);
+            }
+        }
+    }
+    /* transport should ensure we don't receive more data than requested */
+    g_assert(count == 0);
+
+    return true;
+}
+
+static bool stream_should_stop(void *arg)
+{
+    struct vmnetfs_image *img = arg;
+
+    return g_atomic_int_get(&img->stream->stop);
+}
+
+static bool do_stream(struct vmnetfs_image *img, GError **err)
+{
+    struct stream_state *state = img->stream;
+    struct chunk_state *cs = img->chunk_state;
+    uint64_t offset = state->start_chunk * img->chunk_size;
+    uint64_t chunk;
+    GError *my_err = NULL;
+
+    /* Set up */
+    _vmnetfs_cursor_start(img, &state->cur, offset,
+            img->initial_size - offset);
+
+    /* Fetch data */
+    state->buf = g_malloc(img->chunk_size);
+    _vmnetfs_transport_fetch_stream_once(img->cpool, img->url,
+            img->username, img->password, img->etag, img->last_modified,
+            stream_callback, img, img->fetch_offset + offset,
+            img->initial_size - offset, stream_should_stop, img, &my_err);
+    g_free(state->buf);
+    /* transport will report short reads */
+
+    /* Release remaining chunk locks */
+    g_mutex_lock(cs->lock);
+    for (chunk = state->cur.chunk; chunk < state->chunks; chunk++) {
+        _chunk_unlock(cs, chunk);
+    }
+    g_mutex_unlock(cs->lock);
+
+    /* Handle fetch errors */
+    if (state->err) {
+        /* Callback errors override transport errors */
+        g_clear_error(&my_err);
+        g_propagate_error(&my_err, state->err);
+    }
+    if (my_err) {
+        g_propagate_prefixed_error(err, my_err,
+                "Image streaming failed after %"G_GUINT64_FORMAT" bytes: ",
+                state->cur.io_offset);
+        return false;
+    }
+
+    return true;
+}
+
+static void *stream_thread(void *data)
+{
+    struct vmnetfs_image *img = data;
+    GError *my_err = NULL;
+
+    if (!do_stream(img, &my_err)) {
+        if (!g_error_matches(my_err, VMNETFS_IO_ERROR,
+                VMNETFS_IO_ERROR_INTERRUPTED)) {
+            g_warning("%s", my_err->message);
+        }
+        g_clear_error(&my_err);
+    }
+    return NULL;
+}
+
+/* Must run before FUSE starts serving requests. */
+static bool stream_start(struct vmnetfs_image *img, GError **err)
+{
+    struct chunk_state *cs = img->chunk_state;
+    uint64_t chunks = (img->initial_size + img->chunk_size - 1) /
+            img->chunk_size;
+    uint64_t start_chunk;
+    uint64_t chunk;
+
+    g_assert(!img->stream);
+
+    /* If we already have the last chunk, we don't need to stream */
+    if (_vmnetfs_bit_test(img->present_map, chunks - 1)) {
+        return true;
+    }
+
+    /* Find first missing chunk */
+    for (start_chunk = 0; start_chunk < chunks; start_chunk++) {
+        if (!_vmnetfs_bit_test(img->present_map, start_chunk)) {
+            break;
+        }
+    }
+
+    /* Lock chunks to be streamed */
+    g_mutex_lock(cs->lock);
+    for (chunk = start_chunk; chunk < chunks; chunk++) {
+        if (!_chunk_trylock(cs, chunk, NULL, err)) {
+            goto bad_locked;
+        }
+    }
+    g_mutex_unlock(cs->lock);
+
+    /* Allocate state */
+    img->stream = g_slice_new0(struct stream_state);
+    img->stream->start_chunk = start_chunk;
+    img->stream->chunks = chunks;
+
+    /* Start streamer */
+    img->stream->thread = g_thread_create(stream_thread, img, TRUE, err);
+    if (!img->stream->thread) {
+        goto bad;
+    }
+
+    return true;
+
+bad:
+    g_mutex_lock(cs->lock);
+bad_locked:
+    do {
+        _chunk_unlock(cs, --chunk);
+    } while (chunk > start_chunk);
+    g_mutex_unlock(cs->lock);
+
+    if (img->stream) {
+        g_slice_free(struct stream_state, img->stream);
+        img->stream = NULL;
+    }
+    return false;
+}
+
+static void stream_stop(struct vmnetfs_image *img)
+{
+    if (img->stream) {
+        g_atomic_int_set(&img->stream->stop, 1);
+    }
+}
+
 bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err)
 {
     GList *cur;
@@ -238,10 +416,24 @@ bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err)
     return true;
 }
 
+/* Cannot fail because we have already committed to launch. */
+void _vmnetfs_io_open(struct vmnetfs_image *img)
+{
+    GError *my_err = NULL;
+
+    if (img->fetch_mode == FETCH_MODE_STREAM) {
+        if (!stream_start(img, &my_err)) {
+            g_warning("Couldn't start streaming: %s", my_err->message);
+            g_clear_error(&my_err);
+        }
+    }
+}
+
 void _vmnetfs_io_close(struct vmnetfs_image *img)
 {
     struct chunk_state *cs = img->chunk_state;
 
+    stream_stop(img);
     _vmnetfs_bit_group_close(img->bitmaps);
 
     g_mutex_lock(cs->lock);
@@ -265,6 +457,11 @@ void _vmnetfs_io_destroy(struct vmnetfs_image *img)
 {
     if (img == NULL) {
         return;
+    }
+    if (img->stream) {
+        stream_stop(img);
+        g_thread_join(img->stream->thread);
+        g_slice_free(struct stream_state, img->stream);
     }
     _vmnetfs_ll_modified_destroy(img);
     _vmnetfs_ll_pristine_destroy(img);

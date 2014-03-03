@@ -1,7 +1,7 @@
 /*
  * vmnetfs - virtual machine network execution virtual filesystem
  *
- * Copyright (C) 2006-2013 Carnegie Mellon University
+ * Copyright (C) 2006-2014 Carnegie Mellon University
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as published
@@ -36,6 +36,8 @@ struct connection {
     CURL *curl;
     char errbuf[CURL_ERROR_SIZE];
     char *buf;
+    stream_fn *callback;
+    void *arg;
     uint64_t offset;
     uint64_t length;
     char *etag;
@@ -74,7 +76,13 @@ static size_t write_callback(void *data, size_t size, size_t nmemb,
     struct connection *conn = private;
     uint64_t count = MIN(size * nmemb, conn->length - conn->offset);
 
-    memcpy(conn->buf + conn->offset, data, count);
+    if (conn->callback) {
+        if (!conn->callback(conn->arg, data, count)) {
+            return 0;
+        }
+    } else {
+        memcpy(conn->buf + conn->offset, data, count);
+    }
     conn->offset += count;
     return count;
 }
@@ -401,7 +409,8 @@ static bool check_validators(struct connection *conn, const char *etag,
 /* Make one attempt to fetch the specified byte range from the URL. */
 static bool fetch(struct connection_pool *cpool, const char *url,
         const char *username, const char *password, const char *etag,
-        time_t last_modified, void *buf, uint64_t offset, uint64_t length,
+        time_t last_modified, void *buf, stream_fn *callback, void *arg,
+        uint64_t offset, uint64_t length,
         should_cancel_fn *should_cancel, void *should_cancel_arg,
         GError **err)
 {
@@ -441,7 +450,14 @@ static bool fetch(struct connection_pool *cpool, const char *url,
         goto out;
     }
     g_free(range);
-    conn->buf = buf;
+    if (buf) {
+        conn->buf = buf;
+        conn->callback = NULL;
+    } else {
+        conn->buf = NULL;
+        conn->callback = callback;
+        conn->arg = arg;
+    }
     conn->offset = 0;
     conn->length = length;
     conn->should_cancel = should_cancel;
@@ -504,7 +520,8 @@ bool _vmnetfs_transport_fetch(struct connection_pool *cpool, const char *url,
             sleep(TRANSPORT_RETRY_DELAY);
         }
         if (fetch(cpool, url, username, password, etag, last_modified, buf,
-                offset, length, should_cancel, should_cancel_arg, &my_err)) {
+                NULL, NULL, offset, length, should_cancel, should_cancel_arg,
+                &my_err)) {
             return true;
         }
         if (!g_error_matches(my_err, VMNETFS_TRANSPORT_ERROR,
@@ -515,4 +532,17 @@ bool _vmnetfs_transport_fetch(struct connection_pool *cpool, const char *url,
     }
     g_propagate_error(err, my_err);
     return false;
+}
+
+/* Attempt to stream the specified URL.  Do not retry. */
+bool _vmnetfs_transport_fetch_stream_once(struct connection_pool *cpool,
+        const char *url, const char *username, const char *password,
+        const char *etag, time_t last_modified, stream_fn *callback,
+        void *arg, uint64_t offset, uint64_t length,
+        should_cancel_fn *should_cancel, void *should_cancel_arg,
+        GError **err)
+{
+    return fetch(cpool, url, username, password, etag, last_modified, NULL,
+            callback, arg, offset, length, should_cancel, should_cancel_arg,
+            err);
 }

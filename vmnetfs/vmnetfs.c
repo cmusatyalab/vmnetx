@@ -1,7 +1,7 @@
 /*
  * vmnetfs - virtual machine network execution virtual filesystem
  *
- * Copyright (C) 2006-2013 Carnegie Mellon University
+ * Copyright (C) 2006-2014 Carnegie Mellon University
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as published
@@ -292,6 +292,7 @@ static bool image_add(GHashTable *images, xmlDocPtr args,
     xmlXPathContextPtr ctx;
     xmlXPathObjectPtr obj;
     xmlChar *content;
+    char *str;
     int i;
 
     ctx = make_xpath_context(args);
@@ -311,6 +312,14 @@ static bool image_add(GHashTable *images, xmlDocPtr args,
     img->etag = xpath_get_str(ctx, "v:origin/v:validators/v:etag/text()");
     img->last_modified = xpath_get_uint(ctx,
             "v:origin/v:validators/v:last-modified/text()");
+
+    str = xpath_get_str(ctx, "v:fetch/v:mode/text()");
+    if (str && !strcmp(str, "stream")) {
+        img->fetch_mode = FETCH_MODE_STREAM;
+    } else {
+        img->fetch_mode = FETCH_MODE_DEMAND;
+    }
+    g_free(str);
 
     obj = xmlXPathEval(BAD_CAST "v:origin/v:cookies/v:cookie/text()", ctx);
     for (i = 0; obj && obj->nodesetval && i < obj->nodesetval->nodeNr; i++) {
@@ -338,6 +347,14 @@ static bool image_add(GHashTable *images, xmlDocPtr args,
     g_hash_table_insert(images, xpath_get_str(ctx, "v:name/text()"), img);
     xmlXPathFreeContext(ctx);
     return true;
+}
+
+static void image_open(void *key G_GNUC_UNUSED, void *value,
+        void *data G_GNUC_UNUSED)
+{
+    struct vmnetfs_image *img = value;
+
+    _vmnetfs_io_open(img);
 }
 
 static void image_close(void *key G_GNUC_UNUSED, void *value,
@@ -492,11 +509,15 @@ static void run(FILE *pipe, const char *config_file)
     g_io_add_watch(chan, G_IO_IN | G_IO_ERR | G_IO_HUP | G_IO_NVAL,
             read_stdin, fs);
 
-    /* Started successfully.  Send the mountpoint back to the parent and
-       run FUSE event loop until the filesystem is unmounted. */
+    /* Started successfully.  Send the mountpoint back to the parent. */
     fprintf(pipe, "\n%s\n", fs->fuse->mountpoint);
     fclose(pipe);
     pipe = NULL;
+
+    /* Start image runtimes. */
+    g_hash_table_foreach(fs->images, image_open, NULL);
+
+    /* Run the FUSE event loop until the filesystem is unmounted. */
     _vmnetfs_fuse_run(fs->fuse);
 
 out:

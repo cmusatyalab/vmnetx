@@ -1,7 +1,7 @@
 /*
  * vmnetfs - virtual machine network execution virtual filesystem
  *
- * Copyright (C) 2006-2012 Carnegie Mellon University
+ * Copyright (C) 2006-2014 Carnegie Mellon University
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of version 2 of the GNU General Public License as published
@@ -32,6 +32,11 @@ struct vmnetfs {
     char *censored_config;
 };
 
+enum fetch_mode {
+    FETCH_MODE_DEMAND,
+    FETCH_MODE_STREAM,
+};
+
 struct vmnetfs_image {
     char *url;
     char *username;
@@ -43,10 +48,12 @@ struct vmnetfs_image {
     uint32_t chunk_size;
     char *etag;
     time_t last_modified;
+    enum fetch_mode fetch_mode;
 
     /* io */
     struct connection_pool *cpool;
     struct chunk_state *chunk_state;
+    struct stream_state *stream;
     struct bitmap_group *bitmaps;
     struct bitmap *accessed_map;
 
@@ -171,6 +178,7 @@ void _vmnetfs_fuse_buffered_file_release(struct vmnetfs_fuse_fh *fh);
 
 /* io */
 bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err);
+void _vmnetfs_io_open(struct vmnetfs_image *img);
 void _vmnetfs_io_close(struct vmnetfs_image *img);
 bool _vmnetfs_io_image_is_closed(struct vmnetfs_image *img);
 void _vmnetfs_io_destroy(struct vmnetfs_image *img);
@@ -206,6 +214,7 @@ bool _vmnetfs_ll_modified_set_size(struct vmnetfs_image *img,
         uint64_t current_size, uint64_t new_size, GError **err);
 
 /* transport */
+typedef bool (stream_fn)(void *arg, const void *buf, uint64_t count);
 typedef bool (should_cancel_fn)(void *arg);
 bool _vmnetfs_transport_init(void);
 struct connection_pool *_vmnetfs_transport_pool_new(GError **err);
@@ -215,6 +224,12 @@ bool _vmnetfs_transport_pool_set_cookie(struct connection_pool *cpool,
 bool _vmnetfs_transport_fetch(struct connection_pool *cpool, const char *url,
         const char *username, const char *password, const char *etag,
         time_t last_modified, void *buf, uint64_t offset, uint64_t length,
+        should_cancel_fn *should_cancel, void *should_cancel_arg,
+        GError **err);
+bool _vmnetfs_transport_fetch_stream_once(struct connection_pool *cpool,
+        const char *url, const char *username, const char *password,
+        const char *etag, time_t last_modified, stream_fn *callback,
+        void *arg, uint64_t offset, uint64_t length,
         should_cancel_fn *should_cancel, void *should_cancel_arg,
         GError **err);
 
