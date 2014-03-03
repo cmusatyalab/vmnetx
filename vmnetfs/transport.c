@@ -71,6 +71,42 @@ static size_t header_callback(void *data, size_t size, size_t nmemb,
     return size * nmemb;
 }
 
+static bool check_validators(struct connection *conn, const char *etag,
+        time_t last_modified, GError **err) {
+    long filetime;
+
+    if (etag) {
+        if (conn->etag == NULL) {
+            g_set_error(err, VMNETFS_TRANSPORT_ERROR,
+                    VMNETFS_TRANSPORT_ERROR_FATAL,
+                    "Server did not return ETag");
+            return false;
+        }
+        if (strcmp(etag, conn->etag)) {
+            g_set_error(err, VMNETFS_TRANSPORT_ERROR,
+                    VMNETFS_TRANSPORT_ERROR_FATAL,
+                    "ETag mismatch; expected %s, found %s", etag, conn->etag);
+            return false;
+        }
+    }
+    if (last_modified) {
+        if (curl_easy_getinfo(conn->curl, CURLINFO_FILETIME, &filetime)) {
+            g_set_error(err, VMNETFS_TRANSPORT_ERROR,
+                    VMNETFS_TRANSPORT_ERROR_FATAL,
+                    "Couldn't read Last-Modified time");
+            return false;
+        }
+        if (filetime != last_modified) {
+            g_set_error(err, VMNETFS_TRANSPORT_ERROR,
+                    VMNETFS_TRANSPORT_ERROR_FATAL,
+                    "Timestamp mismatch; expected %"PRIu64", found %ld",
+                    (uint64_t) last_modified, filetime);
+            return false;
+        }
+    }
+    return true;
+}
+
 static size_t write_callback(void *data, size_t size, size_t nmemb,
         void *private)
 {
@@ -371,42 +407,6 @@ bool _vmnetfs_transport_pool_set_cookie(struct connection_pool *cpool,
     g_free(str);
     conn_put(conn);
     return ret;
-}
-
-static bool check_validators(struct connection *conn, const char *etag,
-        time_t last_modified, GError **err) {
-    long filetime;
-
-    if (etag) {
-        if (conn->etag == NULL) {
-            g_set_error(err, VMNETFS_TRANSPORT_ERROR,
-                    VMNETFS_TRANSPORT_ERROR_FATAL,
-                    "Server did not return ETag");
-            return false;
-        }
-        if (strcmp(etag, conn->etag)) {
-            g_set_error(err, VMNETFS_TRANSPORT_ERROR,
-                    VMNETFS_TRANSPORT_ERROR_FATAL,
-                    "ETag mismatch; expected %s, found %s", etag, conn->etag);
-            return false;
-        }
-    }
-    if (last_modified) {
-        if (curl_easy_getinfo(conn->curl, CURLINFO_FILETIME, &filetime)) {
-            g_set_error(err, VMNETFS_TRANSPORT_ERROR,
-                    VMNETFS_TRANSPORT_ERROR_FATAL,
-                    "Couldn't read Last-Modified time");
-            return false;
-        }
-        if (filetime != last_modified) {
-            g_set_error(err, VMNETFS_TRANSPORT_ERROR,
-                    VMNETFS_TRANSPORT_ERROR_FATAL,
-                    "Timestamp mismatch; expected %"PRIu64", found %ld",
-                    (uint64_t) last_modified, filetime);
-            return false;
-        }
-    }
-    return true;
 }
 
 /* Make one attempt to fetch the specified byte range from the URL. */
