@@ -1,7 +1,7 @@
 #
 # vmnetx.controller.local - Execution of a VM with libvirt
 #
-# Copyright (C) 2008-2013 Carnegie Mellon University
+# Copyright (C) 2008-2014 Carnegie Mellon University
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of version 2 of the GNU General Public License as published
@@ -63,10 +63,11 @@ LibvirtEventImpl().register()
 
 class _Image(object):
     def __init__(self, label, range, username=None, password=None,
-            chunk_size=131072):
+            chunk_size=131072, stream=False):
         self.label = label
         self.username = username
         self.password = password
+        self.stream = stream
         self.cookies = range.source.cookies
         self.url = range.source.url
         self.offset = range.offset
@@ -146,6 +147,9 @@ class _Image(object):
             e.cache(
                 e.path(self.cache),
                 e('chunk-size', str(self.chunk_size)),
+            ),
+            e.fetch(
+                e.mode('stream' if self.stream else 'demand'),
             ),
         )
     # pylint: enable=protected-access
@@ -357,7 +361,7 @@ class LocalController(Controller):
                 username=self.username, password=self.password).vmnetfs_config)
         if package.memory:
             image = _Image('memory', package.memory, username=self.username,
-                    password=self.password)
+                    password=self.password, stream=True)
             # Use recompressed memory image if available
             recompressed_path = image.get_recompressed_path(
                     self.RECOMPRESSION_ALGORITHM)
@@ -366,7 +370,8 @@ class LocalController(Controller):
                 gobject.idle_add(lambda:
                         _log.info('Using recompressed memory image'))
                 image = _Image('memory',
-                        SourceRange(source_open(filename=recompressed_path)))
+                        SourceRange(source_open(filename=recompressed_path)),
+                        stream=True)
             vmnetfs_config.append(image.vmnetfs_config)
 
         # Start vmnetfs
