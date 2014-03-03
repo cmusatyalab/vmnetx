@@ -41,6 +41,8 @@ struct connection {
     void *arg;
     uint64_t offset;
     uint64_t length;
+    const char *expected_etag;
+    time_t expected_last_modified;
     char *etag;
     should_cancel_fn *should_cancel;
     void *should_cancel_arg;
@@ -71,36 +73,37 @@ static size_t header_callback(void *data, size_t size, size_t nmemb,
     return size * nmemb;
 }
 
-static bool check_validators(struct connection *conn, const char *etag,
-        time_t last_modified, GError **err) {
+static bool check_validators(struct connection *conn, GError **err)
+{
     long filetime;
 
-    if (etag) {
+    if (conn->expected_etag) {
         if (conn->etag == NULL) {
             g_set_error(err, VMNETFS_TRANSPORT_ERROR,
                     VMNETFS_TRANSPORT_ERROR_FATAL,
                     "Server did not return ETag");
             return false;
         }
-        if (strcmp(etag, conn->etag)) {
+        if (strcmp(conn->expected_etag, conn->etag)) {
             g_set_error(err, VMNETFS_TRANSPORT_ERROR,
                     VMNETFS_TRANSPORT_ERROR_FATAL,
-                    "ETag mismatch; expected %s, found %s", etag, conn->etag);
+                    "ETag mismatch; expected %s, found %s",
+                    conn->expected_etag, conn->etag);
             return false;
         }
     }
-    if (last_modified) {
+    if (conn->expected_last_modified) {
         if (curl_easy_getinfo(conn->curl, CURLINFO_FILETIME, &filetime)) {
             g_set_error(err, VMNETFS_TRANSPORT_ERROR,
                     VMNETFS_TRANSPORT_ERROR_FATAL,
                     "Couldn't read Last-Modified time");
             return false;
         }
-        if (filetime != last_modified) {
+        if (filetime != conn->expected_last_modified) {
             g_set_error(err, VMNETFS_TRANSPORT_ERROR,
                     VMNETFS_TRANSPORT_ERROR_FATAL,
                     "Timestamp mismatch; expected %"PRIu64", found %ld",
-                    (uint64_t) last_modified, filetime);
+                    (uint64_t) conn->expected_last_modified, filetime);
             return false;
         }
     }
@@ -114,6 +117,13 @@ static size_t write_callback(void *data, size_t size, size_t nmemb,
     uint64_t count = MIN(size * nmemb, conn->length - conn->offset);
 
     g_return_val_if_fail(conn->err == NULL, 0);
+
+    if (conn->offset == 0) {
+        /* First received data; check validators */
+        if (!check_validators(conn, &conn->err)) {
+            return 0;
+        }
+    }
 
     if (conn->callback) {
         if (!conn->callback(conn->arg, data, count, &conn->err)) {
@@ -463,6 +473,8 @@ static bool fetch(struct connection_pool *cpool, const char *url,
     }
     conn->offset = 0;
     conn->length = length;
+    conn->expected_etag = etag;
+    conn->expected_last_modified = last_modified;
     conn->should_cancel = should_cancel;
     conn->should_cancel_arg = should_cancel_arg;
     g_assert(conn->err == NULL);
@@ -480,9 +492,8 @@ static bool fetch(struct connection_pool *cpool, const char *url,
                     VMNETFS_TRANSPORT_ERROR_FATAL,
                     "short read from server: %"PRIu64"/%"PRIu64,
                     conn->offset, length);
-        } else if (check_validators(conn, etag, last_modified, err)) {
-            ret = true;
         }
+        ret = true;
         break;
     case CURLE_COULDNT_RESOLVE_PROXY:
     case CURLE_COULDNT_RESOLVE_HOST:
