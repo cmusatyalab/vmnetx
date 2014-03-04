@@ -43,7 +43,9 @@ if sys.platform == 'win32':
     from ..win32 import windows_vmnetx_init as platform_init
 else:
     def platform_init():
-        pass
+        # Ignore SIGPIPE so memory image recompression will get EPIPE if a
+        # compressor dies.
+        signal.signal(signal.SIGPIPE, signal.SIG_IGN)
 
 _log = logging.getLogger(__name__)
 
@@ -183,9 +185,6 @@ class VMNetXUI(object):
             # Attempt to catch SIGTERM.  This is dubious, but not more so
             # than the default handling of SIGINT.
             signal.signal(signal.SIGTERM, self._signal)
-            # Ignore SIGPIPE so memory image recompression will get EPIPE
-            # if a compressor dies.
-            signal.signal(signal.SIGPIPE, signal.SIG_IGN)
 
             # Platform-specific initialization
             platform_init()
