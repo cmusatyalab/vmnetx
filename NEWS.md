@@ -1,3 +1,9 @@
+VMNetX 0.4.3 (2014-03-04)
+-------------------------
+
+- Improve performance of memory image loading
+- Add example web frontend for `vmnetx-server`
+
 VMNetX 0.4.2 (2013-12-20)
 -------------------------
 
