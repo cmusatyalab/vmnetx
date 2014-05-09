@@ -89,7 +89,7 @@ virtual machine "test", you can use::
     vmnetx-generate -n "Test Machine" ~/.config/libvirt/qemu/test.xml \
         package.nxpk
 
-5. Test the virtual machine:
+5. Test the virtual machine::
 
     vmnetx package.nxpk
 
