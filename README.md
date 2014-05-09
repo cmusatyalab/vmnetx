@@ -86,12 +86,11 @@ drives that you have added.  If a suspended VM is desired, restart and then
 from the libvirt domain XML file.  For example, if you named your
 virtual machine "test", you can use:
 
-    vmnetx-generate -n "Test Machine" ~/.config/libvirt/qemu/test.xml \
-        package.nxpk
+        vmnetx-generate -n "Test Machine" ~/.config/libvirt/qemu/test.xml package.nxpk
 
 5. Test the virtual machine:
 
-    vmnetx package.nxpk
+        vmnetx package.nxpk
 
 [virt-manager]: http://virt-manager.org/
 [hw-models]: https://github.com/cmusatyalab/vmnetx/wiki/Permitted-virtual-hardware
@@ -106,7 +105,7 @@ resulting URL.
 *without* downloading the entire package, you must create a reference file.
 If the URL to your package is `http://www.example.com/test.nxpk`:
 
-    vmnetx-generate -r http://www.example.com/test.nxpk test.netx
+        vmnetx-generate -r http://www.example.com/test.nxpk test.netx
 
 3.  Upload the `test.netx` reference file to your web server and publish
 a link to it.  Your server should be configured to associate the `.netx`
