@@ -103,9 +103,6 @@ static bool G_GNUC_WARN_UNUSED_RESULT _chunk_trylock(struct chunk_state *cs,
     struct chunk_lock *cl;
     bool ret = true;
 
-    if (image_size) {
-        *image_size = 0;
-    }
     cl = g_hash_table_lookup(cs->chunk_locks, &chunk);
     if (cl != NULL) {
         cl->waiters++;
