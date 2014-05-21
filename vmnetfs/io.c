@@ -559,6 +559,24 @@ static bool copy_to_modified(struct vmnetfs_image *img, uint64_t image_size,
     return ret;
 }
 
+static bool lock_and_copy_to_modified(struct vmnetfs_image *img,
+        uint64_t chunk, GError **err) {
+    uint64_t image_size;
+    bool ret = true;
+
+    if (!chunk_trylock(img, chunk, &image_size, err)) {
+        return false;
+    }
+    /* If the chunk is still unmodified, and has not been truncated away
+       while we had the lock released, copy it to the modified cache. */
+    if (chunk * img->chunk_size < image_size &&
+            !_vmnetfs_bit_test(img->modified_map, chunk)) {
+        ret = copy_to_modified(img, image_size, chunk, err);
+    }
+    chunk_unlock(img, chunk);
+    return ret;
+}
+
 uint64_t _vmnetfs_io_write_chunk(struct vmnetfs_image *img, const void *data,
         uint64_t chunk, uint32_t offset, uint32_t length, GError **err)
 {
@@ -607,7 +625,6 @@ bool _vmnetfs_io_set_image_size(struct vmnetfs_image *img, uint64_t size,
 {
     struct chunk_state *cs = img->chunk_state;
     uint64_t chunk;
-    uint64_t image_size;
     bool ret;
 
     g_mutex_lock(cs->lock);
@@ -628,22 +645,10 @@ bool _vmnetfs_io_set_image_size(struct vmnetfs_image *img, uint64_t size,
                modified cache.  Copy it there so that subsequent expansions
                don't reveal the truncated part of the chunk. */
             g_mutex_unlock(cs->lock);
-            chunk = (size - 1) / img->chunk_size;
-            if (!chunk_trylock(img, chunk, &image_size, err)) {
+            if (!lock_and_copy_to_modified(img, (size - 1) / img->chunk_size,
+                    err)) {
                 return false;
             }
-            /* If this chunk is still unmodified, and has not been truncated
-               away while we had the lock released, copy it to the
-               modified cache. */
-            if (chunk * img->chunk_size < image_size &&
-                    !_vmnetfs_bit_test(img->modified_map, chunk)) {
-                if (!copy_to_modified(img, image_size, chunk, err)) {
-                    chunk_unlock(img, chunk);
-                    return false;
-                }
-            }
-            chunk_unlock(img, chunk);
-
             /* Image size may have changed; start over. */
             return _vmnetfs_io_set_image_size(img, size, err);
         }
