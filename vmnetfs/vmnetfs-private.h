@@ -56,6 +56,7 @@ struct vmnetfs_image {
     struct stream_state *stream;
     struct bitmap_group *bitmaps;
     struct bitmap *accessed_map;
+    struct bitmap *fetched_map;
 
     /* ll_pristine */
     struct bitmap *present_map;

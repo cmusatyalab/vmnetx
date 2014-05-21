@@ -254,6 +254,7 @@ static bool stream_callback(void *arg, const void *buf, uint64_t count,
 
         if (cur_count == cur->length) {
             /* End of chunk */
+            _vmnetfs_bit_set(img->fetched_map, cur->chunk);
             if (!_vmnetfs_ll_pristine_write_chunk(img, state->buf,
                     cur->chunk, cur->offset + cur->length, err)) {
                 return false;
@@ -430,6 +431,7 @@ bool _vmnetfs_io_init(struct vmnetfs_image *img, GError **err)
         }
     }
     img->accessed_map = _vmnetfs_bit_new(img->bitmaps, false);
+    img->fetched_map = _vmnetfs_bit_new(img->bitmaps, false);
     img->chunk_state = chunk_state_new(img->initial_size);
     return true;
 }
@@ -485,6 +487,7 @@ void _vmnetfs_io_destroy(struct vmnetfs_image *img)
     _vmnetfs_ll_pristine_destroy(img);
     chunk_state_free(img->chunk_state);
     _vmnetfs_bit_free(img->accessed_map);
+    _vmnetfs_bit_free(img->fetched_map);
     _vmnetfs_bit_group_free(img->bitmaps);
     _vmnetfs_transport_pool_free(img->cpool);
 }
@@ -522,6 +525,7 @@ static uint64_t read_chunk_unlocked(struct vmnetfs_image *img,
                 g_free(buf);
                 return 0;
             }
+            _vmnetfs_bit_set(img->fetched_map, chunk);
             bool ok = _vmnetfs_ll_pristine_write_chunk(img, buf, chunk,
                     count, err);
             g_free(buf);

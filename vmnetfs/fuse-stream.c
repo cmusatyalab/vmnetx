@@ -87,6 +87,8 @@ void _vmnetfs_fuse_stream_populate(struct vmnetfs_fuse_dentry *dir,
             _vmnetfs_bit_get_stream_group(img->accessed_map));
     _vmnetfs_fuse_add_file(streams, "chunks_cached", &stream_ops,
             _vmnetfs_bit_get_stream_group(img->present_map));
+    _vmnetfs_fuse_add_file(streams, "chunks_fetched", &stream_ops,
+            _vmnetfs_bit_get_stream_group(img->fetched_map));
     _vmnetfs_fuse_add_file(streams, "chunks_modified", &stream_ops,
             _vmnetfs_bit_get_stream_group(img->modified_map));
     _vmnetfs_fuse_add_file(streams, "io", &stream_ops, img->io_stream);
