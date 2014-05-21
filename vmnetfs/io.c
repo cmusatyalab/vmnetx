@@ -84,12 +84,38 @@ static bool _set_image_size(struct vmnetfs_image *img, uint64_t new_size,
     return true;
 }
 
-/* chunk_state lock must be held. */
+static bool lock_and_copy_to_modified(struct vmnetfs_image *img,
+        uint64_t chunk, GError **err);
+
+/* chunk_state lock must be held, and may be dropped and reacquired by
+   this function. */
 static bool expand_image(struct vmnetfs_image *img, uint64_t new_size,
         GError **err)
 {
-    g_assert(new_size > img->chunk_state->image_size);
-    return _set_image_size(img, new_size, err);
+    struct chunk_state *cs = img->chunk_state;
+    uint64_t last_chunk;
+    bool ret = true;
+
+    g_assert(new_size > cs->image_size);
+    last_chunk = (cs->image_size - 1) / img->chunk_size;
+    if (cs->image_size % img->chunk_size != 0 &&
+            !_vmnetfs_bit_test(img->modified_map, last_chunk)) {
+        /* The current last chunk is a partial chunk and is not in the
+           modified cache.  Copy it there so that accesses to the tail
+           of the chunk don't overrun the pristine cache. */
+        g_mutex_unlock(cs->lock);
+        ret = lock_and_copy_to_modified(img, last_chunk, err);
+        g_mutex_lock(cs->lock);
+        if (!ret) {
+            return false;
+        }
+    }
+    /* Don't resize image if another thread expanded it sufficiently while
+       we were unlocked */
+    if (cs->image_size < new_size) {
+        ret = _set_image_size(img, new_size, err);
+    }
+    return ret;
 }
 
 /* chunk_state lock must be held.
