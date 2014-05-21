@@ -622,8 +622,15 @@ uint64_t _vmnetfs_io_write_chunk(struct vmnetfs_image *img, const void *data,
     }
     _vmnetfs_bit_set(img->accessed_map, chunk);
     if (!_vmnetfs_bit_test(img->modified_map, chunk)) {
-        if (!copy_to_modified(img, image_size, chunk, err)) {
-            goto out;
+        if (offset == 0 && length == MIN(img->chunk_size,
+                image_size - chunk * img->chunk_size)) {
+            /* Writing the whole chunk; skip fetch. */
+            _vmnetfs_u64_stat_increment(img->chunk_dirties, 1);
+            _vmnetfs_u64_stat_increment(img->chunk_fetch_skips, 1);
+        } else {
+            if (!copy_to_modified(img, image_size, chunk, err)) {
+                goto out;
+            }
         }
     }
     if (_vmnetfs_ll_modified_write_chunk(img, image_size, data, chunk,

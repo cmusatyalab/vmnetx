@@ -35,6 +35,7 @@ static void _image_free(struct vmnetfs_image *img)
     _vmnetfs_stream_group_free(img->io_stream);
     _vmnetfs_stat_free(img->bytes_read);
     _vmnetfs_stat_free(img->bytes_written);
+    _vmnetfs_stat_free(img->chunk_fetch_skips);
     _vmnetfs_stat_free(img->chunk_fetches);
     _vmnetfs_stat_free(img->chunk_dirties);
     _vmnetfs_stat_free(img->io_errors);
@@ -334,6 +335,7 @@ static bool image_add(GHashTable *images, xmlDocPtr args,
     img->io_stream = _vmnetfs_stream_group_new(NULL, NULL);
     img->bytes_read = _vmnetfs_stat_new();
     img->bytes_written = _vmnetfs_stat_new();
+    img->chunk_fetch_skips = _vmnetfs_stat_new();
     img->chunk_fetches = _vmnetfs_stat_new();
     img->chunk_dirties = _vmnetfs_stat_new();
     img->io_errors = _vmnetfs_stat_new();
@@ -365,6 +367,7 @@ static void image_close(void *key G_GNUC_UNUSED, void *value,
     _vmnetfs_io_close(img);
     _vmnetfs_stat_close(img->bytes_read);
     _vmnetfs_stat_close(img->bytes_written);
+    _vmnetfs_stat_close(img->chunk_fetch_skips);
     _vmnetfs_stat_close(img->chunk_fetches);
     _vmnetfs_stat_close(img->chunk_dirties);
     _vmnetfs_stat_close(img->io_errors);

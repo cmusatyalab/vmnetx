@@ -69,6 +69,7 @@ struct vmnetfs_image {
     struct vmnetfs_stream_group *io_stream;
     struct vmnetfs_stat *bytes_read;
     struct vmnetfs_stat *bytes_written;
+    struct vmnetfs_stat *chunk_fetch_skips;
     struct vmnetfs_stat *chunk_fetches;
     struct vmnetfs_stat *chunk_dirties;
     struct vmnetfs_stat *io_errors;
