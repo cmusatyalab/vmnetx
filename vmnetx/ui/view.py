@@ -20,6 +20,7 @@ import cairo
 from distutils.version import LooseVersion
 import glib
 import gobject
+from gobject import GObject
 import gtk
 import logging
 import pango
@@ -285,23 +286,22 @@ class SpiceWidget(_ViewerWidget):
         except RuntimeError:
             # No local PulseAudio, etc.
             pass
-        self._session.connect_object('channel-new', self._new_channel,
-                self._session)
+        GObject.connect(self._session, 'channel-new', self._new_channel)
         self._session.open_fd(-1)
 
     def _new_channel(self, session, channel):
         if session != self._session:
             # Stale channel; ignore
             return
-        channel.connect_object('open-fd', self._request_fd, channel)
-        channel.connect_object('channel-event', self._channel_event, channel)
+        GObject.connect(channel, 'open-fd', self._request_fd)
+        GObject.connect(channel, 'channel-event', self._channel_event)
         type = SpiceClientGtk.spice_channel_type_to_string(
                 channel.get_property('channel-type'))
         if type == 'display':
             # Create the display but don't show it until configured by
             # the server
-            channel.connect_object('display-primary-create',
-                    self._display_create, channel)
+            GObject.connect(channel, 'display-primary-create',
+                    self._display_create)
             self._destroy_display()
             self._display_channel = channel
             self._display = SpiceClientGtk.Display(self._session,
