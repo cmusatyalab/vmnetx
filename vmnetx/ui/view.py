@@ -56,9 +56,6 @@ try:
 except ImportError:
     pass
 
-# pylint chokes on Gtk widgets
-# pylint: disable=incomplete-protocol
-
 class _ViewerWidget(gtk.EventBox):
     __gsignals__ = {
         'viewer-get-fd': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
@@ -1277,5 +1274,3 @@ class FatalErrorWindow(gtk.MessageDialog):
         # RHEL 6 doesn't have MessageDialog.get_widget_for_response()
         self.get_action_area().get_children()[0].grab_focus()
         content.show_all()
-
-# pylint: enable=incomplete-protocol

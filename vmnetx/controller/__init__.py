@@ -136,7 +136,7 @@ class Controller(gobject.GObject):
     @staticmethod
     def _connect_socket(address, callback):
         def ready(sock, cond):
-            if not (cond & (glib.IO_OUT | glib.IO_ERR)):
+            if not cond & (glib.IO_OUT | glib.IO_ERR):
                 return True
             # Get error code
             err = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
