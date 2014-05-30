@@ -22,7 +22,7 @@ nobase_python_PYTHON = \
 	vmnetx/ui/view.py
 nobase_nodist_python_PYTHON = vmnetx/system.py
 CLEANFILES = vmnetx/system.py
-EXTRA_DIST = vmnetx/system.py.in pylintrc README.rst NEWS.md
+EXTRA_DIST = vmnetx/system.py.in pylintrc README.md NEWS.md
 
 nobase_dist_pkgpython_DATA = schema/reference.xsd
 
