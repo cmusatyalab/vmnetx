@@ -1,3 +1,9 @@
+VMNetX 0.4.4 (2014-05-30)
+-------------------------
+
+- Fix missing guest mouse cursor in some sessions
+- Fix some minor bugs
+
 VMNetX 0.4.3 (2014-03-04)
 -------------------------
 
