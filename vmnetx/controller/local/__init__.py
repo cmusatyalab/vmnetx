@@ -560,7 +560,6 @@ class LocalController(Controller):
                     watchdog = _QemuWatchdog(self._domain_name)
                     try:
                         # Does not return domain handle
-                        # Does not allow autodestroy
                         self._conn.restoreFlags(self._memory_image_path,
                                 self._domain_xml,
                                 libvirt.VIR_DOMAIN_SAVE_RUNNING)
@@ -568,8 +567,7 @@ class LocalController(Controller):
                         watchdog.stop()
                     domain = self._conn.lookupByName(self._domain_name)
                 else:
-                    domain = self._conn.createXML(self._domain_xml,
-                            libvirt.VIR_DOMAIN_START_AUTODESTROY)
+                    domain = self._conn.createXML(self._domain_xml, 0)
 
                 # Get viewer socket address
                 domain_xml = DomainXML(domain.XMLDesc(0),
