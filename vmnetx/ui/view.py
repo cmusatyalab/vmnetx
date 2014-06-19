@@ -1,7 +1,7 @@
 #
 # vmnetx.ui.view - vmnetx UI widgets
 #
-# Copyright (C) 2008-2013 Carnegie Mellon University
+# Copyright (C) 2008-2014 Carnegie Mellon University
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of version 2 of the GNU General Public License as published
@@ -1020,17 +1020,15 @@ class ActivityWindow(gtk.Window):
         status.show_all()
 
 
-class LoadProgressWindow(gtk.Dialog):
-    __gsignals__ = {
-        'user-cancel': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-    }
-
+class _ProgressWindow(gtk.Dialog):
     def __init__(self, parent):
-        gtk.Dialog.__init__(self, parent.get_title(), parent, gtk.DIALOG_MODAL,
-                (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL))
+        gtk.Dialog.__init__(self, parent.get_title(), parent, gtk.DIALOG_MODAL)
         self._parent = parent
         self.set_resizable(False)
-        self.connect('response', self._response)
+        self.set_deletable(False)
+        # Don't destroy window on spurious delete (response signal will
+        # still fire)
+        self.connect('delete-event', lambda _wid, _ev: True)
 
         self._progress = gtk.ProgressBar()
         self.connect('destroy', self._destroy)
@@ -1038,7 +1036,7 @@ class LoadProgressWindow(gtk.Dialog):
         box = self.get_content_area()
 
         label = gtk.Label()
-        label.set_markup('<b>Loading...</b>')
+        label.set_markup('<b>%s</b>' % self.MESSAGE)
         label.set_alignment(0, 0.5)
         label.set_padding(5, 5)
         box.pack_start(label)
@@ -1065,10 +1063,26 @@ class LoadProgressWindow(gtk.Dialog):
         self._progress.set_fraction(fraction)
         set_window_progress(self._parent, fraction)
 
+
+class _CancellableProgressWindow(_ProgressWindow):
+    __gsignals__ = {
+        'user-cancel': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+    }
+
+    def __init__(self, parent):
+        _ProgressWindow.__init__(self, parent)
+        self.set_deletable(True)
+        self.connect('response', self._response)
+        self.add_buttons(gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL)
+
     def _response(self, _wid, _id):
         self.hide()
         set_window_progress(self._parent, None)
         self.emit('user-cancel')
+
+
+class LoadProgressWindow(_CancellableProgressWindow):
+    MESSAGE = 'Loading...'
 gobject.type_register(LoadProgressWindow)
 
 
