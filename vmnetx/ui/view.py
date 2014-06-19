@@ -1166,16 +1166,21 @@ class PasswordWindow(gtk.Dialog):
         self._password.grab_focus()
 
 
-class SaveMediaWindow(gtk.FileChooserDialog):
-    PREVIEW_SIZE = 250
-
-    def __init__(self, parent, title, filename, preview):
+class SaveWindow(gtk.FileChooserDialog):
+    def __init__(self, parent, title, filename):
         gtk.FileChooserDialog.__init__(self, title, parent,
                 gtk.FILE_CHOOSER_ACTION_SAVE,
                 (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
                 gtk.STOCK_SAVE, gtk.RESPONSE_OK))
         self.set_current_name(filename)
         self.set_do_overwrite_confirmation(True)
+
+
+class SaveMediaWindow(SaveWindow):
+    PREVIEW_SIZE = 250
+
+    def __init__(self, parent, title, filename, preview):
+        SaveWindow.__init__(self, parent, title, filename)
 
         w, h = preview.get_width(), preview.get_height()
         scale = min(1, self.PREVIEW_SIZE / w, self.PREVIEW_SIZE / h)
