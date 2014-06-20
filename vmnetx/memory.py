@@ -16,7 +16,10 @@
 #
 
 from __future__ import division
+import os
 import struct
+import subprocess
+import sys
 
 class MemoryImageError(Exception):
     pass
@@ -92,3 +95,101 @@ class LibvirtQemuMemoryHeader(object):
         fh.seek(0)
         fh.write(struct.pack(self.HEADER_FORMAT, *header))
         fh.write(struct.pack('%ds' % xml_len, self.xml))
+
+
+MEMORY_COMPRESS_COMMANDS = {
+    LibvirtQemuMemoryHeader.COMPRESS_RAW: None,
+    LibvirtQemuMemoryHeader.COMPRESS_XZ: ('xz', '-9c'),
+    LibvirtQemuMemoryHeader.COMPRESS_LZOP: ('lzop', '-c'),
+}
+MEMORY_DECOMPRESS_COMMANDS = {
+    LibvirtQemuMemoryHeader.COMPRESS_RAW: None,
+    LibvirtQemuMemoryHeader.COMPRESS_XZ: ('xz', '-dc'),
+    LibvirtQemuMemoryHeader.COMPRESS_LZOP: ('lzop', '-dc', '--ignore-warn'),
+}
+
+
+def copy_memory(in_path, out_path, xml=None, compression='xz', verbose=True,
+        low_priority=False):
+    def report(line, newline=True):
+        if not verbose:
+            return
+        if newline:
+            print line
+        else:
+            print line,
+            sys.stdout.flush()
+
+    # Open files, read header
+    fin = open(in_path, 'r')
+    fout = open(out_path, 'w')
+    hdr = LibvirtQemuMemoryHeader(fin)
+
+    # Determine input and output compression
+    compress_in = hdr.compressed
+    if compress_in not in MEMORY_DECOMPRESS_COMMANDS:
+        raise MemoryImageError('Cannot decode save format %d' % compress_in)
+    if compression == 'xz':
+        compress_out = hdr.COMPRESS_XZ
+    elif compression == 'lzop':
+        compress_out = hdr.COMPRESS_LZOP
+    elif compression == None:
+        compress_out = hdr.COMPRESS_RAW
+    else:
+        raise ValueError('Unknown compression: %s' % compression)
+    if compress_out not in MEMORY_COMPRESS_COMMANDS:
+        raise ValueError('Cannot encode save format %d' % compress_out)
+
+    # Write header
+    hdr.compressed = compress_out
+    if xml is not None:
+        hdr.xml = xml
+    hdr.write(fout, extend=True)
+    fout.flush()
+
+    processes = []
+    try:
+        # Start compressor/decompressor if required
+        if compress_in != compress_out:
+            for command in (MEMORY_COMPRESS_COMMANDS[compress_out],
+                    MEMORY_DECOMPRESS_COMMANDS[compress_in]):
+                if not command:
+                    continue
+                if low_priority:
+                    # Python < 3.3 doesn't have os.setpriority(), so we use
+                    # the command-line utility
+                    command = ['nice'] + list(command)
+                pipe_r, pipe_w = os.pipe()
+                proc = subprocess.Popen(command, stdin=pipe_r, stdout=fout,
+                        close_fds=True)
+                processes.append(proc)
+                os.close(pipe_r)
+                fout.close()
+                fout = os.fdopen(pipe_w, 'w')
+
+        # Copy body; report progress
+        fin.seek(0, 2)
+        total = fin.tell()
+        hdr.seek_body(fin)
+        if compress_in != compress_out and compress_out != hdr.COMPRESS_RAW:
+            action = 'Copying and compressing'
+        else:
+            action = 'Copying'
+        while True:
+            buf = fin.read(1 << 20)
+            if not buf:
+                break
+            fout.write(buf)
+            report('\r%s memory image: %3d%%' % (action,
+                    100 * fin.tell() / total), newline=False)
+        report('')
+    finally:
+        # Clean up
+        fin.close()
+        fout.close()
+        failed = False
+        for proc in reversed(processes):
+            proc.wait()
+            failed = failed or proc.returncode
+        if failed:
+            raise IOError('Compressor/decompressor failed')

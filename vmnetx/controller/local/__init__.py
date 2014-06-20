@@ -41,8 +41,7 @@ import uuid
 from wsgiref.handlers import format_date_time as format_rfc1123_date
 
 from ...domain import DomainXML
-from ...generate import copy_memory
-from ...memory import LibvirtQemuMemoryHeader
+from ...memory import LibvirtQemuMemoryHeader, copy_memory
 from ...package import Package
 from ...source import source_open, SourceRange
 from ...util import ErrorBuffer, ensure_dir, get_cache_dir, setup_libvirt
