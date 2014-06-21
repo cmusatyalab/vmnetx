@@ -20,6 +20,7 @@ from contextlib import closing
 import libvirt
 import os
 import subprocess
+import sys
 from tempfile import NamedTemporaryFile
 
 from .domain import DomainXML, DomainXMLError
@@ -44,6 +45,15 @@ def copy_disk(in_path, type, out_path, raw=False):
 
     if ret != 0:
         raise MachineGenerationError('qemu-img failed')
+
+
+def copy_memory_progress(progress, compressing):
+    if compressing:
+        action = 'Copying and compressing'
+    else:
+        action = 'Copying'
+    print '\r%s memory image: %3d%%' % (action, progress * 100),
+    sys.stdout.flush()
 
 
 def generate_machine(name, in_xml, out_file, compress=True):
@@ -77,8 +87,12 @@ def generate_machine(name, in_xml, out_file, compress=True):
         # Copy memory
         if os.path.exists(in_memory):
             temp_memory = NamedTemporaryFile(dir=out_dir, prefix='memory-')
-            copy_memory(in_memory, temp_memory.name, domain_xml,
-                    compression='xz' if compress else None)
+            try:
+                copy_memory(in_memory, temp_memory.name, domain_xml,
+                        compression='xz' if compress else None,
+                        progress=copy_memory_progress)
+            finally:
+                print
         else:
             print 'No memory image found'
 
@@ -131,8 +145,11 @@ def compress_machine(in_file, out_file, name=None):
                 print 'Extracting memory image...'
                 package.memory.write_to_file(temp_in)
                 temp_in.flush()
-                copy_memory(temp_in.name, temp_memory.name, domain_xml,
-                        compression='xz')
+                try:
+                    copy_memory(temp_in.name, temp_memory.name, domain_xml,
+                            compression='xz', progress=copy_memory_progress)
+                finally:
+                    print
         else:
             print 'No memory image found'
 

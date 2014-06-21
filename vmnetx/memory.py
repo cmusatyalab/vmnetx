@@ -19,7 +19,6 @@ from __future__ import division
 import os
 import struct
 import subprocess
-import sys
 
 class MemoryImageError(Exception):
     pass
@@ -109,17 +108,8 @@ MEMORY_DECOMPRESS_COMMANDS = {
 }
 
 
-def copy_memory(in_path, out_path, xml=None, compression='xz', verbose=True,
-        low_priority=False):
-    def report(line, newline=True):
-        if not verbose:
-            return
-        if newline:
-            print line
-        else:
-            print line,
-            sys.stdout.flush()
-
+def copy_memory(in_path, out_path, xml=None, compression='xz',
+        progress=lambda progress, compressing: None, low_priority=False):
     # Open files, read header
     fin = open(in_path, 'r')
     fout = open(out_path, 'w')
@@ -171,18 +161,14 @@ def copy_memory(in_path, out_path, xml=None, compression='xz', verbose=True,
         fin.seek(0, 2)
         total = fin.tell()
         hdr.seek_body(fin)
-        if compress_in != compress_out and compress_out != hdr.COMPRESS_RAW:
-            action = 'Copying and compressing'
-        else:
-            action = 'Copying'
+        compressing = (compress_in != compress_out and
+                compress_out != hdr.COMPRESS_RAW)
         while True:
             buf = fin.read(1 << 20)
             if not buf:
                 break
             fout.write(buf)
-            report('\r%s memory image: %3d%%' % (action,
-                    100 * fin.tell() / total), newline=False)
-        report('')
+            progress(fin.tell() / total, compressing)
     finally:
         # Clean up
         fin.close()
