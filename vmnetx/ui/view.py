@@ -463,15 +463,18 @@ class VMWindow(gtk.Window):
         'user-screenshot': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (gtk.gdk.Pixbuf,)),
         'user-restart': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'user-save': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (gobject.TYPE_STRING,)),
         'user-quit': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
     def __init__(self, name, disk_stats, disk_chunks, disk_chunk_size,
             use_spice=True, max_mouse_rate=None, is_remote=False):
         gtk.Window.__init__(self)
-        self._agrp = VMActionGroup(self)
-        for sig in 'user-restart', 'user-quit':
-            self._agrp.connect(sig, lambda _obj, s: self.emit(s), sig)
+        self._agrp = VMActionGroup(self, name)
+        for sig in 'user-restart', 'user-save', 'user-quit':
+            self._agrp.connect(sig,
+                    lambda _obj, *args: self.emit(args[-1], *args[:-1]), sig)
         self._agrp.connect('user-screenshot', self._screenshot)
 
         self.set_title(name)
@@ -620,11 +623,14 @@ class VMActionGroup(gtk.ActionGroup):
     __gsignals__ = {
         'user-screenshot': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'user-restart': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'user-save': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (gobject.TYPE_STRING,)),
         'user-quit': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
-    def __init__(self, parent):
+    def __init__(self, parent, name):
         gtk.ActionGroup.__init__(self, 'vmnetx-global')
+        self._name = name
         def add_nonstock(name, label, tooltip, icon, handler):
             action = gtk.Action(name, label, tooltip, None)
             action.set_icon_name(icon)
@@ -680,8 +686,31 @@ class VMActionGroup(gtk.ActionGroup):
                 'Really reboot the guest?  Unsaved data will be lost.')
 
     def _quit(self, _action, parent):
-        self._confirm(parent, 'user-quit',
-                'Really quit?  All changes will be lost.')
+        dlg = gtk.MessageDialog(parent=parent,
+                type=gtk.MESSAGE_QUESTION,
+                buttons=gtk.BUTTONS_NONE,
+                flags=gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
+                message_format='Save changes before quitting?  Unsaved ' +
+                        'changes will be lost.')
+        dlg.add_buttons(
+            gtk.STOCK_QUIT, gtk.RESPONSE_NO,
+            gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+            gtk.STOCK_SAVE, gtk.RESPONSE_YES,
+        )
+        dlg.set_default_response(gtk.RESPONSE_YES)
+        result = dlg.run()
+        dlg.destroy()
+
+        if result == gtk.RESPONSE_YES:
+            dlg = SaveWindow(parent, 'Save Virtual Machine',
+                    self._name + '.nxsv')
+            result = dlg.run()
+            filename = dlg.get_filename()
+            dlg.destroy()
+            if result == gtk.RESPONSE_OK:
+                self.emit('user-save', filename)
+        elif result == gtk.RESPONSE_NO:
+            self.emit('user-quit')
 
     def _fullscreen(self, action, parent):
         if action.get_active():
