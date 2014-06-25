@@ -532,6 +532,9 @@ class VMWindow(gtk.Window):
     def set_vm_running(self, running):
         self._agrp.set_vm_running(running)
 
+    def lockout_save(self):
+        self._agrp.lockout_save()
+
     def connect_viewer(self, password):
         self._viewer.connect_viewer(password)
 
@@ -631,6 +634,7 @@ class VMActionGroup(gtk.ActionGroup):
     def __init__(self, parent, name):
         gtk.ActionGroup.__init__(self, 'vmnetx-global')
         self._name = name
+        self._can_save = True
         def add_nonstock(name, label, tooltip, icon, handler):
             action = gtk.Action(name, label, tooltip, None)
             action.set_icon_name(icon)
@@ -666,6 +670,9 @@ class VMActionGroup(gtk.ActionGroup):
         for name in ('show-activity',):
             self.get_action(name).set_sensitive(available)
 
+    def lockout_save(self):
+        self._can_save = False
+
     def _confirm(self, parent, signal, message):
         dlg = gtk.MessageDialog(parent=parent,
                 type=gtk.MESSAGE_WARNING,
@@ -686,6 +693,11 @@ class VMActionGroup(gtk.ActionGroup):
                 'Really reboot the guest?  Unsaved data will be lost.')
 
     def _quit(self, _action, parent):
+        if not self._can_save:
+            self._confirm(parent, 'user-quit',
+                    'Really quit?  All changes will be lost.')
+            return
+
         dlg = gtk.MessageDialog(parent=parent,
                 type=gtk.MESSAGE_QUESTION,
                 buttons=gtk.BUTTONS_NONE,

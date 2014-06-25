@@ -377,6 +377,7 @@ class VMNetXUI(object):
     def _io_error(self, _monitor, _name, _value):
         if not self._io_failed:
             self._io_failed = True
+            self._wind.lockout_save()
             self._wind.add_warning('dialog-error',
                     'Unable to download disk chunks. ' +
                     'The guest may experience errors.')
