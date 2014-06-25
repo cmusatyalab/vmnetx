@@ -1,7 +1,7 @@
 #
 # vmnetx.controller.local.monitor - Track vmnetfs disk and memory state
 #
-# Copyright (C) 2008-2013 Carnegie Mellon University
+# Copyright (C) 2008-2014 Carnegie Mellon University
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of version 2 of the GNU General Public License as published
@@ -46,10 +46,10 @@ class StatMonitor(_Monitor):
             # Stop accessing this stat
             return
         value = int(self._fh.readline().strip())
-        if value != self._reporter.value:
-            self._reporter.value = value
         self._source = glib.io_add_watch(self._fh, glib.IO_IN | glib.IO_ERR,
                 self._reread)
+        if value != self._reporter.value:
+            self._reporter.value = value
 
     def _reread(self, _fh, _condition):
         self.close()
@@ -197,3 +197,35 @@ class LoadProgressMonitor(_Monitor):
     def close(self):
         self._stream.close()
 gobject.type_register(LoadProgressMonitor)
+
+
+class _IOErrorReporter(object):
+    def __init__(self, emitter):
+        self._emitter = emitter
+        self._triggered = False
+
+    @property
+    def value(self):
+        return 0
+
+    @value.setter
+    def value(self, value):
+        if value and not self._triggered:
+            self._triggered = True
+            self._emitter.emit('io-failed')
+            self._emitter.close()
+
+
+class IOErrorMonitor(_Monitor):
+    __gsignals__ = {
+        'io-failed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+    }
+
+    def __init__(self, image_path):
+        _Monitor.__init__(self)
+        self._monitor = StatMonitor(_IOErrorReporter(self), image_path,
+                'io_errors')
+
+    def close(self):
+        self._monitor.close()
+gobject.type_register(IOErrorMonitor)

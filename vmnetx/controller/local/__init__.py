@@ -47,7 +47,7 @@ from ...source import source_open, SourceRange
 from ...util import ErrorBuffer, ensure_dir, get_cache_dir, setup_libvirt
 from .. import Controller, MachineExecutionError, MachineStateError, Statistic
 from .monitor import (ChunkMapMonitor, LineStreamMonitor,
-        LoadProgressMonitor, StatMonitor)
+        LoadProgressMonitor, StatMonitor, IOErrorMonitor)
 from .virtevent import LibvirtEventImpl
 from .vmnetfs import VMNetFS, NS as VMNETFS_NS
 
@@ -311,8 +311,7 @@ class LocalController(Controller):
     AUTHORIZER_NAME = 'org.olivearchive.VMNetX.Authorizer'
     AUTHORIZER_PATH = '/org/olivearchive/VMNetX/Authorizer'
     AUTHORIZER_IFACE = 'org.olivearchive.VMNetX.Authorizer'
-    STATS = ('bytes_read', 'bytes_written', 'chunk_dirties', 'chunk_fetches',
-            'io_errors')
+    STATS = ('bytes_read', 'bytes_written', 'chunk_dirties', 'chunk_fetches')
     RECOMPRESSION_ALGORITHM = 'lzop'
     _environment_ready = False
 
@@ -436,6 +435,9 @@ class LocalController(Controller):
             self.disk_stats[name] = stat
             self._monitors.append(StatMonitor(stat, disk_path, name))
         self._monitors.append(ChunkMapMonitor(self.disk_chunks, disk_path))
+        io_error_monitor = IOErrorMonitor(disk_path)
+        io_error_monitor.connect('io-failed', self._io_failed)
+        self._monitors.append(io_error_monitor)
         log_monitor = LineStreamMonitor(log_path)
         log_monitor.connect('line-emitted', self._vmnetfs_log)
         self._monitors.append(log_monitor)
@@ -538,6 +540,9 @@ class LocalController(Controller):
 
     def _vmnetfs_log(self, _monitor, line):
         _log.warning('%s', line)
+
+    def _io_failed(self, _monitor):
+        self.emit('io-failed')
 
     @Controller._ensure_state(Controller.STATE_STOPPED)
     def start_vm(self):

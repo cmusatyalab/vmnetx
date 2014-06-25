@@ -201,6 +201,7 @@ class VMNetXUI(object):
             self._controller.connect('startup-rejected-memory',
                     self._startup_rejected_memory)
             self._controller.connect('startup-failed', self._fatal_error)
+            self._controller.connect('io-failed', self._io_error)
             self._controller.connect('fatal-error', self._fatal_error)
             self._controller.connect('vm-started', self._vm_started)
             self._controller.connect('vm-stopped', self._vm_stopped)
@@ -250,9 +251,6 @@ class VMNetXUI(object):
             self._wind.connect('user-quit', self._shutdown)
             self._wind.connect('user-screenshot', self._screenshot)
             self._wind.show_all()
-            io_errors = self._controller.disk_stats.get('io_errors')
-            if io_errors is not None:
-                io_errors.connect('stat-changed', self._io_error)
 
             # Start logging
             logging.getLogger().setLevel(logging.INFO)
@@ -374,7 +372,7 @@ class VMNetXUI(object):
             self._wind.remove_warning(self._network_warning)
             self._network_warning = None
 
-    def _io_error(self, _monitor, _name, _value):
+    def _io_error(self, _obj):
         if not self._io_failed:
             self._io_failed = True
             self._wind.lockout_save()
