@@ -355,10 +355,11 @@ class ServerEndpoint(_Endpoint):
         except KeyError, e:
             raise _MessageError('Missing field in %s message: %s' % (mtype, e))
 
-    def send_auth_ok(self, state, name, limit_mouse_rate=None):
+    def send_auth_ok(self, state, name, limit_mouse_rate=None,
+            io_failed=False):
         self._authenticated = True
         self._transmit('auth-ok', state=state, name=name,
-                limit_mouse_rate=limit_mouse_rate)
+                limit_mouse_rate=limit_mouse_rate, io_failed=io_failed)
 
     def send_auth_failed(self, error=None):
         self._transmit('auth-failed', error=error)
@@ -383,6 +384,9 @@ class ServerEndpoint(_Endpoint):
 
     def send_vm_destroyed(self):
         self._transmit('vm-destroyed')
+
+    def send_io_failed(self):
+        self._transmit('io-failed')
 gobject.type_register(ServerEndpoint)
 
 
@@ -428,7 +432,8 @@ class ClientEndpoint(_Endpoint):
 
     __gsignals__ = {
         'auth-ok': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_STRING, gobject.TYPE_STRING, gobject.TYPE_UINT)),
+                (gobject.TYPE_STRING, gobject.TYPE_STRING, gobject.TYPE_UINT,
+                gobject.TYPE_BOOLEAN)),
         'auth-failed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (gobject.TYPE_STRING,)),
         'attaching-viewer': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
@@ -442,6 +447,7 @@ class ClientEndpoint(_Endpoint):
                 (gobject.TYPE_BOOLEAN,)),
         'vm-stopped': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'vm-destroyed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'io-failed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
         'pong': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
@@ -465,7 +471,8 @@ class ClientEndpoint(_Endpoint):
                 self._need_dispatch_state(self.STATE_AUTHENTICATING)
                 self._state = self.STATE_RUNNING
                 self.emit('auth-ok', msg['state'], msg['name'],
-                        msg.get('limit_mouse_rate') or 0)
+                        msg.get('limit_mouse_rate') or 0,
+                        msg.get('io_failed') or False)
 
             elif mtype == 'auth-failed':
                 self._need_dispatch_state(self.STATE_AUTHENTICATING)
@@ -508,6 +515,10 @@ class ClientEndpoint(_Endpoint):
                     return
                 self._need_dispatch_state(self.STATE_RUNNING)
                 self.emit('vm-destroyed')
+
+            elif mtype == 'io-failed':
+                self._need_dispatch_state(self.STATE_RUNNING)
+                self.emit('io-failed')
 
             elif mtype == 'pong':
                 self.emit('pong')

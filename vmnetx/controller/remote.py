@@ -38,7 +38,7 @@ class _ViewerConnection(object):
         self._endp.connect('close', self._shutdown)
         self._endp.send_authenticate(token)
 
-    def _auth_ok(self, _endp, state, _name, _max_mouse_rate):
+    def _auth_ok(self, _endp, state, _name, _max_mouse_rate, _io_failed):
         if state == 'running':
             self._endp.send_attach_viewer()
         else:
@@ -152,6 +152,9 @@ class RemoteController(Controller):
         elif self.state == self.STATE_RUNNING:
             gobject.idle_add(self.emit, 'vm-started', False)
 
+        if self.io_failed:
+            gobject.idle_add(self.emit, 'io-failed')
+
     def _attempt_connection(self, _backoff):
         self._connect_socket(self._address, self._connected)
 
@@ -178,6 +181,7 @@ class RemoteController(Controller):
             connect('vm-started', self._vm_started)
             connect('vm-stopped', self._vm_stopped)
             connect('vm-destroyed', self._vm_destroyed)
+            connect('io-failed', self._io_failed)
             connect('error', self._error)
             connect('close', self._shutdown)
             self._endp.send_authenticate(self.viewer_password)
@@ -191,13 +195,14 @@ class RemoteController(Controller):
                     ErrorBuffer('Reauthentication failed: %s' % error))
             self._endp.shutdown()
 
-    def _auth_ok(self, _endp, state, name, max_mouse_rate):
+    def _auth_ok(self, _endp, state, name, max_mouse_rate, io_failed):
         if self._phase == self.PHASE_STOP:
             return
         self.state = (self.STATE_STARTING if state == 'starting' else
                 self.STATE_RUNNING if state == 'running' else
                 self.STATE_STOPPING if state == 'stopping' else
                 self.STATE_STOPPED)
+        self.io_failed = io_failed
         self._endp.start_pinging()
         if self._phase == self.PHASE_INIT:
             self.vm_name = name
@@ -233,6 +238,11 @@ class RemoteController(Controller):
         if self._phase == self.PHASE_RUN:
             self.emit('fatal-error', ErrorBuffer('Virtual machine terminated'))
             self._endp.shutdown()
+
+    def _io_failed(self, _endp):
+        if self._phase == self.PHASE_RUN:
+            self.io_failed = True
+            self.emit('io-failed')
 
     def _error(self, _endp, message):
         if self._phase == self.PHASE_INIT:

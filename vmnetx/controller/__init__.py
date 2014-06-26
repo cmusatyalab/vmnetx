@@ -69,6 +69,7 @@ class Controller(gobject.GObject):
         self.state = self.STATE_UNINITIALIZED
         self.use_spice = True
         self.is_remote = False
+        self.io_failed = False
         self.viewer_password = None
         self.max_mouse_rate = None
         self.disk_chunk_size = None

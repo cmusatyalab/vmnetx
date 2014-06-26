@@ -542,6 +542,7 @@ class LocalController(Controller):
         _log.warning('%s', line)
 
     def _io_failed(self, _monitor):
+        self.io_failed = True
         self.emit('io-failed')
 
     @Controller._ensure_state(Controller.STATE_STOPPED)

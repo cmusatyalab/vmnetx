@@ -105,6 +105,7 @@ class _ServerConnection(gobject.GObject):
         connect('startup-failed', self._ctrl_startup_failed)
         connect('vm-started', self._ctrl_vm_started)
         connect('vm-stopped', self._ctrl_vm_stopped)
+        connect('io-failed', self._ctrl_io_failed)
 
         cs = self._controller.state
         state = ('stopped' if cs == LocalController.STATE_STOPPED else
@@ -113,7 +114,7 @@ class _ServerConnection(gobject.GObject):
                 'stopping' if cs == LocalController.STATE_STOPPING else
                 'unknown')
         self._endp.send_auth_ok(state, self._controller.vm_name,
-                self._controller.max_mouse_rate)
+                self._controller.max_mouse_rate, self._controller.io_failed)
         _log.info('Authenticated (%s, %s)', self._peer, self._instance_id)
         return True
 
@@ -186,6 +187,9 @@ class _ServerConnection(gobject.GObject):
 
     def _ctrl_vm_stopped(self, _obj):
         self._endp.send_vm_stopped()
+
+    def _ctrl_io_failed(self, _obj):
+        self._endp.send_io_failed()
 gobject.type_register(_ServerConnection)
 
 
