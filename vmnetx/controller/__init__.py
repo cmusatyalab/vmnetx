@@ -129,7 +129,7 @@ class Controller(gobject.GObject):
         callback(error=string) on error.'''
         raise NotImplementedError
 
-    def stop_vm(self):
+    def stop_vm(self, save=None):
         raise NotImplementedError
 
     def shutdown(self):
@@ -194,7 +194,7 @@ class _DummyControllerSubclass(Controller):
     def connect_viewer(self, _callback):
         raise ValueError
 
-    def stop_vm(self):
+    def stop_vm(self, save=None):
         raise ValueError
 
     def shutdown(self):

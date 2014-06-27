@@ -625,20 +625,33 @@ class LocalController(Controller):
                     self.state = self.STATE_STOPPED
                     self.emit('vm-stopped')
 
-    def stop_vm(self):
-        if (self.state == self.STATE_STARTING or
-                self.state == self.STATE_RUNNING):
+    def stop_vm(self, save=None):
+        if self.state in (self.STATE_STARTING, self.STATE_RUNNING):
             self.state = Controller.STATE_STOPPING
             self._viewer_address = None
             self._have_memory = False
             self._stop_thread = threading.Thread(name='vmnetx-stop-vm',
-                    target=self._stop_vm)
+                    target=self._stop_vm, args=(save,))
             self._stop_thread.start()
 
-    def _stop_vm(self):
+    def _save_vm(self, domain, path):
+        # Runs in worker thread.
+        try:
+            domain.saveFlags(path, None, libvirt.VIR_DOMAIN_SAVE_RUNNING)
+        except libvirt.libvirtError:
+            try:
+                domain.destroy()
+            except libvirt.libvirtError:
+                pass
+
+    def _stop_vm(self, save):
         # Thread function.
         try:
-            self._conn.lookupByName(self._domain_name).destroy()
+            domain = self._conn.lookupByName(self._domain_name)
+            if save is not None and not self.io_failed:
+                self._save_vm(domain, save)
+            else:
+                domain.destroy()
         except libvirt.libvirtError:
             # Assume that the VM did not exist or was already dying
             pass

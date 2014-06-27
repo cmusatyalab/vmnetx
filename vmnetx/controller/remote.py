@@ -309,7 +309,9 @@ class RemoteController(Controller):
                 _ViewerConnection(sock, self.viewer_password, callback)
         self._connect_socket(self._address, connected)
 
-    def stop_vm(self):
+    def stop_vm(self, save=None):
+        if save is not None:
+            raise NotImplementedError('Save not supported')
         self._want_state(self.STATE_STOPPED)
 
     def shutdown(self):

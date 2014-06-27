@@ -247,7 +247,7 @@ class VMNetXUI(object):
             self._wind.connect('viewer-get-fd', self._viewer_get_fd)
             self._wind.connect('viewer-connect', self._connect)
             self._wind.connect('user-restart', self._user_restart)
-            self._wind.connect('user-save', self._save)
+            self._wind.connect('user-save', self._user_save)
             self._wind.connect('user-quit', self._shutdown)
             self._wind.connect('user-screenshot', self._screenshot)
             self._wind.show_all()
@@ -388,6 +388,10 @@ class VMNetXUI(object):
             if response == gtk.RESPONSE_OK:
                 self._shutdown()
 
+    def _user_save(self, _obj, filename):
+        self._shutting_down = True
+        self._controller.stop_vm(filename)
+
     def _user_restart(self, _obj):
         # Just terminate the VM; the vm-stopped handler will restart it
         self._controller.stop_vm()
@@ -399,9 +403,6 @@ class VMNetXUI(object):
         else:
             self._wind.set_vm_running(False)
             self._controller.start_vm()
-
-    def _save(self, _obj, filename):
-        print 'save', filename
 
     def _shutdown(self, _obj=None):
         self._wind.show_activity(False)
