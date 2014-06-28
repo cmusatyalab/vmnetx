@@ -379,7 +379,10 @@ class LocalController(Controller):
                 image = _Image('memory',
                         SourceRange(source_open(filename=recompressed_path)),
                         stream=True)
-            vmnetfs_config.append(image.vmnetfs_config)
+        else:
+            image = _Image('memory',
+                    SourceRange(source_open(filename='/dev/null')))
+        vmnetfs_config.append(image.vmnetfs_config)
 
         # Start vmnetfs
         self._fs = VMNetFS(vmnetfs_config)
@@ -387,15 +390,14 @@ class LocalController(Controller):
         log_path = os.path.join(self._fs.mountpoint, 'log')
         disk_path = os.path.join(self._fs.mountpoint, 'disk')
         disk_image_path = os.path.join(disk_path, 'image')
+        self._memory_path = os.path.join(self._fs.mountpoint, 'memory')
+        self._memory_image_path = os.path.join(self._memory_path, 'image')
+
+        # Create recompressed memory image if missing
         if self._have_memory:
-            self._memory_path = os.path.join(self._fs.mountpoint, 'memory')
-            self._memory_image_path = os.path.join(self._memory_path, 'image')
-            # Create recompressed memory image if missing
             if not os.path.exists(recompressed_path):
                 _MemoryRecompressor(self, self.RECOMPRESSION_ALGORITHM,
                         self._memory_image_path, recompressed_path)
-        else:
-            self._memory_path = self._memory_image_path = None
 
         # Set up libvirt connection
         self._conn = libvirt.open('qemu:///session')
