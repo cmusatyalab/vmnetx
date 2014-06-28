@@ -167,6 +167,7 @@ class VMNetXUI(object):
         self._load_start = None
         self._network_warning = None
         self._save_window = None
+        self._saving = False
         self._shutting_down = False
         self._io_failed = False
         self._check_display = False
@@ -205,8 +206,9 @@ class VMNetXUI(object):
             self._controller.connect('io-failed', self._io_error)
             self._controller.connect('fatal-error', self._fatal_error)
             self._controller.connect('vm-started', self._vm_started)
-            self._controller.connect('save-progress', self._save_progress)
             self._controller.connect('vm-stopped', self._vm_stopped)
+            self._controller.connect('save-progress', self._save_progress)
+            self._controller.connect('save-complete', self._save_complete)
             self._controller.connect('network-disconnect',
                     self._network_disconnect)
             self._controller.connect('network-reconnect',
@@ -391,7 +393,7 @@ class VMNetXUI(object):
                 self._shutdown()
 
     def _user_save(self, _obj, filename):
-        self._shutting_down = True
+        self._saving = True
         self._controller.stop_vm(filename)
 
     def _user_restart(self, _obj):
@@ -404,8 +406,16 @@ class VMNetXUI(object):
             self._save_window.show_all()
         self._save_window.progress(fraction)
 
+    def _save_complete(self, _obj):
+        if self._save_window:
+            self._save_window.destroy()
+            self._save_window = None
+        self._shutdown()
+
     def _vm_stopped(self, _obj):
-        if self._shutting_down:
+        if self._saving:
+            pass
+        elif self._shutting_down:
             self._destroy_load_window()
             self._shutdown()
         else:
@@ -417,9 +427,6 @@ class VMNetXUI(object):
         self._wind.show_log(False)
         if self._update_wind:
             self._update_wind.hide()
-        if self._save_window:
-            self._save_window.destroy()
-            self._save_window = None
         self._wind.hide()
         gobject.idle_add(gtk.main_quit)
 

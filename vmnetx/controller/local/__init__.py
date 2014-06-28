@@ -648,6 +648,10 @@ class LocalController(Controller):
         if self.state == self.STATE_STOPPING:
             self.emit('save-progress', fraction)
 
+    def _memory_save_complete(self):
+        if self._save_monitor:
+            self._save_monitor.close()
+
     def _save_vm(self, domain, path):
         # Runs in worker thread.
         try:
@@ -657,13 +661,15 @@ class LocalController(Controller):
                     mem_size_kb * 1024)
             domain.saveFlags(self._memory_image_path, None,
                     libvirt.VIR_DOMAIN_SAVE_RUNNING)
+            gobject.idle_add(self.emit, 'save-progress', 1)
         except libvirt.libvirtError:
             try:
                 domain.destroy()
             except libvirt.libvirtError:
                 pass
-        gobject.idle_add(self._save_monitor.close)
-        gobject.idle_add(self.emit, 'save-progress', 1)
+        finally:
+            gobject.idle_add(self._memory_save_complete)
+            gobject.idle_add(self.emit, 'save-complete')
 
     def _stop_vm(self, save):
         # Thread function.
