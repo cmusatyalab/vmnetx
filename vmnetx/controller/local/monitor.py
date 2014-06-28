@@ -169,13 +169,12 @@ gobject.type_register(ChunkMapMonitor)
 class LoadProgressMonitor(_Monitor):
     __gsignals__ = {
         'progress': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_UINT64, gobject.TYPE_UINT64)),
+                (gobject.TYPE_DOUBLE,)),
     }
 
     def __init__(self, image_path):
         _Monitor.__init__(self)
-        self.chunks = self._read_stat(image_path, 'chunks')
-        self._chunk_size = self._read_stat(image_path, 'chunk_size')
+        self._chunks = self._read_stat(image_path, 'chunks')
         self._seen = 0
         self._stream = _ChunkStreamMonitor(os.path.join(image_path,
                 'streams', 'chunks_accessed'))
@@ -191,8 +190,7 @@ class LoadProgressMonitor(_Monitor):
         # assume that vmnetfs will never emit a chunk twice.  This is true
         # so long as the image is not resized.
         self._seen += last - first + 1
-        self.emit('progress', self._seen * self._chunk_size,
-                self.chunks * self._chunk_size)
+        self.emit('progress', self._seen / self._chunks if self._chunks else 1)
 
     def close(self):
         self._stream.close()

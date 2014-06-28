@@ -1096,11 +1096,7 @@ class _ProgressWindow(gtk.Dialog):
     def _destroy(self, _wid):
         set_window_progress(self._parent, None)
 
-    def progress(self, count, total):
-        if total != 0:
-            fraction = count / total
-        else:
-            fraction = 1
+    def progress(self, fraction):
         self._progress.set_fraction(fraction)
         set_window_progress(self._parent, fraction)
 

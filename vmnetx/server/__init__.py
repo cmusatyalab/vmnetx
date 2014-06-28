@@ -173,8 +173,8 @@ class _ServerConnection(gobject.GObject):
         self._disconnect_controller()
         self.emit('close')
 
-    def _ctrl_startup_progress(self, _obj, count, total):
-        self._endp.send_startup_progress(count / total)
+    def _ctrl_startup_progress(self, _obj, fraction):
+        self._endp.send_startup_progress(fraction)
 
     def _ctrl_startup_rejected_memory(self, _obj):
         self._endp.send_startup_rejected_memory()

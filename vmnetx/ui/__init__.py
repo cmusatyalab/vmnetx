@@ -278,13 +278,13 @@ class VMNetXUI(object):
     def _signal(self, _signum, _frame):
         raise KeyboardInterrupt
 
-    def _startup_progress(self, _obj, count, total):
+    def _startup_progress(self, _obj, fraction):
         if self._load_window is None:
             self._load_start = time.time()
             self._load_window = LoadProgressWindow(self._wind)
             self._load_window.connect('user-cancel', self._startup_cancel)
             self._load_window.show_all()
-        self._load_window.progress(count, total)
+        self._load_window.progress(fraction)
 
     def _startup_cancel(self, _obj):
         self._shutting_down = True

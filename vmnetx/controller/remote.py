@@ -214,7 +214,7 @@ class RemoteController(Controller):
 
     def _startup_progress(self, _endp, fraction):
         if self._phase == self.PHASE_RUN:
-            self.emit('startup-progress', int(fraction * 10000), 10000)
+            self.emit('startup-progress', fraction)
 
     def _vm_started(self, _endp, check_display):
         if self._phase == self.PHASE_RUN:

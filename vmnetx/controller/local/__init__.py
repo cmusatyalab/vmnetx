@@ -550,7 +550,7 @@ class LocalController(Controller):
         self.state = self.STATE_STARTING
         self._startup_running = True
         if self._have_memory:
-            self.emit('startup-progress', 0, self._load_monitor.chunks)
+            self.emit('startup-progress', 0)
         threading.Thread(name='vmnetx-startup', target=self._startup).start()
 
     # We intentionally catch all exceptions
@@ -605,9 +605,9 @@ class LocalController(Controller):
             self._startup_running = False
     # pylint: enable=bare-except
 
-    def _load_progress(self, _obj, count, total):
+    def _load_progress(self, _obj, fraction):
         if self._have_memory and self.state == self.STATE_STARTING:
-            self.emit('startup-progress', count, total)
+            self.emit('startup-progress', fraction)
 
     def connect_viewer(self, callback):
         if self.state != self.STATE_RUNNING:
