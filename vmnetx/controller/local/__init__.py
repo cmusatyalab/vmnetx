@@ -47,7 +47,7 @@ from ...source import source_open, SourceRange
 from ...util import ErrorBuffer, ensure_dir, get_cache_dir, setup_libvirt
 from .. import Controller, MachineExecutionError, MachineStateError, Statistic
 from .monitor import (ChunkMapMonitor, LineStreamMonitor,
-        LoadProgressMonitor, StatMonitor, IOErrorMonitor)
+        LoadProgressMonitor, SaveProgressMonitor, StatMonitor, IOErrorMonitor)
 from .virtevent import LibvirtEventImpl
 from .vmnetfs import VMNetFS, NS as VMNETFS_NS
 
@@ -323,6 +323,7 @@ class LocalController(Controller):
         self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
         self._package = package
         self._have_memory = False
+        self._memory_path = None
         self._memory_image_path = None
         self._fs = None
         self._conn = None
@@ -333,6 +334,7 @@ class LocalController(Controller):
         self._viewer_address = None
         self._monitors = []
         self._load_monitor = None
+        self._save_monitor = None
         self.viewer_password = viewer_password
 
     @Controller._ensure_state(Controller.STATE_UNINITIALIZED)
@@ -378,14 +380,14 @@ class LocalController(Controller):
         disk_path = os.path.join(self._fs.mountpoint, 'disk')
         disk_image_path = os.path.join(disk_path, 'image')
         if package.memory:
-            memory_path = os.path.join(self._fs.mountpoint, 'memory')
-            self._memory_image_path = os.path.join(memory_path, 'image')
+            self._memory_path = os.path.join(self._fs.mountpoint, 'memory')
+            self._memory_image_path = os.path.join(self._memory_path, 'image')
             # Create recompressed memory image if missing
             if not os.path.exists(recompressed_path):
                 _MemoryRecompressor(self, self.RECOMPRESSION_ALGORITHM,
                         self._memory_image_path, recompressed_path)
         else:
-            memory_path = self._memory_image_path = None
+            self._memory_path = self._memory_image_path = None
 
         # Set up libvirt connection
         self._conn = libvirt.open('qemu:///session')
@@ -421,7 +423,7 @@ class LocalController(Controller):
 
         # Set configuration
         self.vm_name = package.name
-        self._have_memory = memory_path is not None
+        self._have_memory = self._memory_path is not None
         self.max_mouse_rate = domain_xml.max_mouse_rate
 
         # Set chunk size
@@ -442,7 +444,7 @@ class LocalController(Controller):
         log_monitor.connect('line-emitted', self._vmnetfs_log)
         self._monitors.append(log_monitor)
         if self._have_memory:
-            self._load_monitor = LoadProgressMonitor(memory_path)
+            self._load_monitor = LoadProgressMonitor(self._memory_path)
             self._load_monitor.connect('progress', self._load_progress)
 
         # Kick off state machine after main loop starts
@@ -634,15 +636,34 @@ class LocalController(Controller):
                     target=self._stop_vm, args=(save,))
             self._stop_thread.start()
 
+    def _initiate_memory_save_progress(self, expected_bytes):
+        if self._save_monitor:
+            return
+        self._save_monitor = SaveProgressMonitor(self._memory_path,
+                expected_bytes)
+        self._save_monitor.connect('progress', self._memory_save_progress)
+        self.emit('save-progress', 0)
+
+    def _memory_save_progress(self, _obj, fraction):
+        if self.state == self.STATE_STOPPING:
+            self.emit('save-progress', fraction)
+
     def _save_vm(self, domain, path):
         # Runs in worker thread.
         try:
-            domain.saveFlags(path, None, libvirt.VIR_DOMAIN_SAVE_RUNNING)
+            # RSS overestimates the memory image size, but not by very much
+            mem_size_kb = domain.memoryStats()['rss']
+            gobject.idle_add(self._initiate_memory_save_progress,
+                    mem_size_kb * 1024)
+            domain.saveFlags(self._memory_image_path, None,
+                    libvirt.VIR_DOMAIN_SAVE_RUNNING)
         except libvirt.libvirtError:
             try:
                 domain.destroy()
             except libvirt.libvirtError:
                 pass
+        gobject.idle_add(self._save_monitor.close)
+        gobject.idle_add(self.emit, 'save-progress', 1)
 
     def _stop_vm(self, save):
         # Thread function.

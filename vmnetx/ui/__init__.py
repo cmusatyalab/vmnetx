@@ -35,9 +35,9 @@ from ..controller import Controller
 from ..system import __version__, update_check_url
 from ..util import (NeedAuthentication, get_cache_dir, get_requests_session,
         open_browser, dup, rename)
-from .view import (VMWindow, LoadProgressWindow, PasswordWindow,
-        SaveMediaWindow, ErrorWindow, FatalErrorWindow, IgnorableErrorWindow,
-        UpdateWindow, have_spice_viewer)
+from .view import (VMWindow, LoadProgressWindow, SaveProgressWindow,
+        PasswordWindow, SaveMediaWindow, ErrorWindow, FatalErrorWindow,
+        IgnorableErrorWindow, UpdateWindow, have_spice_viewer)
 
 if sys.platform == 'win32':
     from ..win32 import windows_vmnetx_init as platform_init
@@ -166,6 +166,7 @@ class VMNetXUI(object):
         self._load_window = None
         self._load_start = None
         self._network_warning = None
+        self._save_window = None
         self._shutting_down = False
         self._io_failed = False
         self._check_display = False
@@ -204,6 +205,7 @@ class VMNetXUI(object):
             self._controller.connect('io-failed', self._io_error)
             self._controller.connect('fatal-error', self._fatal_error)
             self._controller.connect('vm-started', self._vm_started)
+            self._controller.connect('save-progress', self._save_progress)
             self._controller.connect('vm-stopped', self._vm_stopped)
             self._controller.connect('network-disconnect',
                     self._network_disconnect)
@@ -396,6 +398,12 @@ class VMNetXUI(object):
         # Just terminate the VM; the vm-stopped handler will restart it
         self._controller.stop_vm()
 
+    def _save_progress(self, _obj, fraction):
+        if self._save_window is None:
+            self._save_window = SaveProgressWindow(self._wind)
+            self._save_window.show_all()
+        self._save_window.progress(fraction)
+
     def _vm_stopped(self, _obj):
         if self._shutting_down:
             self._destroy_load_window()
@@ -409,6 +417,9 @@ class VMNetXUI(object):
         self._wind.show_log(False)
         if self._update_wind:
             self._update_wind.hide()
+        if self._save_window:
+            self._save_window.destroy()
+            self._save_window = None
         self._wind.hide()
         gobject.idle_add(gtk.main_quit)
 

@@ -1123,6 +1123,11 @@ class LoadProgressWindow(_CancellableProgressWindow):
 gobject.type_register(LoadProgressWindow)
 
 
+class SaveProgressWindow(_ProgressWindow):
+    MESSAGE = 'Saving...'
+gobject.type_register(SaveProgressWindow)
+
+
 class PasswordWindow(gtk.Dialog):
     def __init__(self, site, realm):
         gtk.Dialog.__init__(self, 'Log in', None, gtk.DIALOG_MODAL,

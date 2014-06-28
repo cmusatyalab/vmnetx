@@ -19,6 +19,7 @@ from __future__ import division
 import glib
 import gobject
 import io
+import math
 import os
 
 from .. import ChunkStateArray, Statistic
@@ -190,7 +191,11 @@ class _MemoryProgressMonitor(_Monitor):
         # assume that vmnetfs will never emit a chunk twice.  This is true
         # so long as the image is not resized.
         self._seen += last - first + 1
-        self.emit('progress', self._seen / self._chunks if self._chunks else 1)
+        if self._chunks:
+            fraction = min(self._seen / self._chunks, 1)
+        else:
+            fraction = 1
+        self.emit('progress', fraction)
 
     def close(self):
         self._stream.close()
@@ -203,6 +208,16 @@ class LoadProgressMonitor(_MemoryProgressMonitor):
         _MemoryProgressMonitor.__init__(self, image_path,
                 self._read_stat(image_path, 'chunks'))
 gobject.type_register(LoadProgressMonitor)
+
+
+class SaveProgressMonitor(_MemoryProgressMonitor):
+    STREAM_NAME = 'chunks_modified'
+
+    def __init__(self, image_path, expected_bytes):
+        chunk_size = self._read_stat(image_path, 'chunk_size')
+        _MemoryProgressMonitor.__init__(self, image_path,
+                math.ceil(expected_bytes / chunk_size))
+gobject.type_register(SaveProgressMonitor)
 
 
 class _IOErrorReporter(object):
