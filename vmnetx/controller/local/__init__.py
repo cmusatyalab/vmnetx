@@ -315,6 +315,9 @@ class LocalController(Controller):
     RECOMPRESSION_ALGORITHM = 'lzop'
     _environment_ready = False
 
+    SAVE_PROGRESS_DOMAIN = 0.5
+    SAVE_PROGRESS_COMPRESS = 0.5
+
     def __init__(self, url=None, package=None, use_spice=True,
             viewer_password=None):
         Controller.__init__(self)
@@ -330,6 +333,7 @@ class LocalController(Controller):
         self._conn_callbacks = []
         self._startup_running = False
         self._stop_thread = None
+        self._original_domain_xml = None
         self._domain_xml = None
         self._viewer_address = None
         self._monitors = []
@@ -350,8 +354,9 @@ class LocalController(Controller):
         else:
             package = self._package
 
-        # Validate domain XML
-        domain_xml = DomainXML(package.domain.data)
+        # Copy and validate domain XML
+        self._original_domain_xml = package.domain.data
+        domain_xml = DomainXML(self._original_domain_xml)
 
         # Create vmnetfs config
         e = ElementMaker(namespace=VMNETFS_NS, nsmap={None: VMNETFS_NS})
@@ -646,14 +651,17 @@ class LocalController(Controller):
 
     def _memory_save_progress(self, _obj, fraction):
         if self.state == self.STATE_STOPPING:
-            self.emit('save-progress', fraction)
+            self.emit('save-progress', fraction * self.SAVE_PROGRESS_DOMAIN)
 
     def _memory_save_complete(self):
         if self._save_monitor:
             self._save_monitor.close()
+        self.emit('save-progress', self.SAVE_PROGRESS_DOMAIN)
 
     def _save_vm(self, domain, path):
         # Runs in worker thread.
+
+        # Stop domain and write memory image back to VMNetFS
         try:
             # RSS overestimates the memory image size, but not by very much
             mem_size_kb = domain.memoryStats()['rss']
@@ -661,7 +669,6 @@ class LocalController(Controller):
                     mem_size_kb * 1024)
             domain.saveFlags(self._memory_image_path, None,
                     libvirt.VIR_DOMAIN_SAVE_RUNNING)
-            gobject.idle_add(self.emit, 'save-progress', 1)
         except libvirt.libvirtError:
             try:
                 domain.destroy()
@@ -669,6 +676,18 @@ class LocalController(Controller):
                 pass
         finally:
             gobject.idle_add(self._memory_save_complete)
+
+        try:
+            # Compress memory image
+            def compress_progress(fraction, _compressing):
+                gobject.idle_add(self.emit, 'save-progress',
+                        self.SAVE_PROGRESS_DOMAIN +
+                        self.SAVE_PROGRESS_COMPRESS * fraction)
+            copy_memory(self._memory_image_path, path,
+                    xml=self._original_domain_xml,
+                    compression=self.RECOMPRESSION_ALGORITHM,
+                    progress=compress_progress)
+        finally:
             gobject.idle_add(self.emit, 'save-complete')
 
     def _stop_vm(self, save):
