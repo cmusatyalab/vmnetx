@@ -166,18 +166,18 @@ class ChunkMapMonitor(_Monitor):
 gobject.type_register(ChunkMapMonitor)
 
 
-class LoadProgressMonitor(_Monitor):
+class _MemoryProgressMonitor(_Monitor):
     __gsignals__ = {
         'progress': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (gobject.TYPE_DOUBLE,)),
     }
 
-    def __init__(self, image_path):
+    def __init__(self, image_path, chunks_total):
         _Monitor.__init__(self)
-        self._chunks = self._read_stat(image_path, 'chunks')
+        self._chunks = chunks_total
         self._seen = 0
         self._stream = _ChunkStreamMonitor(os.path.join(image_path,
-                'streams', 'chunks_accessed'))
+                'streams', self.STREAM_NAME))
         self._stream.connect('chunk-emitted', self._progress)
 
     def _read_stat(self, image_path, name):
@@ -194,6 +194,14 @@ class LoadProgressMonitor(_Monitor):
 
     def close(self):
         self._stream.close()
+
+
+class LoadProgressMonitor(_MemoryProgressMonitor):
+    STREAM_NAME = 'chunks_accessed'
+
+    def __init__(self, image_path):
+        _MemoryProgressMonitor.__init__(self, image_path,
+                self._read_stat(image_path, 'chunks'))
 gobject.type_register(LoadProgressMonitor)
 
 
