@@ -358,12 +358,15 @@ class LocalController(Controller):
         self._original_domain_xml = package.domain.data
         domain_xml = DomainXML(self._original_domain_xml)
 
+        # Check for memory image
+        self._have_memory = package.memory is not None
+
         # Create vmnetfs config
         e = ElementMaker(namespace=VMNETFS_NS, nsmap={None: VMNETFS_NS})
         vmnetfs_config = e.config()
         vmnetfs_config.append(_Image('disk', package.disk,
                 username=self.username, password=self.password).vmnetfs_config)
-        if package.memory:
+        if self._have_memory:
             image = _Image('memory', package.memory, username=self.username,
                     password=self.password, stream=True)
             # Use recompressed memory image if available
@@ -384,7 +387,7 @@ class LocalController(Controller):
         log_path = os.path.join(self._fs.mountpoint, 'log')
         disk_path = os.path.join(self._fs.mountpoint, 'disk')
         disk_image_path = os.path.join(disk_path, 'image')
-        if package.memory:
+        if self._have_memory:
             self._memory_path = os.path.join(self._fs.mountpoint, 'memory')
             self._memory_image_path = os.path.join(self._memory_path, 'image')
             # Create recompressed memory image if missing
@@ -420,7 +423,7 @@ class LocalController(Controller):
                 allow_qxl=self._qxl_is_usable(emulator)).xml
 
         # Write domain XML to memory image
-        if self._memory_image_path is not None:
+        if self._have_memory:
             with open(self._memory_image_path, 'r+') as fh:
                 hdr = LibvirtQemuMemoryHeader(fh)
                 hdr.xml = self._domain_xml
@@ -428,7 +431,6 @@ class LocalController(Controller):
 
         # Set configuration
         self.vm_name = package.name
-        self._have_memory = self._memory_path is not None
         self.max_mouse_rate = domain_xml.max_mouse_rate
 
         # Set chunk size
