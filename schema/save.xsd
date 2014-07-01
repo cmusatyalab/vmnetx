@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+vmnetx - Virtual machine network execution
+
+Copyright (C) 2012-2014 Carnegie Mellon University
+
+This program is free software; you can redistribute it and/or modify it
+under the terms of version 2 of the GNU General Public License as published
+by the Free Software Foundation.  A copy of the GNU General Public License
+should have been distributed along with this program in the file
+COPYING.
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+-->
+
+<xsd:schema xmlns="http://olivearchive.org/xmlns/vmnetx/save"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    targetNamespace="http://olivearchive.org/xmlns/vmnetx/save"
+    elementFormDefault="qualified">
+
+  <xsd:element name="save" type="SaveSpec">
+    <xsd:annotation><xsd:documentation>
+      A saved VMNetX session.
+    </xsd:documentation></xsd:annotation>
+  </xsd:element>
+
+  <xsd:complexType name="SaveSpec">
+    <xsd:all>
+      <xsd:element name="origin" type="OriginSpec">
+        <xsd:annotation><xsd:documentation>
+          The origin package.
+        </xsd:documentation></xsd:annotation>
+      </xsd:element>
+      <xsd:element name="disk" type="DiskSpec">
+        <xsd:annotation><xsd:documentation>
+          The saved disk image.
+        </xsd:documentation></xsd:annotation>
+      </xsd:element>
+      <xsd:element name="memory" type="MemorySpec" minOccurs="0">
+        <xsd:annotation><xsd:documentation>
+          The saved memory image.
+        </xsd:documentation></xsd:annotation>
+      </xsd:element>
+    </xsd:all>
+  </xsd:complexType>
+
+  <xsd:complexType name="OriginSpec">
+    <xsd:all>
+      <xsd:element name="name" type="xsd:string">
+        <xsd:annotation><xsd:documentation>
+          The virtual machine name shown to the user.
+        </xsd:documentation></xsd:annotation>
+      </xsd:element>
+    </xsd:all>
+  </xsd:complexType>
+
+  <xsd:complexType name="DiskSpec">
+    <xsd:all>
+      <xsd:element name="delta-directory" type="xsd:string">
+        <xsd:annotation><xsd:documentation>
+          The Zip directory containing modified chunks of the disk image.
+        </xsd:documentation></xsd:annotation>
+      </xsd:element>
+      <xsd:element name="size" type="xsd:unsignedLong">
+        <xsd:annotation><xsd:documentation>
+          The size of the disk image.
+        </xsd:documentation></xsd:annotation>
+      </xsd:element>
+    </xsd:all>
+  </xsd:complexType>
+
+  <xsd:complexType name="MemorySpec">
+    <xsd:all>
+      <xsd:element name="image" type="xsd:string">
+        <xsd:annotation><xsd:documentation>
+          The Zip member containing the memory image.
+        </xsd:documentation></xsd:annotation>
+      </xsd:element>
+    </xsd:all>
+  </xsd:complexType>
+</xsd:schema>

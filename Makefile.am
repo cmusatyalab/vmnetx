@@ -121,6 +121,7 @@ nobase_dist_pkgpython_DATA += \
 	schema/domain.xsd \
 	schema/domain-metadata.xsd \
 	schema/package.xsd \
+	schema/save.xsd \
 	schema/vmnetfs.xsd \
 	schema/libvirt/basictypes.rng \
 	schema/libvirt/domaincommon.rng \

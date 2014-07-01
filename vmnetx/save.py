@@ -16,16 +16,30 @@
 #
 
 from __future__ import division
+from lxml import etree
+from lxml.builder import ElementMaker
 import os
 from tempfile import NamedTemporaryFile
 import threading
 import zipfile
 
 from .memory import copy_memory
+from .system import schemadir
 from .util import ensure_ranges_nonoverlapping
 
+NS = 'http://olivearchive.org/xmlns/vmnetx/save'
+NSP = '{' + NS + '}'
+SCHEMA_PATH = os.path.join(schemadir, 'save.xsd')
+
+MANIFEST_FILENAME = 'vmnetx-save.xml'
 DISK_DIRNAME = 'disk'
 MEMORY_FILENAME = 'memory.img'
+
+
+# We want this to be a public attribute
+# pylint: disable=invalid-name
+schema = etree.XMLSchema(etree.parse(SCHEMA_PATH))
+# pylint: enable=invalid-name
 
 
 class _SaveProgressWrapper(object):
@@ -83,8 +97,9 @@ class SaveFile(object):
         raise TypeError('Non-instantiable')
 
     @classmethod
-    def create(cls, out, domain_xml, disk_path, disk_ranges, memory_path=None,
-            memory_compression='lzop', progress=lambda progress: None):
+    def create(cls, out, vm_name, domain_xml, disk_path, disk_ranges,
+            memory_path=None, memory_compression='lzop',
+            progress=lambda progress: None):
         # disk_ranges is a sequence of non-overlapping (offset, length) pairs
         ensure_ranges_nonoverlapping(disk_ranges)
 
@@ -105,6 +120,26 @@ class SaveFile(object):
         try:
             zip = zipfile.ZipFile(temp.name, 'w', zipfile.ZIP_DEFLATED, True)
             zip.comment = 'VMNetX saved session'
+
+            # Write manifest XML
+            e = ElementMaker(namespace=NS, nsmap={None: NS})
+            tree = e.save(
+                e.origin(
+                    e.name(vm_name),
+                ),
+                e.disk(
+                    e('delta-directory', DISK_DIRNAME),
+                    e.size(str(os.stat(disk_path).st_size)),
+                ),
+            )
+            if memory_path:
+                tree.append(e.memory(
+                    e.image(MEMORY_FILENAME),
+                ))
+            schema.assertValid(tree)
+            xml = etree.tostring(tree, encoding='UTF-8', pretty_print=True,
+                    xml_declaration=True)
+            zip.writestr(MANIFEST_FILENAME, xml)
 
             # Store disk chunks
             with open(disk_path, 'rb') as fh:

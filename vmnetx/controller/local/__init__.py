@@ -720,7 +720,7 @@ class LocalController(Controller):
                 gobject.idle_add(self.emit, 'save-progress',
                         self.SAVE_PROGRESS_DOMAIN_PROPORTION +
                         (1 - self.SAVE_PROGRESS_DOMAIN_PROPORTION) * fraction)
-            SaveFile.create(path, self._original_domain_xml,
+            SaveFile.create(path, self.vm_name, self._original_domain_xml,
                     self._disk_image_path, self._get_modified_disk_ranges(),
                     self._memory_image_path if have_memory else None,
                     progress=save_progress)
