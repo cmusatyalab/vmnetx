@@ -22,6 +22,7 @@ from distutils.version import LooseVersion
 import gobject
 import grp
 from hashlib import sha256
+import io
 import json
 import libvirt
 import logging
@@ -43,8 +44,10 @@ from wsgiref.handlers import format_date_time as format_rfc1123_date
 from ...domain import DomainXML
 from ...memory import LibvirtQemuMemoryHeader, copy_memory
 from ...package import Package
+from ...save import SaveFile
 from ...source import source_open, SourceRange
-from ...util import ErrorBuffer, ensure_dir, get_cache_dir, setup_libvirt
+from ...util import (ErrorBuffer, RangeConsolidator, ensure_dir,
+        get_cache_dir, setup_libvirt)
 from .. import Controller, MachineExecutionError, MachineStateError, Statistic
 from .monitor import (ChunkMapMonitor, LineStreamMonitor,
         LoadProgressMonitor, SaveProgressMonitor, StatMonitor, IOErrorMonitor)
@@ -313,10 +316,8 @@ class LocalController(Controller):
     AUTHORIZER_IFACE = 'org.olivearchive.VMNetX.Authorizer'
     STATS = ('bytes_read', 'bytes_written', 'chunk_dirties', 'chunk_fetches')
     RECOMPRESSION_ALGORITHM = 'lzop'
+    SAVE_PROGRESS_DOMAIN_PROPORTION = 0.25
     _environment_ready = False
-
-    SAVE_PROGRESS_DOMAIN = 0.5
-    SAVE_PROGRESS_COMPRESS = 0.5
 
     def __init__(self, url=None, package=None, use_spice=True,
             viewer_password=None):
@@ -658,17 +659,45 @@ class LocalController(Controller):
 
     def _memory_save_progress(self, _obj, fraction):
         if self.state == self.STATE_STOPPING:
-            self.emit('save-progress', fraction * self.SAVE_PROGRESS_DOMAIN)
+            self.emit('save-progress',
+                    fraction * self.SAVE_PROGRESS_DOMAIN_PROPORTION)
 
     def _memory_save_complete(self):
         if self._save_monitor:
             self._save_monitor.close()
-        self.emit('save-progress', self.SAVE_PROGRESS_DOMAIN)
+        self.emit('save-progress', self.SAVE_PROGRESS_DOMAIN_PROPORTION)
+
+    def _get_modified_disk_ranges(self):
+        # Read chunk list
+        # We need to set O_NONBLOCK in open() because FUSE doesn't pass
+        # through fcntl()
+        bufs = []
+        path = os.path.join(self._disk_path, 'streams', 'chunks_modified')
+        with io.FileIO(os.open(path, os.O_RDONLY | os.O_NONBLOCK)) as fh:
+            while True:
+                buf = fh.read()
+                if not buf:
+                    break
+                bufs.append(buf)
+
+        # Convert to byte ranges
+        disk_size = os.stat(self._disk_image_path).st_size
+        ranges = []
+        def new_range(first, last):
+            start = first * self.disk_chunk_size
+            count = min((last - first + 1) * self.disk_chunk_size,
+                    disk_size - start)
+            ranges.append((start, count))
+        with RangeConsolidator(new_range) as c:
+            for chunk in ''.join(bufs).split():
+                c.emit(int(chunk))
+        return ranges
 
     def _save_vm(self, domain, path):
         # Runs in worker thread.
 
         # Stop domain and write memory image back to VMNetFS
+        have_memory = False
         try:
             # RSS overestimates the memory image size, but not by very much
             mem_size_kb = domain.memoryStats()['rss']
@@ -676,6 +705,7 @@ class LocalController(Controller):
                     mem_size_kb * 1024)
             domain.saveFlags(self._memory_image_path, None,
                     libvirt.VIR_DOMAIN_SAVE_RUNNING)
+            have_memory = True
         except libvirt.libvirtError:
             try:
                 domain.destroy()
@@ -684,16 +714,16 @@ class LocalController(Controller):
         finally:
             gobject.idle_add(self._memory_save_complete)
 
+        # Write save file
         try:
-            # Compress memory image
-            def compress_progress(fraction, _compressing):
+            def save_progress(fraction):
                 gobject.idle_add(self.emit, 'save-progress',
-                        self.SAVE_PROGRESS_DOMAIN +
-                        self.SAVE_PROGRESS_COMPRESS * fraction)
-            copy_memory(self._memory_image_path, path,
-                    xml=self._original_domain_xml,
-                    compression=self.RECOMPRESSION_ALGORITHM,
-                    progress=compress_progress)
+                        self.SAVE_PROGRESS_DOMAIN_PROPORTION +
+                        (1 - self.SAVE_PROGRESS_DOMAIN_PROPORTION) * fraction)
+            SaveFile.create(path, self._original_domain_xml,
+                    self._disk_image_path, self._get_modified_disk_ranges(),
+                    self._memory_image_path if have_memory else None,
+                    progress=save_progress)
         finally:
             gobject.idle_add(self.emit, 'save-complete')
 

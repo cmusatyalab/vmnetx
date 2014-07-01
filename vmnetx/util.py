@@ -133,6 +133,17 @@ class BackoffTimer(gobject.GObject):
 gobject.type_register(BackoffTimer)
 
 
+def ensure_ranges_nonoverlapping(ranges):
+    # ranges is a sequence of (offset, length) tuples
+    min_valid = 0
+    for offset, length in ranges:
+        if length == 0:
+            continue
+        if offset < min_valid:
+            raise ValueError('Overlapping offset at %d' % offset)
+        min_valid = max(min_valid, offset + length)
+
+
 def get_cache_dir():
     if sys.platform == 'win32':
         path = os.path.join(get_local_appdata_dir(), 'VMNetX', 'Cache')
