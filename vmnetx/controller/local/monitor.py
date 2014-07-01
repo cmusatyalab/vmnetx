@@ -72,7 +72,7 @@ class _StreamMonitorBase(_Monitor):
         self._source = glib.io_add_watch(self._fh, glib.IO_IN | glib.IO_ERR,
                 self._read)
         self._buf = ''
-        # Defer initial update until requested by caller, to allow the
+        # Defer initial update until next main loop iteration, to allow the
         # caller to connect to our signal
 
     def _read(self, _fh=None, _condition=None):
@@ -98,12 +98,6 @@ class _StreamMonitorBase(_Monitor):
 
     def _handle_lines(self, lines):
         raise NotImplementedError()
-
-    def update(self):
-        def callback():
-            self._read()
-            return False
-        glib.idle_add(callback)
 
     def close(self):
         if not self._fh.closed:
@@ -157,7 +151,6 @@ class ChunkMapMonitor(_Monitor):
         for state, name in self.STREAMS.iteritems():
             m = _ChunkStreamMonitor(os.path.join(image_path, 'streams', name))
             m.connect('chunk-emitted', self._update_chunk, state)
-            m.update()
             self._monitors.append(m)
 
     def _resize_image(self, _monitor, _name, chunks):
