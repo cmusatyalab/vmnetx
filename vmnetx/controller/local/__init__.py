@@ -326,6 +326,8 @@ class LocalController(Controller):
         self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
         self._package = package
         self._have_memory = False
+        self._disk_path = None
+        self._disk_image_path = None
         self._memory_path = None
         self._memory_image_path = None
         self._fs = None
@@ -388,8 +390,8 @@ class LocalController(Controller):
         self._fs = VMNetFS(vmnetfs_config)
         self._fs.start()
         log_path = os.path.join(self._fs.mountpoint, 'log')
-        disk_path = os.path.join(self._fs.mountpoint, 'disk')
-        disk_image_path = os.path.join(disk_path, 'image')
+        self._disk_path = os.path.join(self._fs.mountpoint, 'disk')
+        self._disk_image_path = os.path.join(self._disk_path, 'image')
         self._memory_path = os.path.join(self._fs.mountpoint, 'memory')
         self._memory_image_path = os.path.join(self._memory_path, 'image')
 
@@ -420,7 +422,7 @@ class LocalController(Controller):
 
         # Get execution domain XML
         self._domain_xml = domain_xml.get_for_execution(self._domain_name,
-                emulator, disk_image_path, self.viewer_password,
+                emulator, self._disk_image_path, self.viewer_password,
                 use_spice=self.use_spice,
                 allow_qxl=self._qxl_is_usable(emulator)).xml
 
@@ -436,7 +438,7 @@ class LocalController(Controller):
         self.max_mouse_rate = domain_xml.max_mouse_rate
 
         # Set chunk size
-        path = os.path.join(disk_path, 'stats', 'chunk_size')
+        path = os.path.join(self._disk_path, 'stats', 'chunk_size')
         with open(path) as fh:
             self.disk_chunk_size = int(fh.readline().strip())
 
@@ -444,9 +446,10 @@ class LocalController(Controller):
         for name in self.STATS:
             stat = Statistic(name)
             self.disk_stats[name] = stat
-            self._monitors.append(StatMonitor(stat, disk_path, name))
-        self._monitors.append(ChunkMapMonitor(self.disk_chunks, disk_path))
-        io_error_monitor = IOErrorMonitor(disk_path)
+            self._monitors.append(StatMonitor(stat, self._disk_path, name))
+        self._monitors.append(ChunkMapMonitor(self.disk_chunks,
+                self._disk_path))
+        io_error_monitor = IOErrorMonitor(self._disk_path)
         io_error_monitor.connect('io-failed', self._io_failed)
         self._monitors.append(io_error_monitor)
         log_monitor = LineStreamMonitor(log_path)
