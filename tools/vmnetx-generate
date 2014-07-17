@@ -2,7 +2,7 @@
 #
 # vmnetx - Virtual machine network execution
 #
-# Copyright (C) 2012-2013 Carnegie Mellon University
+# Copyright (C) 2012-2014 Carnegie Mellon University
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of version 2 of the GNU General Public License as published
@@ -16,9 +16,9 @@
 # for more details.
 #
 
+import argparse
 from contextlib import closing
 import libvirt
-from optparse import OptionParser
 import sys
 
 import vmnetx
@@ -28,55 +28,90 @@ from vmnetx.generate import generate_machine
 from vmnetx.reference import PackageReference
 from vmnetx.util import setup_libvirt
 
-USAGE = 'Usage: %prog [-nu] domain-xml out-file\n' + \
-        '       %prog -r package-url out-file\n' + \
-        '       %prog -a short-name memory-MB disk-GB\n' + \
-        '       %prog -c domain-xml'
 VERSION = '%prog ' + vmnetx.__version__
 DESCRIPTION = 'Construct a VMNetX virtual machine image.'
 
-parser = OptionParser(usage=USAGE, version=VERSION, description=DESCRIPTION)
-parser.add_option('-a', '--add', dest='add',
-        help='Create a blank VM and add it to virt-manager', metavar='NAME')
-parser.add_option('-c', '--check-xml', dest='check_xml',
-        help='Validate domain XML', metavar='PATH')
-parser.add_option('-n', '--name', dest='name', default='Virtual Machine',
-        help='Name of virtual machine', metavar='NAME')
-parser.add_option('-r', '--reference', dest='reference',
-        help='Create reference to remote VM image', metavar='URL')
-parser.add_option('-u', '--uncompressed', dest='compress',
-        action='store_false', default=True,
-        help='Skip compression of disk/memory images')
+parser = argparse.ArgumentParser(description=DESCRIPTION)
+parser.add_argument('--version', action='version', version=VERSION)
+subparsers = parser.add_subparsers(title="Modes of operation")
 
-opts, args = parser.parse_args()
+
+def create(args):
+    """ Create a new, empty virtual machine in virt-manager(1). Use
+    virt-manager(1) to install and configure the VM. Once the VM is ready to be
+    packaged, it should be shut down. The VM's domain XML should be validated
+    with 'vmnetx-generate validate'. """
+    define_machine(args.shortname, args.memory, args.disk)
+
+subparser = subparsers.add_parser('create', description=create.__doc__,
+    help="Create a blank VM and add it to virt-manager")
+subparser.add_argument('shortname', metavar='short-name',
+    help="virtual machine name")
+subparser.add_argument('memory', type=int, help="allocated memory (MB)")
+subparser.add_argument('disk', type=int, help="allocated disk (GB)")
+subparser.set_defaults(func=create)
+
+
+def validate(args):
+    """ Validate the domain XML of a virtual machine to ensure that it will be
+    accepted by vmnetx(1). Modify if necessary to ensure that the domain XML
+    conforms to the requirements of vmnetx(1). If the domain XML validates
+    correctly and the VM package should include a memory image, the VM should be
+    started in virt-manager(1) and subsequently suspended.
+    'vmnetx-generate package' can then be used to generate a VMNetX virtual
+    machine package with a .nxpk extension.
+    """
+    data = args.domainXML.read()
+    with closing(libvirt.open('qemu:///session')) as conn:
+        data = DomainXML.make_backward_compatible(conn, data)
+    DomainXML(data, validate=DomainXML.VALIDATE_STRICT)
+
+subparser = subparsers.add_parser('validate', description=validate.__doc__,
+    help="Validate domain XML")
+subparser.add_argument('domainXML', type=argparse.FileType('r'))
+subparser.set_defaults(func=validate)
+
+
+def package(args):
+    """ Generate a VMNetX virtual machine package with a .nxpk extension. This
+    package file can then be uploaded to a web server. To enable users to
+    execute the virtual machine without downloading the entire package, a
+    reference file can be created using 'vmnetx-generate reference'.
+    """
+    generate_machine(args.name, args.domainXML, args.outfile,
+                     compress=not args.uncompressed)
+
+subparser = subparsers.add_parser('package', description=package.__doc__,
+    help="Create a VMNetX package")
+subparser.add_argument('-n', '--name',
+    help="Friendly name of the virtual machine, displayed in the vmnetx title bar")
+subparser.add_argument('-u', '--uncompressed', action="store_true",
+    help="Create the package with uncompressed memory and disk images")
+subparser.add_argument('domainXML')
+subparser.add_argument('outfile')
+subparser.set_defaults(func=package)
+
+
+def reference(args):
+    """ Create a reference file to a remote VMNetX package. This file should be
+    uploaded to the web server with a .netx extension and an
+    application/x-vmnetx-reference+xml content type. A link to this .netx file
+    should be published for access.
+    """
+    ref = PackageReference(args.packageURL)
+    args.outfile.write(ref.xml)
+
+subparser = subparsers.add_parser('reference', description=reference.__doc__,
+    help="Create reference file linking to a remote VMNetX package")
+subparser.add_argument('packageURL', metavar='package-url')
+subparser.add_argument('outfile', nargs='?', type=argparse.FileType('w'))
+subparser.set_defaults(func=reference)
+
+args = parser.parse_args()
+
 try:
     setup_libvirt()
-    if opts.check_xml:
-        if len(args) != 0:
-            parser.error('Incorrect mandatory arguments')
-        with open(opts.check_xml) as fh:
-            data = fh.read()
-        with closing(libvirt.open('qemu:///session')) as conn:
-            data = DomainXML.make_backward_compatible(conn, data)
-        DomainXML(data, validate=DomainXML.VALIDATE_STRICT)
-    elif opts.add:
-        if len(args) != 2:
-            parser.error('Incorrect mandatory arguments')
-        memory_mb, disk_gb = args
-        define_machine(opts.add, int(memory_mb), int(disk_gb))
-    elif opts.reference:
-        if len(args) != 1:
-            parser.error('Incorrect mandatory arguments')
-        out_file = args[0]
-        ref = PackageReference(opts.reference)
-        with open(out_file, 'w') as fh:
-            fh.write(ref.xml)
-    else:
-        if len(args) != 2:
-            parser.error('Incorrect mandatory arguments')
-        domain_xml, out_file = args
-        generate_machine(opts.name, domain_xml, out_file,
-                compress=opts.compress)
+    args.func(args)
 except KeyboardInterrupt:
     sys.exit(1)
 except Exception, e:
