@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (C) 2012-2013 Carnegie Mellon University
+.\" Copyright (C) 2012-2014 Carnegie Mellon University
 .\"
 .\" This program is free software; you can redistribute it and/or modify it
 .\" under the terms of version 2 of the GNU General Public License as published
@@ -12,7 +12,7 @@
 .\" or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 .\" for more details.
 .\"
-.TH VMNETX-GENERATE 1 2014-02-21 "VMNetX @version@" "User Commands"
+.TH VMNETX-GENERATE 1 2014-07-18 "VMNetX @version@" "User Commands"
 
 .SH NAME
 vmnetx-generate \- Construct a new VMNetX virtual machine image
@@ -28,7 +28,8 @@ vmnetx-generate \- Construct a new VMNetX virtual machine image
 .br
 .B vmnetx-generate
 .B package
-.I DOMAIN-XML \ [ \ OUT-FILE \ ]
+.RB [ \ \-n\ name \ ]\ [ \ \-u \ ]
+.I DOMAIN-XML OUT-FILE
 .br
 .B vmnetx-generate
 .B reference

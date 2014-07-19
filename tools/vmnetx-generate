@@ -37,9 +37,9 @@ subparsers = parser.add_subparsers(title="Modes of operation")
 
 
 def create(args):
-    """ Create a new, empty virtual machine in virt-manager(1). Use
+    """ Create a new, empty virtual machine in virt-manager(1). After this use
     virt-manager(1) to install and configure the VM. Once the VM is ready to be
-    packaged, it should be shut down. The VM's domain XML should be validated
+    packaged it should be shut down and the VM's domain XML should be validated
     with 'vmnetx-generate validate'. """
     define_machine(args.shortname, args.memory, args.disk)
 
@@ -56,8 +56,8 @@ def validate(args):
     """ Validate the domain XML of a virtual machine to ensure that it will be
     accepted by vmnetx(1). Modify if necessary to ensure that the domain XML
     conforms to the requirements of vmnetx(1). If the domain XML validates
-    correctly and the VM package should include a memory image, the VM should be
-    started in virt-manager(1) and subsequently suspended.
+    correctly and the VM package should include a memory image, the VM should
+    be started in virt-manager(1) and subsequently suspended.
     'vmnetx-generate package' can then be used to generate a VMNetX virtual
     machine package with a .nxpk extension.
     """
@@ -68,7 +68,8 @@ def validate(args):
 
 subparser = subparsers.add_parser('validate', description=validate.__doc__,
     help="Validate domain XML")
-subparser.add_argument('domainXML', type=argparse.FileType('r'))
+subparser.add_argument('domainXML', metavar='domain-xml',
+                       type=argparse.FileType('r'))
 subparser.set_defaults(func=validate)
 
 
@@ -84,10 +85,10 @@ def package(args):
 subparser = subparsers.add_parser('package', description=package.__doc__,
     help="Create a VMNetX package")
 subparser.add_argument('-n', '--name',
-    help="Friendly name of the virtual machine, displayed in the vmnetx title bar")
+    help="Name of virtual machine")
 subparser.add_argument('-u', '--uncompressed', action="store_true",
-    help="Create the package with uncompressed memory and disk images")
-subparser.add_argument('domainXML')
+    help="Skip compression of disk/memory images")
+subparser.add_argument('domainXML', metavar='domain-xml')
 subparser.add_argument('outfile')
 subparser.set_defaults(func=package)
 
