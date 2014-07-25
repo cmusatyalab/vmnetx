@@ -28,7 +28,7 @@ from vmnetx.generate import generate_machine
 from vmnetx.reference import PackageReference
 from vmnetx.util import setup_libvirt
 
-VERSION = '%prog ' + vmnetx.__version__
+VERSION = '%(prog)s ' + vmnetx.__version__
 DESCRIPTION = 'Construct a VMNetX virtual machine image.'
 
 parser = argparse.ArgumentParser(description=DESCRIPTION)
