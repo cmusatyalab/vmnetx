@@ -28,7 +28,9 @@ vmnetx-generate \- Construct a new VMNetX virtual machine image
 .br
 .B vmnetx-generate
 .B package
-.RB [ \ \-n\ name \ ]\ [ \ \-u \ ]
+.RB [ \-n
+.IR FRIENDLY-NAME ]
+.RB [ \-u ]
 .I DOMAIN-XML OUT-FILE
 .br
 .B vmnetx-generate
