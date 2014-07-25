@@ -1063,7 +1063,6 @@ class LoadProgressWindow(gtk.Dialog):
         hbox.pack_start(label)
 
         self._eta_label = gtk.Label()
-        self._eta_label.set_label('ETA: calculating...')
         self._eta_label.set_alignment(1, 0.5)
         self._eta_label.set_padding(5, 5)
         hbox.pack_start(self._eta_label)
@@ -1096,8 +1095,11 @@ class LoadProgressWindow(gtk.Dialog):
         set_window_progress(self._parent, fraction)
 
         elapsed = time.time() - self.start_time
-        if count != 0 and elapsed >= 5:
-            eta = humanize((elapsed / fraction) - elapsed)
+        if count != 0:
+            if elapsed >= 5:
+                eta = humanize((elapsed / fraction) - elapsed)
+            else:
+                eta = 'calculating...'
             self._eta_label.set_label('ETA: %s' % eta)
 
     def _response(self, _wid, _id):
