@@ -95,40 +95,34 @@ file should be published for access.
 vmnetx-generate has several modes of operation:
 
 .TP
-.B Create
-Create a new, empty virtual machine in
+.BI create\  SHORT-NAME\ MEMORY-MB\ DISK-GB
+Create a new, empty virtual machine with the specified name, memory size in
+MB, and disk size in GB, and add it to
 .BR virt-manager (1).
 
 .TP
-.B Validate
-Validate the domain XML of a virtual machine to ensure that it will be
-accepted by
+.BI validate\  DOMAIN-XML
+Validate the specified domain XML file for a virtual machine to ensure that
+it will be accepted by
 .BR vmnetx (1).
 
 .TP
-.B Package
-Validate the domain XML of a virtual machine, then create a VMNetX package
-containing its domain XML, virtual disk, and optionally its memory image.
+.BI package\ [-n\  FRIENDLY-NAME ]\ [-u] \ DOMAIN-XML\ OUT-FILE
+Validate the specified domain XML file for a virtual machine, then create a
+VMNetX package containing the virtual machine's domain XML, virtual disk,
+and optionally its memory image.
 
 .TP
-.B Create Reference
-Create a reference file linking to a remote virtual machine package.
+.BI reference\  PACKAGE-URL\ OUT-FILE
+Create the reference file
+.I OUT-FILE
+linking to the remote VMNetX package at
+.IR PACKAGE-URL .
 
 .SH OPTIONS
 .TP
 .BR \-h ", " \-\^\-help
 Print a usage message summarizing these options, then exit.
-.TP
-.BI create\  SHORT-NAME\ MEMORY-MB\ DISK-GB
-Create a blank virtual machine with the specified name, memory size in MB,
-and disk size in GB, and add it to
-.BR virt-manager (1).
-.TP
-.BI validate\  DOMAIN-XML
-Validate the specified domain XML file.
-.TP
-.BI package\ [\ \-n\ FRIENDLY-NAME\ ]\ [\ \-u\ ]\ DOMAIN-XML\ OUT-FILE
-Create an .nxpk package from the specified domain XML file.
 .TP
 .BI \-n\fR, "" \ \-\-name\  FRIENDLY-NAME
 The friendly name of the virtual machine, to be displayed in the
@@ -137,12 +131,6 @@ title bar.
 .TP
 .BR \-u ", " \-\-uncompressed
 Create the package with uncompressed memory and disk images.
-.TP
-.BI reference\  PACKAGE-URL\ OUT-FILE
-Create the reference file
-.I OUT-FILE
-linking to the remote VMNetX package at
-.IR PACKAGE-URL .
 .TP
 .B \-\^\-version
 Print the version number of
