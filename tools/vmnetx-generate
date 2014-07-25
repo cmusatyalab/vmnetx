@@ -56,14 +56,14 @@ def validate(args):
     accepted by vmnetx(1). Modify if necessary to ensure that the domain XML
     conforms to the requirements of vmnetx(1).
     """
-    data = args.domainXML.read()
+    data = args.domain_xml.read()
     with closing(libvirt.open('qemu:///session')) as conn:
         data = DomainXML.make_backward_compatible(conn, data)
     DomainXML(data, validate=DomainXML.VALIDATE_STRICT)
 
 subparser = subparsers.add_parser('validate', description=validate.__doc__,
     help="Validate domain XML")
-subparser.add_argument('domainXML', metavar='domain-xml',
+subparser.add_argument('domain_xml', metavar='domain-xml',
                        type=argparse.FileType('r'))
 subparser.set_defaults(func=validate)
 
@@ -72,7 +72,7 @@ def package(args):
     """ Generate a VMNetX virtual machine package with a .nxpk extension. This
     package file can then be uploaded to a web server.
     """
-    generate_machine(args.name, args.domainXML, args.outfile,
+    generate_machine(args.name, args.domain_xml, args.outfile,
                      compress=not args.uncompressed)
 
 subparser = subparsers.add_parser('package', description=package.__doc__,
@@ -81,7 +81,7 @@ subparser.add_argument('-n', '--name',
     help="Name of virtual machine")
 subparser.add_argument('-u', '--uncompressed', action="store_true",
     help="Skip compression of disk/memory images")
-subparser.add_argument('domainXML', metavar='domain-xml')
+subparser.add_argument('domain_xml', metavar='domain-xml')
 subparser.add_argument('outfile')
 subparser.set_defaults(func=package)
 
@@ -89,12 +89,12 @@ subparser.set_defaults(func=package)
 def reference(args):
     """ Create a reference file to a remote VMNetX package.
     """
-    ref = PackageReference(args.packageURL)
+    ref = PackageReference(args.package_url)
     args.outfile.write(ref.xml)
 
 subparser = subparsers.add_parser('reference', description=reference.__doc__,
     help="Create reference file linking to a remote VMNetX package")
-subparser.add_argument('packageURL', metavar='package-url')
+subparser.add_argument('package_url', metavar='package-url')
 subparser.add_argument('outfile', nargs='?', type=argparse.FileType('w'))
 subparser.set_defaults(func=reference)
 
