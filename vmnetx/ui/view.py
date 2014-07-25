@@ -25,6 +25,7 @@ import gtk
 import logging
 import pango
 import sys
+import time
 import urllib
 
 from ..controller import ChunkStateArray
@@ -1020,6 +1021,23 @@ class ActivityWindow(gtk.Window):
         status.show_all()
 
 
+def humanize(seconds):
+    if seconds < 2:
+        return "any time now"
+
+    elif seconds < 90:
+        return "%d seconds" % seconds
+
+    elif seconds < 4800:
+        return "%d minutes" % max(seconds / 60, 2)
+
+    elif seconds < 86400:
+        return "%d hours" % max(seconds / 3600, 2)
+
+    else:
+        return "more than a day"
+
+
 class LoadProgressWindow(gtk.Dialog):
     __gsignals__ = {
         'user-cancel': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
@@ -1036,12 +1054,21 @@ class LoadProgressWindow(gtk.Dialog):
         self.connect('destroy', self._destroy)
 
         box = self.get_content_area()
+        hbox = gtk.HBox()
 
         label = gtk.Label()
         label.set_markup('<b>Loading...</b>')
         label.set_alignment(0, 0.5)
         label.set_padding(5, 5)
-        box.pack_start(label)
+        hbox.pack_start(label)
+
+        self._eta_label = gtk.Label()
+        self._eta_label.set_label('ETA: calculating...')
+        self._eta_label.set_alignment(1, 0.5)
+        self._eta_label.set_padding(5, 5)
+        hbox.pack_start(self._eta_label)
+
+        box.pack_start(hbox)
 
         bin = gtk.Alignment(xscale=1)
         bin.add(self._progress)
@@ -1054,6 +1081,9 @@ class LoadProgressWindow(gtk.Dialog):
         label.set_size_request(300, 0)
         box.pack_start(label)
 
+        # track time elapsed for ETA estimates
+        self.start_time = time.time()
+
     def _destroy(self, _wid):
         set_window_progress(self._parent, None)
 
@@ -1064,6 +1094,12 @@ class LoadProgressWindow(gtk.Dialog):
             fraction = 1
         self._progress.set_fraction(fraction)
         set_window_progress(self._parent, fraction)
+
+        elapsed = time.time() - self.start_time
+        if count != 0 and elapsed >= 5:
+            eta = (elapsed / fraction) - elapsed
+            ETA = humanize(eta)
+            self._eta_label.set_label('ETA: %s' % ETA)
 
     def _response(self, _wid, _id):
         self.hide()
