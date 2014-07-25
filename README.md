@@ -31,6 +31,7 @@ You will need:
 * QEMU and KVM
 * pygtk2
 * Requests
+* argparse
 * dateutil
 * msgpack-python
 * PyYAML

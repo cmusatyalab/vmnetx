@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (C) 2012-2013 Carnegie Mellon University
+.\" Copyright (C) 2012-2014 Carnegie Mellon University
 .\"
 .\" This program is free software; you can redistribute it and/or modify it
 .\" under the terms of version 2 of the GNU General Public License as published
@@ -12,27 +12,28 @@
 .\" or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 .\" for more details.
 .\"
-.TH VMNETX-GENERATE 1 2014-02-21 "VMNetX @version@" "User Commands"
+.TH VMNETX-GENERATE 1 2014-07-25 "VMNetX @version@" "User Commands"
 
 .SH NAME
 vmnetx-generate \- Construct a new VMNetX virtual machine image
 
 .SH SYNOPSIS
 .B vmnetx-generate
-.RB [ \ \-nu \ ]
-.IR DOMAIN-XML \ [ \ OUT-FILE \ ]
-.br
-.B vmnetx-generate
-.B \-r
-.I PACKAGE-URL OUT-FILE
-.br
-.B vmnetx-generate
-.B \-a
+.B create
 .I SHORT-NAME MEMORY-MB DISK-GB
 .br
 .B vmnetx-generate
-.B \-c
+.B validate
 .I DOMAIN-XML
+.br
+.B vmnetx-generate
+.B package
+.RB [ \ \-n\ name \ ]\ [ \ \-u \ ]
+.I DOMAIN-XML OUT-FILE
+.br
+.B vmnetx-generate
+.B reference
+.I PACKAGE-URL OUT-FILE
 
 .SH DESCRIPTION
 .B vmnetx-generate
@@ -51,7 +52,7 @@ reference files linking to remote virtual machines.
 
 .SS Packaging a Virtual Machine for VMNetX
 To create a virtual machine package, begin by using
-.B vmnetx-generate -a
+.B vmnetx-generate create
 to add a new, empty VM to
 .BR virt-manager (1).
 Use
@@ -61,7 +62,7 @@ to install and configure the VM.
 .PP
 Once the VM is ready to be packaged, it should be shut down.
 The VM's domain XML should be validated with
-.B vmnetx-generate -c
+.B vmnetx-generate validate
 and modified if necessary to ensure that it conforms to the requirements of
 .BR vmnetx (1).
 If the VM package should include a memory image, the VM should then be
@@ -70,7 +71,7 @@ started in
 and subsequently suspended.
 
 .PP
-.B vmnetx-generate
+.B vmnetx-generate package
 should be used to generate a VMNetX virtual machine package with a
 .I .nxpk
 extension.  This package file can be uploaded to a web server.
@@ -80,7 +81,7 @@ To enable users to execute the virtual machine without downloading the
 entire package, you must create a
 .I reference file
 using
-.BR vmnetx-generate\ -r .
+.BR vmnetx-generate\ reference .
 This file should be uploaded to the web server with a
 .I .netx
 extension and an
@@ -115,30 +116,33 @@ Create a reference file linking to a remote virtual machine package.
 
 .SH OPTIONS
 .TP
-.BI \-a\fR, "" \ \-\-add\  SHORT-NAME\ MEMORY-MB\ DISK-GB
+.BR \-h ", " \-\^\-help
+Print a usage message summarizing these options, then exit.
+.TP
+.BI create\  SHORT-NAME\ MEMORY-MB\ DISK-GB
 Create a blank virtual machine with the specified name, memory size in MB,
 and disk size in GB, and add it to
 .BR virt-manager (1).
 .TP
-.BI \-c\fR, "" \ \-\-check\-xml\  DOMAIN-XML
+.BI validate\  DOMAIN-XML
 Validate the specified domain XML file.
 .TP
-.BR \-h ", " \-\^\-help
-Print a usage message summarizing these options, then exit.
+.BI package\ [\ \-n\ FRIENDLY-NAME\ ]\ [\ \-u\ ]\ DOMAIN-XML\ OUT-FILE
+Create an .nxpk package from the specified domain XML file.
 .TP
 .BI \-n\fR, "" \ \-\-name\  FRIENDLY-NAME
 The friendly name of the virtual machine, to be displayed in the
 .BR vmnetx (1)
 title bar.
 .TP
-.BI \-r\fR, "" \ \-\-reference\  PACKAGE-URL\ OUT-FILE
+.BR \-u ", " \-\-uncompressed
+Create the package with uncompressed memory and disk images.
+.TP
+.BI reference\  PACKAGE-URL\ OUT-FILE
 Create the reference file
 .I OUT-FILE
 linking to the remote VMNetX package at
 .IR PACKAGE-URL .
-.TP
-.BR \-u ", " \-\-uncompressed
-Create the package with uncompressed memory and disk images.
 .TP
 .B \-\^\-version
 Print the version number of
@@ -148,7 +152,7 @@ and exit.
 .SH EXAMPLES
 
 .TP
-.B vmnetx-generate \-a dos622 1024 1
+.B vmnetx-generate create dos622 1024 1
 Create a new, empty virtual machine named
 .I dos622
 with 1024
@@ -156,21 +160,21 @@ MB of allocated RAM and 1 GB of allocated disk space, and add it to
 .BR virt-manager (1).
 
 .TP
-.B vmnetx-generate \-c ~/.config/libvirt/qemu/macos.xml
+.B vmnetx-generate validate ~/.config/libvirt/qemu/macos.xml
 Check the specified domain XML for VMNetX compatibility.
 
 .TP
-.B vmnetx-generate \-n \(dqWindows 3.1\(dq ~/.config/libvirt/qemu/windows311.xml windows311.nxpk
+.B vmnetx-generate package \-n \(dqWindows 3.1\(dq ~/.config/libvirt/qemu/windows311.xml windows311.nxpk
 Create a VMNetX package file in the current directory.
 
 .TP
-.B vmnetx-generate \-r http://example.com/package.nxpk package.netx
+.B vmnetx-generate reference http://example.com/package.nxpk package.netx
 Create a reference file in the current directory linking to a package file
 hosted on
 .IR example.com .
 
 .SH COPYRIGHT
-Copyright 2006-2013 Carnegie Mellon University.
+Copyright 2006-2014 Carnegie Mellon University.
 .PP
 This program is free software; you can redistribute it and/or modify it
 under the terms of version 2 of the GNU General Public License as published
