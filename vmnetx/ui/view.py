@@ -23,6 +23,7 @@ import gobject
 from gobject import GObject
 import gtk
 import logging
+import math
 import pango
 import sys
 import time
@@ -1026,7 +1027,7 @@ def humanize(seconds):
         return "any time now"
 
     elif seconds < 90:
-        return "%d seconds" % seconds
+        return "%d seconds" % (math.ceil(seconds / 5) * 5)
 
     elif seconds < 4800:
         return "%d minutes" % max(seconds / 60, 2)
