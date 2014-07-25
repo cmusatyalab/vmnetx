@@ -37,8 +37,8 @@ subparsers = parser.add_subparsers(title="Modes of operation")
 
 
 def create(args):
-    """ Create a new, empty virtual machine in virt-manager(1). After this use
-    virt-manager(1) to install and configure the VM.
+    """ Create a new, empty virtual machine in virt-manager(1). After this,
+    you can use virt-manager(1) to install and configure the VM.
     """
     define_machine(args.shortname, args.memory, args.disk)
 
@@ -53,8 +53,7 @@ subparser.set_defaults(func=create)
 
 def validate(args):
     """ Validate the domain XML of a virtual machine to ensure that it will be
-    accepted by vmnetx(1). Modify if necessary to ensure that the domain XML
-    conforms to the requirements of vmnetx(1).
+    accepted by vmnetx(1).
     """
     data = args.domain_xml.read()
     with closing(libvirt.open('qemu:///session')) as conn:
@@ -69,8 +68,8 @@ subparser.set_defaults(func=validate)
 
 
 def package(args):
-    """ Generate a VMNetX virtual machine package with a .nxpk extension. This
-    package file can then be uploaded to a web server.
+    """ Generate a VMNetX virtual machine package file, which should have
+    a .nxpk extension. This package file can then be uploaded to a web server.
     """
     generate_machine(args.name, args.domain_xml, args.outfile,
                      compress=not args.uncompressed)
@@ -87,13 +86,13 @@ subparser.set_defaults(func=package)
 
 
 def reference(args):
-    """ Create a reference file to a remote VMNetX package.
+    """ Create a reference file linking to a remote VMNetX package.
     """
     ref = PackageReference(args.package_url)
     args.outfile.write(ref.xml)
 
 subparser = subparsers.add_parser('reference', description=reference.__doc__,
-    help="Create reference file linking to a remote VMNetX package")
+    help="Create reference file linking to a VMNetX package")
 subparser.add_argument('package_url', metavar='package-url')
 subparser.add_argument('outfile', nargs='?', type=argparse.FileType('w'))
 subparser.set_defaults(func=reference)
