@@ -1097,9 +1097,8 @@ class LoadProgressWindow(gtk.Dialog):
 
         elapsed = time.time() - self.start_time
         if count != 0 and elapsed >= 5:
-            eta = (elapsed / fraction) - elapsed
-            ETA = humanize(eta)
-            self._eta_label.set_label('ETA: %s' % ETA)
+            eta = humanize((elapsed / fraction) - elapsed)
+            self._eta_label.set_label('ETA: %s' % eta)
 
     def _response(self, _wid, _id):
         self.hide()
