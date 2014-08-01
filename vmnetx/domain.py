@@ -227,7 +227,7 @@ class DomainXML(object):
         if clock_node is None:
             domain_node = self._xpath_one(tree, '/domain')
             clock_node = etree.SubElement(domain_node, 'clock')
-            clock_node.set('offset', 'utc')
+            clock_node.set('offset', 'localtime')
         timer_node = etree.SubElement(clock_node, 'timer')
         timer_node.set('name', 'rtc')
         timer_node.set('track', 'guest')
