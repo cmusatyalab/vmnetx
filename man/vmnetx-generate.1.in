@@ -20,6 +20,7 @@ vmnetx-generate \- Construct a new VMNetX virtual machine image
 .SH SYNOPSIS
 .B vmnetx-generate
 .B create
+.RB [ \-w ]
 .I SHORT-NAME MEMORY-MB DISK-GB
 .br
 .B vmnetx-generate
@@ -97,7 +98,7 @@ file should be published for access.
 vmnetx-generate has several modes of operation:
 
 .TP
-.BI create\  SHORT-NAME\ MEMORY-MB\ DISK-GB
+.BI create\ [-w] \ SHORT-NAME\ MEMORY-MB\ DISK-GB
 Create a new, empty virtual machine with the specified name, memory size in
 MB, and disk size in GB, and add it to
 .BR virt-manager (1).
@@ -138,6 +139,9 @@ Create the package with uncompressed memory and disk images.
 Print the version number of
 .B vmnetx-generate
 and exit.
+.TP
+.BR \-w ", " \-\-64\-bit
+Enable 64-bit processor extensions.
 
 .SH EXAMPLES
 

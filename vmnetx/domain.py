@@ -241,10 +241,12 @@ class DomainXML(object):
         return type(self)(self._to_xml(tree), safe=False)
 
     @classmethod
-    def get_template(cls, conn, name, disk_path, disk_type, memory_mb):
+    def get_template(cls, conn, name, disk_path, disk_type, memory_mb,
+            use_64bit=False):
         rand = random.SystemRandom()
         mac_address = ':'.join(['02'] + ['%02x' % rand.randint(0, 255)
                 for _ in range(5)])
+        arch = 'x86_64' if use_64bit else 'i686'
         e = ElementMaker(nsmap={'v': NS})
         tree = e.domain(
             e.name(name),
@@ -254,7 +256,7 @@ class DomainXML(object):
             e.os(
                 e.type(
                     'hvm',
-                    arch='i686',
+                    arch=arch,
                     machine='pc',
                 ),
                 e.boot(
@@ -262,7 +264,7 @@ class DomainXML(object):
                 ),
             ),
             e.cpu(
-                e.model('qemu32'),
+                e.model('kvm64' if use_64bit else 'qemu32'),
                 e.topology(
                     sockets='1',
                     cores='1',
@@ -280,7 +282,7 @@ class DomainXML(object):
             ),
             e.devices(
                 e.emulator(
-                    cls._get_emulator(conn, 'hvm', 'kvm', 'i686', 'pc').path
+                    cls._get_emulator(conn, 'hvm', 'kvm', arch, 'pc').path
                 ),
                 e.disk(
                     e.driver(
@@ -426,7 +428,8 @@ class DomainXML(object):
 
         emulator = cls._get_emulator_for_domain(conn, tree)
         if (emulator.os_type == 'hvm' and emulator.domain_type == 'kvm' and
-                emulator.arch == 'i686' and emulator.machine == 'pc'):
+                emulator.arch in ('i686', 'x86_64') and
+                emulator.machine == 'pc'):
             el = cls._xpath_one(tree, '/domain/os/type')
             if el.get('machine') == emulator.canonical_machine:
                 el.set('machine', emulator.machine)
@@ -491,6 +494,11 @@ class DomainXML(object):
         if candidate is not None:
             return candidate
 
-        # Failed.
-        raise DomainXMLError('No suitable emulator for %s/%s/%s/%s' %
-                (os_type, domain_type, arch, machine))
+        # Failed.  If the host has a 32-bit kernel and the VM is 64-bit,
+        # return a nice message explaining the problem.
+        if arch == 'x86_64' and os.uname()[4] != 'x86_64':
+            raise DomainXMLError('This is a 64-bit virtual machine, but ' +
+                    'your system cannot run 64-bit virtual machines.')
+        else:
+            raise DomainXMLError('No suitable emulator for %s/%s/%s/%s' %
+                    (os_type, domain_type, arch, machine))

@@ -105,6 +105,7 @@
                 <xs:simpleType>
                   <xs:restriction base="xs:token">
                     <xs:enumeration value="i686"/>
+                    <xs:enumeration value="x86_64"/>
                   </xs:restriction>
                 </xs:simpleType>
               </xs:attribute>

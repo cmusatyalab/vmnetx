@@ -27,7 +27,7 @@ class MachineDefinitionError(DetailException):
     pass
 
 
-def define_machine(name, memory_mb, disk_gb):
+def define_machine(name, memory_mb, disk_gb, use_64bit=False):
     with closing(libvirt.open('qemu:///session')) as conn:
         # Ensure machine doesn't exist
         try:
@@ -54,7 +54,7 @@ def define_machine(name, memory_mb, disk_gb):
         # Create machine
         try:
             domain_xml = DomainXML.get_template(conn, name, disk_path,
-                    'qcow2', memory_mb)
+                    'qcow2', memory_mb, use_64bit=use_64bit)
             conn.defineXML(domain_xml.xml)
         except DomainXMLError, e:
             raise MachineDefinitionError(str(e), e.detail)

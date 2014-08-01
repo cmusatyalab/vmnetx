@@ -40,7 +40,8 @@ def create(args):
     """ Create a new, empty virtual machine in virt-manager(1). After this,
     you can use virt-manager(1) to install and configure the VM.
     """
-    define_machine(args.shortname, args.memory, args.disk)
+    define_machine(args.shortname, args.memory, args.disk,
+            use_64bit=args.use_64bit)
 
 subparser = subparsers.add_parser('create', description=create.__doc__,
     help="Create a blank VM and add it to virt-manager")
@@ -48,6 +49,8 @@ subparser.add_argument('shortname', metavar='short-name',
     help="virtual machine name")
 subparser.add_argument('memory', type=int, help="allocated memory (MB)")
 subparser.add_argument('disk', type=int, help="allocated disk (GB)")
+subparser.add_argument('-w', '--64-bit', dest='use_64bit', action='store_true',
+    help="Create 64-bit VM")
 subparser.set_defaults(func=create)
 
 
