@@ -76,7 +76,7 @@ def package(args):
 
 subparser = subparsers.add_parser('package', description=package.__doc__,
     help="Create a VMNetX package")
-subparser.add_argument('-n', '--name',
+subparser.add_argument('-n', '--name', default='Virtual Machine',
     help="Name of virtual machine")
 subparser.add_argument('-u', '--uncompressed', action="store_true",
     help="Skip compression of disk/memory images")
