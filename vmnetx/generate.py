@@ -189,7 +189,8 @@ def generate_machine(name, in_xml, out_file, compress=True):
             Package.create(out_file, name, domain_xml, temp_disk.name,
                     temp_memory.name if temp_memory else None)
         except:
-            os.unlink(out_file)
+            if os.path.exists(out_file):
+                os.unlink(out_file)
             raise
     finally:
         if temp_disk:
@@ -243,7 +244,8 @@ def compress_machine(in_file, out_file, name=None):
             Package.create(out_file, name or package.name, domain_xml,
                     temp_disk.name, temp_memory.name if temp_memory else None)
         except:
-            os.unlink(out_file)
+            if os.path.exists(out_file):
+                os.unlink(out_file)
             raise
     finally:
         if temp_disk:
