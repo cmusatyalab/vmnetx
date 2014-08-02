@@ -452,6 +452,16 @@ class DomainXML(object):
     def _get_emulator(cls, conn, os_type, domain_type, arch, machine):
         caps = etree.fromstring(conn.getCapabilities())
 
+        # If the host is 32-bit and the VM is 64-bit, fail and return a nice
+        # message explaining the problem.  The capabilities XML on a 32-bit
+        # system should really tell us that there's no emulator for 64-bit
+        # KVM, but at least on Ubuntu Trusty it instead provides one that
+        # doesn't work.
+        host_arch = cls._xpath_one(caps, '/capabilities/host/cpu/arch').text
+        if arch == 'x86_64' and host_arch != 'x86_64':
+            raise DomainXMLError('This is a 64-bit virtual machine, but ' +
+                    'your system cannot run 64-bit virtual machines.')
+
         candidate = None
         for guest in caps.xpath('/capabilities/guest'):
             # Check type
@@ -494,11 +504,6 @@ class DomainXML(object):
         if candidate is not None:
             return candidate
 
-        # Failed.  If the host has a 32-bit kernel and the VM is 64-bit,
-        # return a nice message explaining the problem.
-        if arch == 'x86_64' and os.uname()[4] != 'x86_64':
-            raise DomainXMLError('This is a 64-bit virtual machine, but ' +
-                    'your system cannot run 64-bit virtual machines.')
-        else:
-            raise DomainXMLError('No suitable emulator for %s/%s/%s/%s' %
-                    (os_type, domain_type, arch, machine))
+        # Failed.
+        raise DomainXMLError('No suitable emulator for %s/%s/%s/%s' %
+                (os_type, domain_type, arch, machine))
