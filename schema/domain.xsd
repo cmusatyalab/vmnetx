@@ -17,6 +17,12 @@
       <xs:pattern value="[0-9]+"/>
     </xs:restriction>
   </xs:simpleType>
+  <xs:simpleType name="positiveShort">
+    <xs:restriction base="xs:unsignedShort">
+      <xs:pattern value="[0-9]+"/>
+      <xs:minInclusive value="1"/>
+    </xs:restriction>
+  </xs:simpleType>
   <xs:simpleType name="UUID">
     <xs:union>
       <xs:simpleType>
@@ -153,12 +159,19 @@
   <xs:element name="memory" type="scaledInteger"/>
   <xs:element name="currentMemory" type="scaledInteger"/>
   <xs:element name="vcpu">
-    <xs:simpleType>
-      <xs:restriction base="xs:unsignedShort">
-        <xs:pattern value="[0-9]+"/>
-        <xs:minInclusive value="1"/>
-      </xs:restriction>
-    </xs:simpleType>
+    <xs:complexType>
+      <xs:simpleContent>
+        <xs:extension base="positiveShort">
+          <xs:attribute name="placement">
+            <xs:simpleType>
+              <xs:restriction base="xs:token">
+                <xs:enumeration value="static"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
+        </xs:extension>
+      </xs:simpleContent>
+    </xs:complexType>
   </xs:element>
   <xs:element name="clock">
     <xs:complexType>

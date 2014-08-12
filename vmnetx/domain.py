@@ -394,7 +394,6 @@ class DomainXML(object):
         cls._try_remove_attr(tree, '/domain/cpu', 'mode', 'custom')
         cls._try_remove_attr(tree, '/domain/cpu/model', 'fallback', 'allow')
         cls._try_remove_attr(tree, '/domain/devices/graphics', 'port', '-1')
-        cls._try_remove_attr(tree, '/domain/vcpu', 'placement', 'static')
 
         for el in tree.xpath('/domain/devices/controller[@type="pci"]' +
                 '[@index="0"][@model="pci-root"]'):
