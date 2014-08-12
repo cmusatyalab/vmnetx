@@ -37,7 +37,6 @@ You will need:
 * PyYAML
 * Flask
 * spice-gtk Python bindings
-* gtk-vnc Python bindings
 * libvirt Python bindings
 * dbus-python
 * glib2

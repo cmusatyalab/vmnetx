@@ -42,14 +42,6 @@ else:
 # SpiceClientGtk.Session.open_fd(-1) doesn't work on < 0.10
 assert LooseVersion(SpiceClientGtk.__version__) >= LooseVersion('0.10')
 
-# VNC viewer is technically mandatory, but we defer ImportErrors until
-# VNCWidget instantiation as a convenience for thin-client installs
-# which will never use it
-try:
-    import gtkvnc
-except ImportError:
-    pass
-
 class _ViewerWidget(gtk.EventBox):
     __gsignals__ = {
         'viewer-get-fd': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
@@ -181,59 +173,6 @@ class AspectBin(gtk.Bin):
             child.size_allocate(rect)
 
 
-class VNCWidget(_ViewerWidget):
-    # Don't warn on reimport of gtkvnc
-    # pylint: disable=redefined-outer-name
-    def __init__(self, max_mouse_rate=None):
-        # Ensure silent import succeeded.  If not, fail loudly this time.
-        import gtkvnc
-
-        _ViewerWidget.__init__(self, max_mouse_rate)
-        aspect = AspectBin()
-        self.add(aspect)
-        self._vnc = gtkvnc.Display()
-        aspect.add(self._vnc)
-
-        self._vnc.connect('vnc-connected', self._reemit, 'viewer-connect')
-        self._vnc.connect('vnc-disconnected', self._reemit,
-                'viewer-disconnect')
-        self._vnc.connect('vnc-desktop-resize', self._resize)
-        self._vnc.connect('vnc-keyboard-grab', self._grab, 'keyboard', True)
-        self._vnc.connect('vnc-keyboard-ungrab', self._grab, 'keyboard', False)
-        self._vnc.connect('vnc-pointer-grab', self._grab, 'mouse', True)
-        self._vnc.connect('vnc-pointer-ungrab', self._grab, 'mouse', False)
-        self._connect_display_signals(self._vnc)
-        self._vnc.set_pointer_grab(True)
-        self._vnc.set_keyboard_grab(True)
-        self._vnc.set_scaling(True)
-    # pylint: enable=redefined-outer-name
-
-    def _resize(self, _wid, width, height):
-        self.emit('viewer-resize', width, height)
-
-    def _grab(self, _wid, what, whether):
-        setattr(self, what + '_grabbed', whether)
-        self.emit('viewer-%s-grab' % what, whether)
-
-    def _connect_viewer(self, password):
-        self._disconnect_viewer()
-        self._vnc.set_credential(gtkvnc.CREDENTIAL_PASSWORD, password)
-        self.emit('viewer-get-fd', None)
-
-    def set_fd(self, _data, fd):
-        if fd is None:
-            self.emit('viewer-disconnect')
-        else:
-            self._vnc.open_fd(fd)
-
-    def _disconnect_viewer(self):
-        self._vnc.close()
-
-    def get_pixbuf(self):
-        return self._vnc.get_pixbuf()
-gobject.type_register(VNCWidget)
-
-
 class SpiceWidget(_ViewerWidget):
     ERROR_EVENTS = set([
         SpiceClientGtk.CHANNEL_CLOSED,
@@ -254,6 +193,8 @@ class SpiceWidget(_ViewerWidget):
         self._display_showing = False
         self._accept_next_mouse_event = False
 
+        # SpiceClientGtk < 0.14 (Debian Wheezy) doesn't have the
+        # only-downscale property
         self._aspect = AspectBin()
         self._placeholder = gtk.EventBox()
         self._placeholder.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color())
