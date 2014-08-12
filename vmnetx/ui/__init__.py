@@ -37,7 +37,7 @@ from ..util import (NeedAuthentication, get_cache_dir, get_requests_session,
         open_browser, dup, rename)
 from .view import (VMWindow, LoadProgressWindow, PasswordWindow,
         SaveMediaWindow, ErrorWindow, FatalErrorWindow, IgnorableErrorWindow,
-        UpdateWindow, have_spice_viewer)
+        UpdateWindow)
 
 if sys.platform == 'win32':
     from ..win32 import windows_vmnetx_init as platform_init
@@ -193,8 +193,7 @@ class VMNetXUI(object):
             self._update.check_for_update()
 
             # Create controller
-            self._controller = Controller.get_for_ref(self._package_ref,
-                    have_spice_viewer)
+            self._controller = Controller.get_for_ref(self._package_ref)
             self._controller.setup_environment()
             self._controller.connect('startup-progress',
                     self._startup_progress)
@@ -240,7 +239,6 @@ class VMNetXUI(object):
                     disk_stats=self._controller.disk_stats,
                     disk_chunks=self._controller.disk_chunks,
                     disk_chunk_size=self._controller.disk_chunk_size,
-                    use_spice=self._controller.use_spice,
                     max_mouse_rate=self._controller.max_mouse_rate,
                     is_remote=self._controller.is_remote)
             self._wind.connect('viewer-get-fd', self._viewer_get_fd)
@@ -257,9 +255,6 @@ class VMNetXUI(object):
             logging.getLogger().setLevel(logging.INFO)
             _log.info('VMNetX %s starting at %s', __version__,
                     datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
-            _log.info('SPICE viewer %s, protocol %s',
-                    'available' if have_spice_viewer else 'unavailable',
-                    'enabled' if self._controller.use_spice else 'disabled')
 
             # Run main loop
             gtk.main()

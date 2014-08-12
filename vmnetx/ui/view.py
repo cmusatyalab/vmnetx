@@ -25,6 +25,7 @@ import gtk
 import logging
 import math
 import pango
+import SpiceClientGtk
 import sys
 import time
 import urllib
@@ -38,17 +39,8 @@ else:
     def set_window_progress(_window, _progress):
         pass
 
-# have_spice_viewer is a variable, not a constant
-# pylint: disable=invalid-name
-have_spice_viewer = False
-try:
-    import SpiceClientGtk
-    # SpiceClientGtk.Session.open_fd(-1) doesn't work on < 0.10
-    if LooseVersion(SpiceClientGtk.__version__) >= LooseVersion('0.10'):
-        have_spice_viewer = True
-except ImportError:
-    pass
-# pylint: enable=invalid-name
+# SpiceClientGtk.Session.open_fd(-1) doesn't work on < 0.10
+assert LooseVersion(SpiceClientGtk.__version__) >= LooseVersion('0.10')
 
 # VNC viewer is technically mandatory, but we defer ImportErrors until
 # VNCWidget instantiation as a convenience for thin-client installs
@@ -243,15 +235,14 @@ gobject.type_register(VNCWidget)
 
 
 class SpiceWidget(_ViewerWidget):
-    # Defer attribute lookups: SpiceClientGtk is conditionally imported
-    _ERROR_EVENTS = (
-        'CHANNEL_CLOSED',
-        'CHANNEL_ERROR_AUTH',
-        'CHANNEL_ERROR_CONNECT',
-        'CHANNEL_ERROR_IO',
-        'CHANNEL_ERROR_LINK',
-        'CHANNEL_ERROR_TLS',
-    )
+    ERROR_EVENTS = set([
+        SpiceClientGtk.CHANNEL_CLOSED,
+        SpiceClientGtk.CHANNEL_ERROR_AUTH,
+        SpiceClientGtk.CHANNEL_ERROR_CONNECT,
+        SpiceClientGtk.CHANNEL_ERROR_IO,
+        SpiceClientGtk.CHANNEL_ERROR_LINK,
+        SpiceClientGtk.CHANNEL_ERROR_TLS,
+    ])
 
     def __init__(self, max_mouse_rate=None):
         _ViewerWidget.__init__(self, max_mouse_rate)
@@ -262,8 +253,6 @@ class SpiceWidget(_ViewerWidget):
         self._display = None
         self._display_showing = False
         self._accept_next_mouse_event = False
-        self._error_events = set([getattr(SpiceClientGtk, e)
-                for e in self._ERROR_EVENTS])
 
         self._aspect = AspectBin()
         self._placeholder = gtk.EventBox()
@@ -346,7 +335,7 @@ class SpiceWidget(_ViewerWidget):
             # Channel is invalid because the session was closed while the
             # event was sitting in the queue.
             return
-        if event in self._error_events:
+        if event in self.ERROR_EVENTS:
             self._disconnect_viewer()
 
     def _size_request(self, _wid, _req):
@@ -469,7 +458,7 @@ class VMWindow(gtk.Window):
     }
 
     def __init__(self, name, disk_stats, disk_chunks, disk_chunk_size,
-            use_spice=True, max_mouse_rate=None, is_remote=False):
+            max_mouse_rate=None, is_remote=False):
         gtk.Window.__init__(self)
         self._agrp = VMActionGroup(self)
         for sig in 'user-restart', 'user-quit':
@@ -511,10 +500,7 @@ class VMWindow(gtk.Window):
         tbar.insert(item('show-log'), -1)
         box.pack_start(tbar, expand=False)
 
-        if use_spice:
-            self._viewer = SpiceWidget(max_mouse_rate)
-        else:
-            self._viewer = VNCWidget(max_mouse_rate)
+        self._viewer = SpiceWidget(max_mouse_rate)
         self._viewer.connect('viewer-get-fd', self._viewer_get_fd)
         self._viewer.connect('viewer-resize', self._viewer_resized)
         self._viewer.connect('viewer-connect', self._viewer_connected)

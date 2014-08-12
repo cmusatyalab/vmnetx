@@ -316,11 +316,9 @@ class LocalController(Controller):
     RECOMPRESSION_ALGORITHM = 'lzop'
     _environment_ready = False
 
-    def __init__(self, url=None, package=None, use_spice=True,
-            viewer_password=None):
+    def __init__(self, url=None, package=None, viewer_password=None):
         Controller.__init__(self)
         self._url = url
-        self._want_spice = use_spice
         self._domain_name = 'vmnetx-%d-%s' % (os.getpid(), uuid.uuid4())
         self._package = package
         self._have_memory = False
@@ -398,19 +396,13 @@ class LocalController(Controller):
         # Get emulator path
         emulator = domain_xml.detect_emulator(self._conn)
 
-        # Detect SPICE support
-        self.use_spice = self._want_spice and self._spice_is_usable(emulator)
-
         # Create new viewer password if none existed
         if self.viewer_password is None:
-            # VNC limits passwords to 8 characters
-            self.viewer_password = base64.urlsafe_b64encode(os.urandom(
-                    15 if self.use_spice else 6))
+            self.viewer_password = base64.urlsafe_b64encode(os.urandom(15))
 
         # Get execution domain XML
         self._domain_xml = domain_xml.get_for_execution(self._domain_name,
-                emulator, disk_image_path, self.viewer_password,
-                use_spice=self.use_spice).xml
+                emulator, disk_image_path, self.viewer_password).xml
 
         # Write domain XML to memory image
         if self._memory_image_path is not None:
@@ -504,18 +496,6 @@ class LocalController(Controller):
                 switch_group(grp.getgrgid(primary_gid).gr_name)
 
         cls._environment_ready = True
-
-    def _spice_is_usable(self, emulator):
-        '''Determine whether emulator supports SPICE.'''
-        proc = subprocess.Popen([emulator, '-spice', 'foo'],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                close_fds=True)
-        out, err = proc.communicate()
-        out += err
-        if 'invalid option' in out or 'spice is not supported' in out:
-            # qemu is too old to support SPICE, or SPICE is not compiled in
-            return False
-        return True
 
     def _vmnetfs_log(self, _monitor, line):
         _log.warning('%s', line)

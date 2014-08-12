@@ -110,11 +110,8 @@ class RemoteController(Controller):
     PHASE_RUN = 1
     PHASE_STOP = 2
 
-    def __init__(self, url, use_spice=True):
+    def __init__(self, url):
         Controller.__init__(self)
-        if not use_spice:
-            raise MachineExecutionError(
-                    'Remote VM access requires SPICE support')
         self.is_remote = True
 
         parsed = urlsplit(url)

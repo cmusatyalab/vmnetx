@@ -289,9 +289,6 @@ class _Instance(gobject.GObject):
             controller.username = self._username
             controller.password = self._password
             controller.initialize()
-            if not controller.use_spice:
-                controller.shutdown()
-                raise MachineExecutionError('SPICE support is unavailable')
             return controller
         except Exception:
             _log.exception('Failed to initialize controller (%s)', self.id)

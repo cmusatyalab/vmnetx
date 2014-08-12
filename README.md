@@ -36,7 +36,7 @@ You will need:
 * msgpack-python
 * PyYAML
 * Flask
-* spice-gtk Python bindings (optional)
+* spice-gtk Python bindings
 * gtk-vnc Python bindings
 * libvirt Python bindings
 * dbus-python

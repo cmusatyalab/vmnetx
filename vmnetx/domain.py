@@ -186,7 +186,7 @@ class DomainXML(object):
                 etree.fromstring(self.xml)).path
 
     def get_for_execution(self, name, emulator, disk_image_path,
-            viewer_password, use_spice=True):
+            viewer_password):
         # Parse XML
         tree = etree.fromstring(self.xml)
 
@@ -206,19 +206,17 @@ class DomainXML(object):
                 disk_image_path)
 
         # Remove graphics declarations
+        # (legacy VMs may specify VNC graphics)
         devices_node = self._xpath_one(tree, '/domain/devices')
         for node in tree.xpath('/domain/devices/graphics'):
             devices_node.remove(node)
 
         # Add new graphics declaration
         graphics_node = etree.SubElement(devices_node, 'graphics')
-        if use_spice:
-            graphics_node.set('type', 'spice')
-            # Disable clipboard sharing for safety
-            clipboard_node = etree.SubElement(graphics_node, 'clipboard')
-            clipboard_node.set('copypaste', 'no')
-        else:
-            graphics_node.set('type', 'vnc')
+        graphics_node.set('type', 'spice')
+        # Disable clipboard sharing for safety
+        clipboard_node = etree.SubElement(graphics_node, 'clipboard')
+        clipboard_node.set('copypaste', 'no')
         graphics_node.set('autoport', 'yes')
         graphics_node.set('passwd', viewer_password)
 

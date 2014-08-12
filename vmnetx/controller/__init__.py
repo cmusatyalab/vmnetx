@@ -66,7 +66,6 @@ class Controller(gobject.GObject):
         # Publicly readable
         self.vm_name = None
         self.state = self.STATE_UNINITIALIZED
-        self.use_spice = True
         self.is_remote = False
         self.viewer_password = None
         self.max_mouse_rate = None
@@ -80,7 +79,7 @@ class Controller(gobject.GObject):
         self.password = None
 
     @classmethod
-    def get_for_ref(cls, package_ref, use_spice):
+    def get_for_ref(cls, package_ref):
         # Convert package_ref to URL
         url = package_ref
         parsed = urlsplit(url)
@@ -102,11 +101,11 @@ class Controller(gobject.GObject):
             if parsed.scheme == 'vmnetx':
                 category = 'Remote'
                 from .remote import RemoteController
-                return RemoteController(url=url, use_spice=use_spice)
+                return RemoteController(url=url)
             else:
                 category = 'Local'
                 from .local import LocalController
-                return LocalController(url=url, use_spice=use_spice)
+                return LocalController(url=url)
         except ImportError:
             raise MachineExecutionError(('%s execution of virtual machines ' +
                     'is not supported on this system') % category)
@@ -122,7 +121,7 @@ class Controller(gobject.GObject):
         raise NotImplementedError
 
     def connect_viewer(self, callback):
-        '''Create a new connection for the VNC/SPICE viewer without blocking.
+        '''Create a new connection for the SPICE viewer without blocking.
         When done, call callback(sock=sock) on success or
         callback(error=string) on error.'''
         raise NotImplementedError
