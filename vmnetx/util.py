@@ -184,7 +184,7 @@ def setup_libvirt():
     import libvirt
 
     # Check libvirt version
-    assert libvirt.getVersion() >= 9008  # 0.9.8
+    assert libvirt.getVersion() >= 9012  # 0.9.12
 
     # Squash redundant reporting of libvirt errors to stderr.  This modifies
     # global state, since the Python bindings don't provide a way to do this
