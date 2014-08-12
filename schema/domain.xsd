@@ -32,9 +32,11 @@
     </xs:union>
   </xs:simpleType>
   <!-- a 6 byte MAC address in ASCII-hex format, eg "12:34:56:78:9A:BC" -->
-  <xs:simpleType name="macAddr">
+  <!-- The lowest bit of the 1st byte is the "multicast" bit. a         -->
+  <!-- uniMacAddr requires that bit to be 0.                            -->
+  <xs:simpleType name="uniMacAddr">
     <xs:restriction base="xs:string">
-      <xs:pattern value="([a-fA-F0-9]{2}:){5}[a-fA-F0-9]{2}"/>
+      <xs:pattern value="[a-fA-F0-9][02468aAcCeE](:[a-fA-F0-9]{2}){5}"/>
     </xs:restriction>
   </xs:simpleType>
   <xs:simpleType name="genericName">
@@ -324,7 +326,7 @@
   </xs:group>
   <xs:element name="mac">
     <xs:complexType>
-      <xs:attribute name="address" use="required" type="macAddr"/>
+      <xs:attribute name="address" use="required" type="uniMacAddr"/>
     </xs:complexType>
   </xs:element>
   <!-- An emulator description is just a path to the binary used for the task -->
