@@ -229,7 +229,10 @@ class DomainXML(object):
         tree = e.domain(
             e.name(name),
             e.uuid(str(uuid.uuid4())),
-            e.memory(str(memory_mb << 10)),
+            e.memory(
+                str(memory_mb),
+                unit='MiB',
+            ),
             e.vcpu('1'),
             e.os(
                 e.type(
@@ -390,9 +393,7 @@ class DomainXML(object):
         cls._try_remove_attr(tree, '//address[@type="drive"]', 'target', '0')
         cls._try_remove_attr(tree, '/domain/cpu', 'mode', 'custom')
         cls._try_remove_attr(tree, '/domain/cpu/model', 'fallback', 'allow')
-        cls._try_remove_attr(tree, '/domain/currentMemory', 'unit', 'KiB')
         cls._try_remove_attr(tree, '/domain/devices/graphics', 'port', '-1')
-        cls._try_remove_attr(tree, '/domain/memory', 'unit', 'KiB')
         cls._try_remove_attr(tree, '/domain/vcpu', 'placement', 'static')
 
         for el in tree.xpath('/domain/devices/controller[@type="pci"]' +

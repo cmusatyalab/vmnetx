@@ -49,6 +49,18 @@
       <xs:pattern value="/[a-zA-Z0-9_\.\+\-\\&amp;&quot;&apos;&lt;&gt;/%]+"/>
     </xs:restriction>
   </xs:simpleType>
+  <xs:simpleType name="unit">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="([bB]([yY][tT][eE][sS]?)?)|([kKmMgGtTpPeE]([iI]?[bB])?)"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="scaledInteger">
+    <xs:simpleContent>
+      <xs:extension base="xs:unsignedLong">
+        <xs:attribute name="unit" type="unit"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
   <xs:element name="domain">
     <xs:complexType>
         <xs:choice minOccurs="0" maxOccurs="unbounded">
@@ -138,8 +150,8 @@
       </xs:choice>
     </xs:sequence>
   </xs:group>
-  <xs:element name="memory" type="memoryKB"/>
-  <xs:element name="currentMemory" type="memoryKB"/>
+  <xs:element name="memory" type="scaledInteger"/>
+  <xs:element name="currentMemory" type="scaledInteger"/>
   <xs:element name="vcpu">
     <xs:simpleType>
       <xs:restriction base="xs:unsignedShort">
@@ -734,13 +746,13 @@
     Type library
     
     A domain name should be made of ascii, numbers, _-+ and is non-empty
-    memoryKB request at least 4Mbytes though Xen will grow bigger if too low
   -->
   <xs:simpleType name="cpuset">
     <xs:restriction base="xs:string">
       <xs:pattern value="([0-9]+(-[0-9]+)?|\^[0-9]+)(,([0-9]+(-[0-9]+)?|\^[0-9]+))*"/>
     </xs:restriction>
   </xs:simpleType>
+  <!-- Memory as an attribute is in KiB, no way to express a unit -->
   <xs:simpleType name="memoryKB">
     <xs:restriction base="xs:unsignedInt">
       <xs:pattern value="[0-9]+"/>
