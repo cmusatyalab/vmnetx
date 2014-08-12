@@ -390,7 +390,6 @@ class DomainXML(object):
         except etree.XMLSyntaxError, e:
             raise DomainXMLError('Domain XML does not parse', str(e))
 
-        cls._try_remove_attr(tree, '//address[@type="drive"]', 'target', '0')
         cls._try_remove_attr(tree, '/domain/devices/graphics', 'port', '-1')
 
         for el in tree.xpath('/domain/devices/controller[@type="pci"]' +

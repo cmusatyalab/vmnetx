@@ -757,6 +757,7 @@
             </xs:simpleType>
           </xs:attribute>
           <xs:attribute name="controller" type="driveController"/>
+          <xs:attribute name="target" type="driveTarget"/>
           <xs:attribute name="unit" type="driveUnit"/>
         </xs:complexType>
       </xs:element>
@@ -839,6 +840,11 @@
     </xs:restriction>
   </xs:simpleType>
   <xs:simpleType name="driveBus">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9]{1,2}"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="driveTarget">
     <xs:restriction base="xs:string">
       <xs:pattern value="[0-9]{1,2}"/>
     </xs:restriction>
