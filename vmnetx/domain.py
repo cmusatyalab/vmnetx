@@ -390,13 +390,16 @@ class DomainXML(object):
         except etree.XMLSyntaxError, e:
             raise DomainXMLError('Domain XML does not parse', str(e))
 
+        # Deprecated legacy syntax
         cls._try_remove_attr(tree, '/domain/devices/graphics', 'port', '-1')
 
+        # >= 1.0.5
         for el in tree.xpath('/domain/devices/controller[@type="pci"]' +
                 '[@index="0"][@model="pci-root"]'):
             if not el.getchildren():
                 el.getparent().remove(el)
 
+        # >= 1.0.2
         for el in tree.xpath('/domain/devices/video/model'):
             if 'ram' in el.attrib and el.get('ram') == el.get('vram'):
                 del el.attrib['ram']
