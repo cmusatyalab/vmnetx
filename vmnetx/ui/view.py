@@ -42,101 +42,6 @@ else:
 # SpiceClientGtk.Session.open_fd(-1) doesn't work on < 0.10
 assert LooseVersion(SpiceClientGtk.__version__) >= LooseVersion('0.10')
 
-class _ViewerWidget(gtk.EventBox):
-    __gsignals__ = {
-        'viewer-get-fd': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_OBJECT,)),
-        'viewer-connect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-        'viewer-disconnect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-        'viewer-resize': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_INT, gobject.TYPE_INT)),
-        'viewer-keyboard-grab': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_BOOLEAN,)),
-        'viewer-mouse-grab': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_BOOLEAN,)),
-    }
-
-    BACKOFF_TIMES = (1000, 2000, 5000, 10000)  # ms
-
-    def __init__(self, max_mouse_rate=None):
-        gtk.EventBox.__init__(self)
-        # Must be updated by subclasses
-        self.keyboard_grabbed = False
-        self.mouse_grabbed = False
-
-        self.connect('grab-focus', self._grab_focus)
-
-        self._password = None
-        self._want_reconnect = False
-        self._backoff = BackoffTimer()
-        self._backoff.connect('attempt', self._attempt_connection)
-        self.connect('viewer-connect', self._connected)
-        self.connect('viewer-disconnect', self._disconnected)
-
-        self._last_motion_time = 0
-        if max_mouse_rate is not None:
-            self._motion_interval = 1000 // max_mouse_rate  # ms
-        else:
-            self._motion_interval = None
-
-    def connect_viewer(self, password):
-        '''Start a connection.  Emits viewer-get-fd one or more times; call
-        set_fd() with the provided token and the resulting fd.'''
-        self._password = password
-        self._want_reconnect = True
-        self._backoff.reset()
-        self._backoff.attempt()
-
-    def _attempt_connection(self, _backoff):
-        self._connect_viewer(self._password)
-
-    def _connected(self, _obj):
-        self._backoff.reset()
-
-    def _disconnected(self, _obj):
-        if self._want_reconnect:
-            self._backoff.attempt()
-
-    def _connect_viewer(self, password):
-        raise NotImplementedError
-
-    def set_fd(self, data, fd):
-        '''Pass fd=None if the connection attempt failed.'''
-        raise NotImplementedError
-
-    def disconnect_viewer(self):
-        self._want_reconnect = False
-        self._backoff.reset()
-        self._disconnect_viewer()
-
-    def _disconnect_viewer(self):
-        raise NotImplementedError
-
-    def get_pixbuf(self):
-        raise NotImplementedError
-
-    def _reemit(self, _wid, target):
-        self.emit(target)
-
-    def _grab_focus(self, _wid):
-        self.get_child().grab_focus()
-
-    def _connect_display_signals(self, widget):
-        # Subclasses should call this after creating the actual display
-        # widget.  The argument should be the widget that will be the
-        # target of mouse grabs.
-        if self._motion_interval is not None:
-            widget.connect('motion-notify-event', self._motion)
-
-    def _motion(self, _wid, motion):
-        if motion.time < self._last_motion_time + self._motion_interval:
-            # Motion event came too soon; ignore it
-            return True
-        else:
-            self._last_motion_time = motion.time
-            return False
-
-
 class AspectBin(gtk.Bin):
     # Like an AspectFrame but without the frame.
 
@@ -173,7 +78,21 @@ class AspectBin(gtk.Bin):
             child.size_allocate(rect)
 
 
-class SpiceWidget(_ViewerWidget):
+class SpiceWidget(gtk.EventBox):
+    __gsignals__ = {
+        'viewer-get-fd': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (gobject.TYPE_OBJECT,)),
+        'viewer-connect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'viewer-disconnect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'viewer-resize': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (gobject.TYPE_INT, gobject.TYPE_INT)),
+        'viewer-keyboard-grab': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (gobject.TYPE_BOOLEAN,)),
+        'viewer-mouse-grab': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+                (gobject.TYPE_BOOLEAN,)),
+    }
+
+    BACKOFF_TIMES = (1000, 2000, 5000, 10000)  # ms
     ERROR_EVENTS = set([
         SpiceClientGtk.CHANNEL_CLOSED,
         SpiceClientGtk.CHANNEL_ERROR_AUTH,
@@ -184,7 +103,10 @@ class SpiceWidget(_ViewerWidget):
     ])
 
     def __init__(self, max_mouse_rate=None):
-        _ViewerWidget.__init__(self, max_mouse_rate)
+        gtk.EventBox.__init__(self)
+        self.keyboard_grabbed = False
+        self.mouse_grabbed = False
+
         self._session = None
         self._gtk_session = None
         self._audio = None
@@ -192,6 +114,19 @@ class SpiceWidget(_ViewerWidget):
         self._display = None
         self._display_showing = False
         self._accept_next_mouse_event = False
+        self._password = None
+        self._want_reconnect = False
+        self._backoff = BackoffTimer()
+        self._last_motion_time = 0
+        if max_mouse_rate is not None:
+            self._motion_interval = 1000 // max_mouse_rate  # ms
+        else:
+            self._motion_interval = None
+
+        self._backoff.connect('attempt', self._attempt_connection)
+        self.connect('viewer-connect', self._connected)
+        self.connect('viewer-disconnect', self._disconnected)
+        self.connect('grab-focus', self._grab_focus)
 
         # SpiceClientGtk < 0.14 (Debian Wheezy) doesn't have the
         # only-downscale property
@@ -201,10 +136,18 @@ class SpiceWidget(_ViewerWidget):
         self._placeholder.set_property('can-focus', True)
         self.add(self._placeholder)
 
-    def _connect_viewer(self, password):
+    def connect_viewer(self, password):
+        '''Start a connection.  Emits viewer-get-fd one or more times; call
+        set_fd() with the provided token and the resulting fd.'''
+        self._password = password
+        self._want_reconnect = True
+        self._backoff.reset()
+        self._backoff.attempt()
+
+    def _attempt_connection(self, _backoff):
         self._disconnect_viewer()
         self._session = SpiceClientGtk.Session()
-        self._session.set_property('password', password)
+        self._session.set_property('password', self._password)
         self._session.set_property('enable-usbredir', False)
         # Ensure clipboard sharing is disabled
         self._gtk_session = SpiceClientGtk.spice_gtk_session_get(self._session)
@@ -217,6 +160,21 @@ class SpiceWidget(_ViewerWidget):
             pass
         GObject.connect(self._session, 'channel-new', self._new_channel)
         self._session.open_fd(-1)
+
+    def _connected(self, _obj):
+        self._backoff.reset()
+
+    def _disconnected(self, _obj):
+        if self._want_reconnect:
+            self._backoff.attempt()
+
+    def disconnect_viewer(self):
+        self._want_reconnect = False
+        self._backoff.reset()
+        self._disconnect_viewer()
+
+    def _grab_focus(self, _wid):
+        self.get_child().grab_focus()
 
     def _new_channel(self, session, channel):
         if session != self._session:
@@ -240,7 +198,8 @@ class SpiceWidget(_ViewerWidget):
             self._display.connect('size-request', self._size_request)
             self._display.connect('keyboard-grab', self._grab, 'keyboard')
             self._display.connect('mouse-grab', self._grab, 'mouse')
-            self._connect_display_signals(self._display)
+            if self._motion_interval is not None:
+                self._display.connect('motion-notify-event', self._motion)
 
     def _display_create(self, channel, _format, _width, _height, _stride,
             _shmid, _imgdata):
@@ -262,6 +221,7 @@ class SpiceWidget(_ViewerWidget):
             pass
 
     def set_fd(self, data, fd):
+        '''Pass fd=None if the connection attempt failed.'''
         if fd is None:
             self._disconnect_viewer()
         else:
@@ -289,7 +249,7 @@ class SpiceWidget(_ViewerWidget):
         setattr(self, what + '_grabbed', whether)
         self.emit('viewer-%s-grab' % what, whether)
 
-    def _motion(self, wid, motion):
+    def _motion(self, _wid, motion):
         # In server mouse mode, spice-gtk warps the pointer after every
         # motion.  The next motion event it receives (generated by the warp)
         # is only used to set the zero point for the following event.  We
@@ -298,12 +258,14 @@ class SpiceWidget(_ViewerWidget):
             # Accept motion
             self._accept_next_mouse_event = False
             return False
-        if _ViewerWidget._motion(self, wid, motion):
-            # Reject motion
+        elif motion.time < self._last_motion_time + self._motion_interval:
+            # Motion event came too soon; ignore it
             return True
-        # Accept motion
-        self._accept_next_mouse_event = True
-        return False
+        else:
+            # Accept motion
+            self._last_motion_time = motion.time
+            self._accept_next_mouse_event = True
+            return False
 
     def _destroy_display(self):
         if self._display is not None:
