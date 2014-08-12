@@ -653,7 +653,21 @@
   </xs:attributeGroup>
   <xs:group name="cpuModel">
     <xs:sequence>
-      <xs:element name="model" type="xs:string"/>
+      <xs:element name="model">
+        <xs:complexType>
+          <xs:simpleContent>
+            <xs:extension base="xs:string">
+              <xs:attribute name="fallback">
+                <xs:simpleType>
+                  <xs:restriction base="xs:token">
+                    <xs:enumeration value="allow"/>
+                  </xs:restriction>
+                </xs:simpleType>
+              </xs:attribute>
+            </xs:extension>
+          </xs:simpleContent>
+        </xs:complexType>
+      </xs:element>
     </xs:sequence>
   </xs:group>
   <xs:group name="cpuVendor">
