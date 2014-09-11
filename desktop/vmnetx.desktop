@@ -5,5 +5,5 @@ Name=VMNetX
 NoDisplay=true
 Comment=Execute VMNetX virtual machines
 Icon=vmnetx
-Exec=vmnetx %f
-MimeType=application/x-vmnetx-package;application/x-vmnetx-reference+xml;
+Exec=vmnetx %u
+MimeType=application/x-vmnetx-package;application/x-vmnetx-reference+xml;x-scheme-handler/vmnetx;
