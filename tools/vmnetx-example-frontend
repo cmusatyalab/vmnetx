@@ -27,7 +27,6 @@ from urlparse import urljoin, urlsplit
 import yaml
 
 import vmnetx
-from vmnetx.reference import PackageReference
 
 # Web server
 HOST = '0.0.0.0'
@@ -45,6 +44,15 @@ REQUIRE_HTTPS = True
 # Local auth
 AUTH_REALM = 'Example VMNetX Frontend'
 AUTH_USERS = {}
+
+# Redirect glue
+REDIRECT_HTML = '''<!doctype html>
+<h2>Launching virtual machine...</h2>
+<script type="text/javascript">
+setTimeout(function() {
+    history.back();
+}, 1000);
+</script>'''
 
 
 app = Flask(__name__)
@@ -109,20 +117,13 @@ def _launch():
     except requests.exceptions.RequestException:
         return ('Server failed', 503)
 
-    # Build reference
+    # Return response.  Provide custom HTML because Firefox (at least on
+    # Linux) displays it when launching an external viewer.
     data = json.loads(r.text)
-    ref = PackageReference(data['url'])
-
-    # Return response
-    headers = {
-        'Content-Type': 'application/x-vmnetx-reference+xml',
-    }
-    # If we set Content-Disposition on a .netx file, Firefox will ignore the
-    # "Remember this action next time" checkbox.  If we don't set it, Chrome
-    # won't launch vmnetx when the download is clicked.
-    if 'Chrome' in request.headers.get('User-Agent', ''):
-        headers['Content-Disposition'] = 'attachment; filename="launch.netx"'
-    return (ref.xml, 200, headers)
+    return (REDIRECT_HTML, 302, {
+        'Content-Type': 'text/html',
+        'Location': data['url'],
+    })
 
 
 if __name__ == '__main__':
