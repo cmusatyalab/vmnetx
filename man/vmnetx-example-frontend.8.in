@@ -12,7 +12,7 @@
 .\" or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 .\" for more details.
 .\"
-.TH VMNETX-EXAMPLE-FRONTEND 8 2014-02-21 "VMNetX @version@" "System Administration"
+.TH VMNETX-EXAMPLE-FRONTEND 8 2014-09-18 "VMNetX @version@" "System Administration"
 
 .SH NAME
 vmnetx-example-frontend \- Simple web frontend for VMNetX server
@@ -38,12 +38,11 @@ package on the image server.
 .B vmnetx-example-frontend
 then authenticates the user, creates a VM instance in the configured
 .BR vmnetx-server (8),
-and returns a
-.I .netx
-file to the client.
-When the user opens this file,
+and redirects the client to a
+.I vmnetx:
+URL.  The client's web browser will then launch
 .BR vmnetx (1)
-will be launched against that VM instance.
+against that VM instance.
 
 .SH OPTIONS
 .TP
@@ -161,9 +160,9 @@ will authenticate each client against the
 .I AUTH_USERS
 dictionary, create a VM instance in the configured
 .BR vmnetx-server (8),
-and return a
-.I .netx
-file directing the client to connect to that VM instance.
+and redirect to a
+.I vmnetx://
+URL directing the client to connect to that VM instance.
 
 .SH COPYRIGHT
 Copyright 2006-2014 Carnegie Mellon University.

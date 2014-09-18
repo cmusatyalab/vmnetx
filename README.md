@@ -98,15 +98,10 @@ virtual machine "test", you can use:
 Publishing a virtual machine image
 ----------------------------------
 
-1. Upload your `.nxpk` package to a web server and make note of the
-resulting URL.
+1. Upload your `.nxpk` package to a web server.
 
 2. To enable users to execute the virtual machine by clicking a hyperlink,
-*without* downloading the entire package, you must create a reference file.
-If the URL to your package is `http://www.example.com/test.nxpk`:
-
-        vmnetx-generate -r http://www.example.com/test.nxpk test.netx
-
-3.  Upload the `test.netx` reference file to your web server and publish
-a link to it.  Your server should be configured to associate the `.netx`
-extension with the `application/x-vmnetx-reference+xml` content type.
+*without* downloading the entire package, you must prepend `vmnetx+` to
+the target of the link.  For example, if the URL to your package is
+`http://www.example.com/test.nxpk`, the link must point to
+`vmnetx+http://www.example.com/test.nxpk`.

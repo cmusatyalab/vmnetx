@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (C) 2012-2013 Carnegie Mellon University
+.\" Copyright (C) 2012-2014 Carnegie Mellon University
 .\"
 .\" This program is free software; you can redistribute it and/or modify it
 .\" under the terms of version 2 of the GNU General Public License as published
@@ -12,7 +12,7 @@
 .\" or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 .\" for more details.
 .\"
-.TH VMNETX 1 2014-02-21 "VMNetX @version@" "User Commands"
+.TH VMNETX 1 2014-09-18 "VMNetX @version@" "User Commands"
 
 .SH NAME
 vmnetx \- Virtual Machine Network Execution
@@ -35,10 +35,24 @@ server.
 
 .PP
 .I LOCATION
-can be the path to a virtual machine package in the local filesystem,
-the HTTP or HTTPS URL for a package on a remote server, or the
-.I vmnetx://
+can be the path or
+.I file:
+URL to a virtual machine package in the local filesystem, the
+.I http:
+or
+.I https:
+URL for a package on a remote server, or the
+.I vmnetx:
 URL to a virtual machine configured on a remote server.
+.I vmnetx+http:
+and
+.I vmnetx+https:
+are treated as synonyms for
+.I http:
+and
+.I https:
+respectively.
+
 .B vmnetx
 also supports
 .IR reference\ files ,
@@ -46,7 +60,9 @@ which are small documents containing the URL for a remote package or
 virtual machine.
 If
 .I LOCATION
-is a path to a reference file,
+is a path or
+.I file:
+URL to a reference file,
 .B vmnetx
 will launch the virtual machine to which the file refers.
 

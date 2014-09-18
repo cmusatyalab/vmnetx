@@ -12,7 +12,7 @@
 .\" or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
 .\" for more details.
 .\"
-.TH VMNETX-GENERATE 1 2014-07-25 "VMNetX @version@" "User Commands"
+.TH VMNETX-GENERATE 1 2014-09-18 "VMNetX @version@" "User Commands"
 
 .SH NAME
 vmnetx-generate \- Construct a new VMNetX virtual machine image
@@ -81,7 +81,15 @@ extension.  This package file can be uploaded to a web server.
 
 .PP
 To enable users to execute the virtual machine without downloading the
-entire package, you must create a
+entire package, create a link to the package using a
+.I vmnetx+http:
+or
+.I vmnetx+https:
+URL.
+This will cause web browsers to open the link using
+.BR vmnetx (1).
+Alternatively, for compatibility with VMNetX versions earlier than 0.5.0,
+you can create a
 .I reference file
 using
 .BR vmnetx-generate\ reference .
@@ -89,8 +97,7 @@ This file should be uploaded to the web server with a
 .I .netx
 extension and an
 .I application/x-vmnetx-reference+xml
-content type.
-A link to this
+content type, and a link to this
 .I .netx
 file should be published for access.
 
