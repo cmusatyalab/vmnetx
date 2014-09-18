@@ -6,4 +6,4 @@ NoDisplay=true
 Comment=Execute VMNetX virtual machines
 Icon=vmnetx
 Exec=vmnetx %u
-MimeType=application/x-vmnetx-package;application/x-vmnetx-reference+xml;x-scheme-handler/vmnetx;
+MimeType=application/x-vmnetx-package;application/x-vmnetx-reference+xml;x-scheme-handler/vmnetx;x-scheme-handler/vmnetx+http;x-scheme-handler/vmnetx+https;

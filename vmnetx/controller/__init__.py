@@ -80,6 +80,12 @@ class Controller(gobject.GObject):
 
     @classmethod
     def get_for_ref(cls, package_ref):
+        # package_ref can be:
+        # - local path or file URL to .netx file
+        # - local path or file/http/https/vmnetx+http/vmnetx+https URL to
+        #   .nxpk file
+        # - vmnetx URL
+
         # Check for local file path or file URL.
         url = package_ref
         parsed = urlsplit(url)
@@ -92,6 +98,8 @@ class Controller(gobject.GObject):
             local_path = url2pathname(parsed.path)
         else:
             local_path = None
+
+        # Perform URL substitutions.
         if local_path:
             # Local file; try to parse as package reference.
             try:
@@ -103,6 +111,9 @@ class Controller(gobject.GObject):
                     url = urlunsplit(('file', '',
                             pathname2url(os.path.abspath(local_path)),
                             '', ''))
+        elif parsed.scheme in ('vmnetx+http', 'vmnetx+https'):
+            # Drop "vmnetx+" from the scheme
+            url = url.replace('vmnetx+', '', 1)
 
         # Return correct controller
         parsed = urlsplit(url)
