@@ -117,8 +117,8 @@ def _launch():
     except requests.exceptions.RequestException:
         return ('Server failed', 503)
 
-    # Return response.  Provide custom HTML because Firefox (at least on
-    # Linux) displays it when launching an external viewer.
+    # Return response.  Provide custom HTML because Firefox displays it
+    # when launching an external viewer.
     data = json.loads(r.text)
     return (REDIRECT_HTML, 302, {
         'Content-Type': 'text/html',
