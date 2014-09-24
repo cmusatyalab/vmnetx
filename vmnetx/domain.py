@@ -211,9 +211,11 @@ class DomainXML(object):
             domain_node = self._xpath_one(tree, '/domain')
             clock_node = etree.SubElement(domain_node, 'clock')
             clock_node.set('offset', 'localtime')
-        timer_node = etree.SubElement(clock_node, 'timer')
-        timer_node.set('name', 'rtc')
-        timer_node.set('track', 'guest')
+        if self._xpath_opt(tree,
+                '/domain/clock/timer[@name="rtc"][@track="guest"]') is None:
+            timer_node = etree.SubElement(clock_node, 'timer')
+            timer_node.set('name', 'rtc')
+            timer_node.set('track', 'guest')
 
         # Return new instance
         return type(self)(self._to_xml(tree), safe=False)

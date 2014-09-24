@@ -175,6 +175,26 @@
   </xs:element>
   <xs:element name="clock">
     <xs:complexType>
+      <xs:all>
+        <xs:element name="timer" minOccurs="0">
+          <xs:complexType>
+            <xs:attribute name="name" use="required">
+              <xs:simpleType>
+                <xs:restriction base="xs:token">
+                  <xs:enumeration value="rtc"/>
+                </xs:restriction>
+              </xs:simpleType>
+            </xs:attribute>
+            <xs:attribute name="track" use="required">
+              <xs:simpleType>
+                <xs:restriction base="xs:token">
+                  <xs:enumeration value="guest"/>
+                </xs:restriction>
+              </xs:simpleType>
+            </xs:attribute>
+          </xs:complexType>
+        </xs:element>
+      </xs:all>
       <xs:attribute name="offset" use="required">
         <xs:simpleType>
           <xs:restriction base="xs:token">
