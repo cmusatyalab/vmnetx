@@ -261,6 +261,10 @@ class DomainXML(object):
                 e.pae(),
             ),
             e.clock(
+                e.timer(
+                    name='rtc',
+                    track='guest',
+                ),
                 offset='localtime',
             ),
             e.devices(
