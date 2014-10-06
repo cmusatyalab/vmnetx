@@ -309,7 +309,7 @@ static bool do_stream(struct vmnetfs_image *img, GError **err)
     /* Handle fetch errors */
     if (my_err) {
         g_propagate_prefixed_error(err, my_err,
-                "Image streaming failed after %"G_GUINT64_FORMAT" bytes: ",
+                "Image streaming failed after %"PRIu64" bytes: ",
                 state->cur.io_offset);
         return false;
     }
