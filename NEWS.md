@@ -1,3 +1,16 @@
+VMNetX 0.5.0 (2014-10-24)
+-------------------------
+
+- Support 64-bit VMs
+- Show ETA when loading memory image
+- Permit VM settings needed for Windows 7 VMs with memory images
+- Fix excessive CPU usage
+- Support launching thick-client VMs via `vmnetx+http`/`vmnetx+https` URLs
+- Register to handle VMNetX URL schemes
+- Deprecate reference (`.netx`) files
+- Drop support for Ubuntu 12.04
+- Convert `vmnetx-generate` modes to subcommands
+
 VMNetX 0.4.4 (2014-05-30)
 -------------------------
 
