@@ -152,12 +152,6 @@ class SpiceWidget(gtk.EventBox):
         # Ensure clipboard sharing is disabled
         self._gtk_session = SpiceClientGtk.spice_gtk_session_get(self._session)
         self._gtk_session.set_property('auto-clipboard', False)
-        try:
-            # Enable audio
-            self._audio = SpiceClientGtk.Audio(self._session)
-        except RuntimeError:
-            # No local PulseAudio, etc.
-            pass
         GObject.connect(self._session, 'channel-new', self._new_channel)
         self._session.open_fd(-1)
 
@@ -200,6 +194,14 @@ class SpiceWidget(gtk.EventBox):
             self._display.connect('mouse-grab', self._grab, 'mouse')
             if self._motion_interval is not None:
                 self._display.connect('motion-notify-event', self._motion)
+        elif type == 'playback':
+            if self._audio is None:
+                try:
+                    # Enable audio
+                    self._audio = SpiceClientGtk.Audio(self._session)
+                except RuntimeError, e:
+                    # No local PulseAudio, etc.
+                    pass
 
     def _display_create(self, channel, _format, _width, _height, _stride,
             _shmid, _imgdata):
