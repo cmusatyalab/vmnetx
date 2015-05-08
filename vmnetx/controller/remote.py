@@ -1,7 +1,7 @@
 #
 # vmnetx.controller.remote - Remote execution of a VM
 #
-# Copyright (C) 2008-2013 Carnegie Mellon University
+# Copyright (C) 2008-2015 Carnegie Mellon University
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of version 2 of the GNU General Public License as published
@@ -15,6 +15,7 @@
 # for more details.
 #
 
+import glib
 import gobject
 import gtk
 import logging
@@ -38,7 +39,8 @@ class _ViewerConnection(object):
         self._endp.connect('close', self._shutdown)
         self._endp.send_authenticate(token)
 
-    def _auth_ok(self, _endp, state, _name, _max_mouse_rate):
+    def _auth_ok(self, _endp, state, _name, _max_mouse_rate,
+            _server_timeout_min, _server_timeout_max):
         if state == 'running':
             self._endp.send_attach_viewer()
         else:
@@ -128,6 +130,8 @@ class RemoteController(Controller):
         self._handlers = []
         self._backoff = BackoffTimer()
         self._backoff.connect('attempt', self._attempt_connection)
+        self._disconnected_timeout = None # seconds
+        self._disconnected_timeout_source = None
 
     @Controller._ensure_state(Controller.STATE_UNINITIALIZED)
     def initialize(self):
@@ -188,7 +192,8 @@ class RemoteController(Controller):
                     ErrorBuffer('Reauthentication failed: %s' % error))
             self._endp.shutdown()
 
-    def _auth_ok(self, _endp, state, name, max_mouse_rate):
+    def _auth_ok(self, _endp, state, name, max_mouse_rate,
+            _server_timeout_min, server_timeout_max):
         if self._phase == self.PHASE_STOP:
             return
         self.state = (self.STATE_STARTING if state == 'starting' else
@@ -199,8 +204,12 @@ class RemoteController(Controller):
         if self._phase == self.PHASE_INIT:
             self.vm_name = name
             self.max_mouse_rate = max_mouse_rate or None
+            self._disconnected_timeout = server_timeout_max or None
             self._loop.quit()
         elif self._phase == self.PHASE_RUN:
+            if self._disconnected_timeout_source is not None:
+                glib.source_remove(self._disconnected_timeout_source)
+                self._disconnected_timeout_source = None
             self.emit('network-reconnect')
             self._notify_stable_state()
 
@@ -249,10 +258,22 @@ class RemoteController(Controller):
         if self._phase == self.PHASE_INIT:
             self._loop.fail('Control connection closed')
         elif self._phase == self.PHASE_RUN:
+            if (self._disconnected_timeout_source is None and
+                    self._disconnected_timeout is not None):
+                self._disconnected_timeout_source = glib.timeout_add_seconds(
+                        self._disconnected_timeout, self._reconnection_failed)
             self.emit('network-disconnect')
             self._backoff.attempt()
         elif self._phase == self.PHASE_STOP:
             self._loop.quit()
+
+    def _reconnection_failed(self):
+        # We have not been able to reconnect and the server has GC'd our VM.
+        self.emit('fatal-error', ErrorBuffer('Lost connection with server'))
+        self._backoff.reset()
+        if self._endp is not None:
+            # Connection in progress but not authenticated
+            self._endp.shutdown()
 
     def _want_state(self, wanted):
         if self._endp is None:

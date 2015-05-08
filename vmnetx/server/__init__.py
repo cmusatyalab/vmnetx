@@ -1,7 +1,7 @@
 #
 # vmnetx.server - VMNetX thin client server
 #
-# Copyright (C) 2013 Carnegie Mellon University
+# Copyright (C) 2013-2015 Carnegie Mellon University
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of version 2 of the GNU General Public License as published
@@ -46,8 +46,10 @@ class _ServerConnection(gobject.GObject):
         'destroy-instance': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
     }
 
-    def __init__(self, sock):
+    def __init__(self, sock, timeout_min, timeout_max):
         gobject.GObject.__init__(self)
+        self._timeout_min = timeout_min
+        self._timeout_max = timeout_max
         self._peer = sock.getpeername()[0]
         self._controller = None
         self._instance_id = None
@@ -113,7 +115,8 @@ class _ServerConnection(gobject.GObject):
                 'stopping' if cs == LocalController.STATE_STOPPING else
                 'unknown')
         self._endp.send_auth_ok(state, self._controller.vm_name,
-                self._controller.max_mouse_rate)
+                self._controller.max_mouse_rate, self._timeout_min,
+                self._timeout_max)
         _log.info('Authenticated (%s, %s)', self._peer, self._instance_id)
         return True
 
@@ -456,7 +459,9 @@ class VMNetXServer(gobject.GObject):
                     return True
                 else:
                     _log.exception('Accepting connection')
-            conn = _ServerConnection(sock)
+            timeout = self._options['instance_timeout']
+            conn = _ServerConnection(sock, timeout,
+                    timeout + self._options['gc_interval'])
             conn.connect('need-controller', self._fetch_controller)
             conn.connect('close', self._close)
             self._unauthenticated_conns.add(conn)

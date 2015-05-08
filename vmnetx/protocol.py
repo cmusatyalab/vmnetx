@@ -1,7 +1,7 @@
 #
 # vmnetx.protocol - Remote control protocol
 #
-# Copyright (C) 2013 Carnegie Mellon University
+# Copyright (C) 2013-2015 Carnegie Mellon University
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of version 2 of the GNU General Public License as published
@@ -355,10 +355,13 @@ class ServerEndpoint(_Endpoint):
         except KeyError, e:
             raise _MessageError('Missing field in %s message: %s' % (mtype, e))
 
-    def send_auth_ok(self, state, name, limit_mouse_rate=None):
+    def send_auth_ok(self, state, name, limit_mouse_rate=None,
+            server_timeout_min=None, server_timeout_max=None):
         self._authenticated = True
         self._transmit('auth-ok', state=state, name=name,
-                limit_mouse_rate=limit_mouse_rate)
+                limit_mouse_rate=limit_mouse_rate,
+                server_timeout_min=server_timeout_min,
+                server_timeout_max=server_timeout_max)
 
     def send_auth_failed(self, error=None):
         self._transmit('auth-failed', error=error)
@@ -428,7 +431,8 @@ class ClientEndpoint(_Endpoint):
 
     __gsignals__ = {
         'auth-ok': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_STRING, gobject.TYPE_STRING, gobject.TYPE_UINT)),
+                (gobject.TYPE_STRING, gobject.TYPE_STRING, gobject.TYPE_UINT,
+                gobject.TYPE_UINT, gobject.TYPE_UINT)),
         'auth-failed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
                 (gobject.TYPE_STRING,)),
         'attaching-viewer': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
@@ -465,7 +469,9 @@ class ClientEndpoint(_Endpoint):
                 self._need_dispatch_state(self.STATE_AUTHENTICATING)
                 self._state = self.STATE_RUNNING
                 self.emit('auth-ok', msg['state'], msg['name'],
-                        msg.get('limit_mouse_rate') or 0)
+                        msg.get('limit_mouse_rate') or 0,
+                        msg.get('server_timeout_min') or 0,
+                        msg.get('server_timeout_max') or 0)
 
             elif mtype == 'auth-failed':
                 self._need_dispatch_state(self.STATE_AUTHENTICATING)
