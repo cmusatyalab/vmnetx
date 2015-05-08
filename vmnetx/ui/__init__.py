@@ -180,6 +180,8 @@ class VMNetXUI(object):
             # Icon not installed in search path
             pass
 
+    # Catch-all exception handler
+    # pylint: disable=bare-except
     def run(self):
         try:
             # Attempt to catch SIGTERM.  This is dubious, but not more so
@@ -270,6 +272,7 @@ class VMNetXUI(object):
             if self._controller is not None:
                 self._controller.shutdown()
             logging.shutdown()
+    # pylint: enable=bare-except
 
     def _signal(self, _signum, _frame):
         raise KeyboardInterrupt

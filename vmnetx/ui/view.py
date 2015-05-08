@@ -199,7 +199,7 @@ class SpiceWidget(gtk.EventBox):
                 try:
                     # Enable audio
                     self._audio = SpiceClientGtk.Audio(self._session)
-                except RuntimeError, e:
+                except RuntimeError:
                     # No local PulseAudio, etc.
                     pass
 

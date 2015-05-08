@@ -5,7 +5,7 @@
 persistent=no
 
 [MESSAGES CONTROL]
-disable=missing-docstring,too-many-lines,locally-disabled,no-self-use,duplicate-code,too-many-ancestors,too-many-instance-attributes,too-few-public-methods,too-many-public-methods,too-many-return-statements,too-many-branches,too-many-arguments,too-many-locals,too-many-statements,star-args,redefined-builtin
+disable=missing-docstring,too-many-lines,locally-disabled,locally-enabled,no-self-use,duplicate-code,too-many-ancestors,too-many-instance-attributes,too-few-public-methods,too-many-public-methods,too-many-return-statements,too-many-branches,too-many-arguments,too-many-locals,too-many-statements,star-args,redefined-builtin,bad-continuation
 
 [REPORTS]
 # Disable reports
