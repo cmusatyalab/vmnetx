@@ -37,6 +37,7 @@ class EndpointStateError(ValueError):
 
 class _AsyncSocket(gobject.GObject):
     DEFAULT_RECV_BUF = 65536
+    SHUTDOWN_TIMEOUT = 30 # seconds
 
     __gsignals__ = {
         'close': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
@@ -59,6 +60,7 @@ class _AsyncSocket(gobject.GObject):
         self._recv_closed = False
 
         self._send_buf = ''
+        self._send_close_timeout_source = None
         self._send_closing = False
         self._send_closed = False
 
@@ -74,6 +76,9 @@ class _AsyncSocket(gobject.GObject):
             except socket.error:
                 pass
             self._send_closed = True
+            if self._send_close_timeout_source is not None:
+                glib.source_remove(self._send_close_timeout_source)
+                self._send_close_timeout_source = None
         if self._send_closed and self._recv_closed:
             if self._source is not None:
                 glib.source_remove(self._source)
@@ -130,6 +135,13 @@ class _AsyncSocket(gobject.GObject):
                 self._send_buf = ''
         self._update()
 
+    def _send_close_timeout(self):
+        assert self._send_closing
+        # Give up on transmission
+        self._send_buf = ''
+        self._send_close_timeout_source = None
+        self._update()
+
     def send(self, buf):
         if self._send_closing or self._send_closed:
             raise IOError('Socket closed')
@@ -159,8 +171,12 @@ class _AsyncSocket(gobject.GObject):
             except socket.error:
                 pass
 
-        # Defer SHUT_WR until send buffer is empty
+        # Defer SHUT_WR for SHUTDOWN_TIMEOUT seconds or until send buffer
+        # is empty
         self._send_closing = True
+        if not self._send_closed and self._send_close_timeout_source is None:
+            self._send_close_timeout_source = glib.timeout_add_seconds(
+                    self.SHUTDOWN_TIMEOUT, self._send_close_timeout)
 
         self._update()
 gobject.type_register(_AsyncSocket)
