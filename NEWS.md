@@ -1,3 +1,10 @@
+VMNetX 0.5.1 (2015-06-03)
+-------------------------
+
+- Fix audio playback
+- Fix server failure to terminate stale VMs in some circumstances
+- Give up on lost thin-client connection after server timeout expires
+
 VMNetX 0.5.0 (2014-10-24)
 -------------------------
 
