@@ -16,18 +16,22 @@
 #
 
 from __future__ import division
-import glib
-import gobject
 import io
 import os
+
+import gi
+gi.require_version('GObject', '2.0')
+gi.require_version('GLib', '2.0')
+from gi.repository import GObject
+from gi.repository import GLib
 
 from .. import ChunkStateArray, Statistic
 from ...util import RangeConsolidator
 
-class _Monitor(gobject.GObject):
+class _Monitor(GObject.GObject):
     def close(self):
         raise NotImplementedError()
-gobject.type_register(_Monitor)
+GObject.type_register(_Monitor)
 
 
 class StatMonitor(_Monitor):
@@ -48,7 +52,8 @@ class StatMonitor(_Monitor):
         value = int(self._fh.readline().strip())
         if value != self._reporter.value:
             self._reporter.value = value
-        self._source = glib.io_add_watch(self._fh, glib.IO_IN | glib.IO_ERR,
+        cond = GLib.IOCondition.IN | GLib.IOCondition.ERR
+        self._source = GLib.io_add_watch(self._fh, GLib.IOCondition(cond),
                 self._reread)
 
     def _reread(self, _fh, _condition):
@@ -58,9 +63,9 @@ class StatMonitor(_Monitor):
 
     def close(self):
         if self._fh and not self._fh.closed:
-            glib.source_remove(self._source)
+            GLib.source_remove(self._source)
             self._fh.close()
-gobject.type_register(StatMonitor)
+GObject.type_register(StatMonitor)
 
 
 class _StreamMonitorBase(_Monitor):
@@ -69,7 +74,8 @@ class _StreamMonitorBase(_Monitor):
         # We need to set O_NONBLOCK in open() because FUSE doesn't pass
         # through fcntl()
         self._fh = io.FileIO(os.open(path, os.O_RDONLY | os.O_NONBLOCK))
-        self._source = glib.io_add_watch(self._fh, glib.IO_IN | glib.IO_ERR,
+        cond = GLib.IOCondition.IN | GLib.IOCondition.ERR
+        self._source = GLib.io_add_watch(self._fh, GLib.IOCondition(cond),
                 self._read)
         self._buf = ''
         # Defer initial update until next main loop iteration, to allow the
@@ -101,26 +107,26 @@ class _StreamMonitorBase(_Monitor):
 
     def close(self):
         if not self._fh.closed:
-            glib.source_remove(self._source)
+            GLib.source_remove(self._source)
             self._fh.close()
 
 
 class LineStreamMonitor(_StreamMonitorBase):
     __gsignals__ = {
-        'line-emitted': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_STRING,)),
+        'line-emitted': (GObject.SignalFlags.RUN_LAST, None,
+                (GObject.TYPE_STRING,)),
     }
 
     def _handle_lines(self, lines):
         for line in lines:
             self.emit('line-emitted', line)
-gobject.type_register(LineStreamMonitor)
+GObject.type_register(LineStreamMonitor)
 
 
 class _ChunkStreamMonitor(_StreamMonitorBase):
     __gsignals__ = {
-        'chunk-emitted': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_UINT64, gobject.TYPE_UINT64)),
+        'chunk-emitted': (GObject.SignalFlags.RUN_LAST, None,
+                (GObject.TYPE_UINT64, GObject.TYPE_UINT64)),
     }
 
     def _handle_lines(self, lines):
@@ -129,7 +135,7 @@ class _ChunkStreamMonitor(_StreamMonitorBase):
         with RangeConsolidator(emit_range) as c:
             for line in lines:
                 c.emit(int(line))
-gobject.type_register(_ChunkStreamMonitor)
+GObject.type_register(_ChunkStreamMonitor)
 
 
 class ChunkMapMonitor(_Monitor):
@@ -163,13 +169,13 @@ class ChunkMapMonitor(_Monitor):
         for m in self._monitors:
             m.close()
         self._monitors = []
-gobject.type_register(ChunkMapMonitor)
+GObject.type_register(ChunkMapMonitor)
 
 
 class LoadProgressMonitor(_Monitor):
     __gsignals__ = {
-        'progress': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_UINT64, gobject.TYPE_UINT64)),
+        'progress': (GObject.SignalFlags.RUN_LAST, None,
+                (GObject.TYPE_UINT64, GObject.TYPE_UINT64)),
     }
 
     def __init__(self, image_path):
@@ -196,4 +202,4 @@ class LoadProgressMonitor(_Monitor):
 
     def close(self):
         self._stream.close()
-gobject.type_register(LoadProgressMonitor)
+GObject.type_register(LoadProgressMonitor)

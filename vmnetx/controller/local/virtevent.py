@@ -21,9 +21,12 @@
 # Based on libvirt-glib 0.1.6, which is released under the LGPLv2.1.
 #
 
-import glib
-import libvirt
 from threading import Lock
+import libvirt
+
+import gi
+gi.require_version('GLib', '2.0')
+from gi.repository import GLib
 
 # We use short argument names
 # pylint: disable=invalid-name
@@ -42,27 +45,27 @@ class _EventHandle(object):
         if events == self._events:
             return
         if self._events:
-            glib.source_remove(self._source)
+            GLib.source_remove(self._source)
             self._source = None
         if events:
             cond = 0
             if events & libvirt.VIR_EVENT_HANDLE_READABLE:
-                cond |= glib.IO_IN
+                cond |= GLib.IOCondition.IN
             if events & libvirt.VIR_EVENT_HANDLE_WRITABLE:
-                cond |= glib.IO_OUT
-            self._source = glib.io_add_watch(self._fd, cond,
+                cond |= GLib.IOCondition.OUT
+            self._source = GLib.io_add_watch(self._fd, GLib.IOCondition(cond),
                     self._event_callback)
         self._events = events
 
     def _event_callback(self, _source, cond):
         events = 0
-        if cond & glib.IO_IN:
+        if cond & GLib.IOCondition.IN:
             events |= libvirt.VIR_EVENT_HANDLE_READABLE
-        if cond & glib.IO_OUT:
+        if cond & GLib.IOCondition.OUT:
             events |= libvirt.VIR_EVENT_HANDLE_WRITABLE
-        if cond & glib.IO_HUP:
+        if cond & GLib.IOCondition.HUP:
             events |= libvirt.VIR_EVENT_HANDLE_HANGUP
-        if cond & glib.IO_ERR:
+        if cond & GLib.IOCondition.ERR:
             events |= libvirt.VIR_EVENT_HANDLE_ERROR
         self._cb(self._id, self._fd, events, self._data)
         return True
@@ -70,7 +73,7 @@ class _EventHandle(object):
     def close(self):
         self.set_events(0)
         if self._free_func is not None:
-            glib.idle_add(self._destroy)
+            GLib.idle_add(self._destroy)
 
     def _destroy(self):
         self._free_func(self._data)
@@ -90,10 +93,10 @@ class _TimeoutHandle(object):
         if interval == self._interval:
             return
         if self._interval >= 0:
-            glib.source_remove(self._source)
+            GLib.source_remove(self._source)
             self._source = None
         if interval >= 0:
-            self._source = glib.timeout_add(interval, self._timer_callback)
+            self._source = GLib.timeout_add(interval, self._timer_callback)
         self._interval = interval
 
     def _timer_callback(self):
@@ -103,7 +106,7 @@ class _TimeoutHandle(object):
     def close(self):
         self.set_interval(-1)
         if self._free_func is not None:
-            glib.idle_add(self._destroy)
+            GLib.idle_add(self._destroy)
 
     def _destroy(self):
         self._free_func(self._data)

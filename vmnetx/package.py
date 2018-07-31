@@ -15,11 +15,11 @@
 # for more details.
 #
 
-from lxml import etree
-from lxml.builder import ElementMaker
 import os
 import struct
 import zipfile
+from lxml import etree
+from lxml.builder import ElementMaker
 
 from .source import SourceError, SourceRange
 from .system import schemadir

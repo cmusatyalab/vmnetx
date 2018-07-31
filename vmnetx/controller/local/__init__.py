@@ -17,14 +17,10 @@
 
 import base64
 from calendar import timegm
-import dbus
-import gobject
 import grp
 from hashlib import sha256
 import json
-import libvirt
 import logging
-from lxml.builder import ElementMaker
 import os
 import pipes
 import pwd
@@ -37,6 +33,13 @@ import time
 from urlparse import urlsplit, urlunsplit
 import uuid
 from wsgiref.handlers import format_date_time as format_rfc1123_date
+import dbus
+import libvirt
+from lxml.builder import ElementMaker
+
+import gi
+gi.require_version('GObject', '2.0')
+from gi.repository import GObject
 
 from ...domain import DomainXML
 from ...generate import copy_memory
@@ -169,7 +172,7 @@ class _QemuWatchdog(object):
         self._qemu_pid = None
         self._compressor_exe = None
         self._compressor_pid = None
-        gobject.timeout_add(self.INTERVAL, self._timer)
+        GObject.timeout_add(self.INTERVAL, self._timer)
 
     def _timer(self):
         # Called from UI thread.
@@ -278,7 +281,7 @@ class _MemoryRecompressor(object):
         if self._have_run:
             return
         self._have_run = True
-        gobject.timeout_add(self.RECOMPRESSION_DELAY, self._timer_expired)
+        GObject.timeout_add(self.RECOMPRESSION_DELAY, self._timer_expired)
 
     def _timer_expired(self):
         threading.Thread(name='vmnetx-recompress-memory',
@@ -363,7 +366,7 @@ class LocalController(Controller):
                     self.RECOMPRESSION_ALGORITHM)
             if os.path.exists(recompressed_path):
                 # When started from vmnetx, logging isn't up yet
-                gobject.idle_add(lambda:
+                GObject.idle_add(lambda:
                         _log.info('Using recompressed memory image'))
                 image = _Image('memory',
                         SourceRange(source_open(filename=recompressed_path)),
@@ -436,7 +439,7 @@ class LocalController(Controller):
 
         # Kick off state machine after main loop starts
         self.state = self.STATE_STOPPED
-        gobject.idle_add(self.emit, 'vm-stopped')
+        GObject.idle_add(self.emit, 'vm-stopped')
 
     # Should be called before we open any windows, since we may re-exec
     # the whole program if we need to update the group list.
@@ -541,23 +544,23 @@ class LocalController(Controller):
                 raise MachineExecutionError(str(e))
             finally:
                 if have_memory:
-                    gobject.idle_add(self._load_monitor.close)
+                    GObject.idle_add(self._load_monitor.close)
         except:
             if self.state == self.STATE_STOPPING:
                 self.state = self.STATE_STOPPED
-                gobject.idle_add(self.emit, 'vm-stopped')
+                GObject.idle_add(self.emit, 'vm-stopped')
             elif have_memory:
                 self._have_memory = False
-                gobject.idle_add(self.emit, 'startup-rejected-memory')
+                GObject.idle_add(self.emit, 'startup-rejected-memory')
                 # Retry without memory image
                 self._startup()
             else:
                 self.state = self.STATE_STOPPED
-                gobject.idle_add(self.emit, 'startup-failed', ErrorBuffer())
-                gobject.idle_add(self.emit, 'vm-stopped')
+                GObject.idle_add(self.emit, 'startup-failed', ErrorBuffer())
+                GObject.idle_add(self.emit, 'vm-stopped')
         else:
             self.state = self.STATE_RUNNING
-            gobject.idle_add(self.emit, 'vm-started', have_memory)
+            GObject.idle_add(self.emit, 'vm-started', have_memory)
         finally:
             self._startup_running = False
     # pylint: enable=bare-except
@@ -620,4 +623,4 @@ class LocalController(Controller):
             self._fs.terminate()
             self._fs = None
         self.state = self.STATE_DESTROYED
-gobject.type_register(LocalController)
+GObject.type_register(LocalController)

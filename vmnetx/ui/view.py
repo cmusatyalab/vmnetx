@@ -16,19 +16,30 @@
 #
 
 from __future__ import division
-import cairo
-from distutils.version import LooseVersion
-import glib
-import gobject
-from gobject import GObject
-import gtk
 import logging
 import math
-import pango
-import SpiceClientGtk
 import sys
 import time
 import urllib
+import cairo
+
+import gi
+gi.require_version('GLib', '2.0')
+gi.require_version('GObject', '2.0')
+gi.require_version('Gdk', '3.0')
+gi.require_version('GdkPixbuf', '2.0')
+gi.require_version('Gtk', '3.0')
+gi.require_version('Pango', '1.0')
+gi.require_version('SpiceClientGLib', '2.0')
+gi.require_version('SpiceClientGtk', '3.0')
+from gi.repository import GLib
+from gi.repository import GObject
+from gi.repository import Gdk
+from gi.repository import GdkPixbuf
+from gi.repository import Gtk
+from gi.repository import Pango
+from gi.repository import SpiceClientGLib
+from gi.repository import SpiceClientGtk
 
 from ..controller import ChunkStateArray
 from ..util import ErrorBuffer, BackoffTimer
@@ -39,71 +50,32 @@ else:
     def set_window_progress(_window, _progress):
         pass
 
-# SpiceClientGtk.Session.open_fd(-1) doesn't work on < 0.10
-assert LooseVersion(SpiceClientGtk.__version__) >= LooseVersion('0.10')
-
-class AspectBin(gtk.Bin):
-    # Like an AspectFrame but without the frame.
-
-    __gtype_name__ = 'AspectBin'
-
-    def __init__(self):
-        gtk.Bin.__init__(self)
-        self.connect('grab-focus', self._grab_focus)
-
-    def _grab_focus(self, _wid):
-        child = self.get_child()
-        if child is not None:
-            child.grab_focus()
-
-    def do_size_request(self, req):
-        child = self.get_child()
-        if child is not None:
-            req.width, req.height = child.size_request()
-
-    def do_size_allocate(self, alloc):
-        self.allocation = alloc
-        child = self.get_child()
-        if child is not None:
-            width, height = child.get_child_requisition()
-            if width > 0 and height > 0:
-                scale = min(1.0, alloc.width / width, alloc.height / height)
-            else:
-                scale = 1.0
-            rect = gtk.gdk.Rectangle()
-            rect.width = int(width * scale)
-            rect.height = int(height * scale)
-            rect.x = alloc.x + max(0, (alloc.width - rect.width) // 2)
-            rect.y = alloc.y + max(0, (alloc.height - rect.height) // 2)
-            child.size_allocate(rect)
-
-
-class SpiceWidget(gtk.EventBox):
+class SpiceWidget(Gtk.EventBox):
     __gsignals__ = {
-        'viewer-get-fd': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_OBJECT,)),
-        'viewer-connect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-        'viewer-disconnect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-        'viewer-resize': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_INT, gobject.TYPE_INT)),
-        'viewer-keyboard-grab': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_BOOLEAN,)),
-        'viewer-mouse-grab': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_BOOLEAN,)),
+        'viewer-get-fd': (GObject.SignalFlags.RUN_LAST, None,
+                (GObject.TYPE_OBJECT,)),
+        'viewer-connect': (GObject.SignalFlags.RUN_LAST, None, ()),
+        'viewer-disconnect': (GObject.SignalFlags.RUN_LAST, None, ()),
+        'viewer-resize': (GObject.SignalFlags.RUN_LAST, None,
+                (GObject.TYPE_INT, GObject.TYPE_INT)),
+        'viewer-keyboard-grab': (GObject.SignalFlags.RUN_LAST, None,
+                (GObject.TYPE_BOOLEAN,)),
+        'viewer-mouse-grab': (GObject.SignalFlags.RUN_LAST, None,
+                (GObject.TYPE_BOOLEAN,)),
     }
 
     BACKOFF_TIMES = (1000, 2000, 5000, 10000)  # ms
     ERROR_EVENTS = set([
-        SpiceClientGtk.CHANNEL_CLOSED,
-        SpiceClientGtk.CHANNEL_ERROR_AUTH,
-        SpiceClientGtk.CHANNEL_ERROR_CONNECT,
-        SpiceClientGtk.CHANNEL_ERROR_IO,
-        SpiceClientGtk.CHANNEL_ERROR_LINK,
-        SpiceClientGtk.CHANNEL_ERROR_TLS,
+        SpiceClientGLib.ChannelEvent.CLOSED,
+        SpiceClientGLib.ChannelEvent.ERROR_AUTH,
+        SpiceClientGLib.ChannelEvent.ERROR_CONNECT,
+        SpiceClientGLib.ChannelEvent.ERROR_IO,
+        SpiceClientGLib.ChannelEvent.ERROR_LINK,
+        SpiceClientGLib.ChannelEvent.ERROR_TLS,
     ])
 
     def __init__(self, max_mouse_rate=None):
-        gtk.EventBox.__init__(self)
+        Gtk.EventBox.__init__(self)
         self.keyboard_grabbed = False
         self.mouse_grabbed = False
 
@@ -130,9 +102,8 @@ class SpiceWidget(gtk.EventBox):
 
         # SpiceClientGtk < 0.14 (Debian Wheezy) doesn't have the
         # only-downscale property
-        self._aspect = AspectBin()
-        self._placeholder = gtk.EventBox()
-        self._placeholder.modify_bg(gtk.STATE_NORMAL, gtk.gdk.Color())
+        self._placeholder = Gtk.EventBox()
+        self._placeholder.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA())
         self._placeholder.set_property('can-focus', True)
         self.add(self._placeholder)
 
@@ -146,13 +117,13 @@ class SpiceWidget(gtk.EventBox):
 
     def _attempt_connection(self, _backoff):
         self._disconnect_viewer()
-        self._session = SpiceClientGtk.Session()
+        self._session = SpiceClientGLib.Session()
         self._session.set_property('password', self._password)
         self._session.set_property('enable-usbredir', False)
         # Ensure clipboard sharing is disabled
-        self._gtk_session = SpiceClientGtk.spice_gtk_session_get(self._session)
+        self._gtk_session = SpiceClientGtk.GtkSession.get(self._session)
         self._gtk_session.set_property('auto-clipboard', False)
-        GObject.connect(self._session, 'channel-new', self._new_channel)
+        GObject.Object.connect(self._session, 'channel-new', self._new_channel)
         self._session.open_fd(-1)
 
     def _connected(self, _obj):
@@ -174,22 +145,23 @@ class SpiceWidget(gtk.EventBox):
         if session != self._session:
             # Stale channel; ignore
             return
-        GObject.connect(channel, 'open-fd', self._request_fd)
-        GObject.connect(channel, 'channel-event', self._channel_event)
-        type = SpiceClientGtk.spice_channel_type_to_string(
+        GObject.Object.connect(channel, 'open-fd', self._request_fd)
+        GObject.Object.connect(channel, 'channel-event', self._channel_event)
+        type = SpiceClientGLib.Channel.type_to_string(
                 channel.get_property('channel-type'))
         if type == 'display':
             # Create the display but don't show it until configured by
             # the server
-            GObject.connect(channel, 'display-primary-create',
+            GObject.Object.connect(channel, 'display-primary-create',
                     self._display_create)
             self._destroy_display()
             self._display_channel = channel
-            self._display = SpiceClientGtk.Display(self._session,
+            self._display = SpiceClientGtk.Display.new(self._session,
                     channel.get_property('channel-id'))
             # Default was False in spice-gtk < 0.14
             self._display.set_property('scaling', True)
-            self._display.connect('size-request', self._size_request)
+            self._display.set_property('only-downscale', True)
+            self._display.connect('check-resize', self._size_request)
             self._display.connect('keyboard-grab', self._grab, 'keyboard')
             self._display.connect('mouse-grab', self._grab, 'mouse')
             if self._motion_interval is not None:
@@ -198,7 +170,7 @@ class SpiceWidget(gtk.EventBox):
             if self._audio is None:
                 try:
                     # Enable audio
-                    self._audio = SpiceClientGtk.Audio(self._session)
+                    self._audio = SpiceClientGLib.Audio.get(self._session, None)
                 except RuntimeError:
                     # No local PulseAudio, etc.
                     pass
@@ -209,9 +181,7 @@ class SpiceWidget(gtk.EventBox):
             # Display is now configured; show it
             self._display_showing = True
             self.remove(self._placeholder)
-            self.add(self._aspect)
-            self._aspect.add(self._display)
-            self._aspect.show_all()
+            self.add(self._display)
             self.emit('viewer-connect')
 
     def _request_fd(self, chan, _with_tls):
@@ -256,6 +226,7 @@ class SpiceWidget(gtk.EventBox):
         # motion.  The next motion event it receives (generated by the warp)
         # is only used to set the zero point for the following event.  We
         # therefore have to accept motion events in pairs.
+        # pylint: disable=no-else-return
         if self._accept_next_mouse_event:
             # Accept motion
             self._accept_next_mouse_event = False
@@ -274,7 +245,7 @@ class SpiceWidget(gtk.EventBox):
             self._display.destroy()
             self._display = None
             if self.get_children() and self._display_showing:
-                self.remove(self._aspect)
+                self.remove(self._display)
                 self.add(self._placeholder)
                 self._placeholder.show()
             self._display_showing = False
@@ -295,28 +266,28 @@ class SpiceWidget(gtk.EventBox):
         if self._display is None:
             return None
         return self._display.get_pixbuf()
-gobject.type_register(SpiceWidget)
+GObject.type_register(SpiceWidget)
 
 
-class StatusBarWidget(gtk.HBox):
+class StatusBarWidget(Gtk.HBox):
     def __init__(self, viewer, is_remote=False):
-        gtk.HBox.__init__(self, spacing=3)
-        self._theme = gtk.icon_theme_get_default()
+        super(StatusBarWidget, self).__init__(self, spacing=3)
+        self._theme = Gtk.IconTheme.get_default()
 
-        self._warnings = gtk.HBox()
-        self.pack_start(self._warnings, expand=False)
+        self._warnings = Gtk.HBox()
+        self.pack_start(self._warnings, False, True, 0)
 
-        self.pack_start(gtk.Label())  # filler
+        self.pack_start(Gtk.Label(), True, True, 0)  # filler
 
         def add_icon(name, sensitive):
             icon = self._get_icon(name)
             icon.set_sensitive(sensitive)
-            self.pack_start(icon, expand=False)
+            self.pack_start(icon, False, True, 0)
             return icon
 
-        escape_label = gtk.Label('Ctrl-Alt')
+        escape_label = Gtk.Label(label='Ctrl-Alt')
         escape_label.set_padding(3, 0)
-        self.pack_start(escape_label, expand=False)
+        self.pack_start(escape_label, False, True, 0)
 
         keyboard_icon = add_icon('input-keyboard', viewer.keyboard_grabbed)
         mouse_icon = add_icon('input-mouse', viewer.mouse_grabbed)
@@ -328,7 +299,7 @@ class StatusBarWidget(gtk.HBox):
         viewer.connect('viewer-mouse-grab', self._grabbed, mouse_icon)
 
     def _get_icon(self, name):
-        icon = gtk.Image()
+        icon = Gtk.Image()
         icon.set_from_pixbuf(self._theme.load_icon(name, 24, 0))
         return icon
 
@@ -338,7 +309,7 @@ class StatusBarWidget(gtk.HBox):
     def add_warning(self, icon, message):
         image = self._get_icon(icon)
         image.set_tooltip_markup(message)
-        self._warnings.pack_start(image)
+        self._warnings.pack_start(image, True, True, 0)
         image.show()
         return image
 
@@ -346,25 +317,25 @@ class StatusBarWidget(gtk.HBox):
         self._warnings.remove(warning)
 
 
-class VMWindow(gtk.Window):
+class VMWindow(Gtk.Window):
     INITIAL_VIEWER_SIZE = (640, 480)
     MIN_SCALE = 0.25
     SCREEN_SIZE_FUDGE = (-100, -100)
 
     __gsignals__ = {
-        'viewer-get-fd': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_OBJECT,)),
-        'viewer-connect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-        'viewer-disconnect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-        'user-screenshot': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gtk.gdk.Pixbuf,)),
-        'user-restart': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-        'user-quit': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'viewer-get-fd': (GObject.SignalFlags.RUN_LAST, None,
+                (GObject.TYPE_OBJECT,)),
+        'viewer-connect': (GObject.SignalFlags.RUN_LAST, None, ()),
+        'viewer-disconnect': (GObject.SignalFlags.RUN_LAST, None, ()),
+        'user-screenshot': (GObject.SignalFlags.RUN_LAST, None,
+                (GdkPixbuf.Pixbuf,)),
+        'user-restart': (GObject.SignalFlags.RUN_LAST, None, ()),
+        'user-quit': (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
     def __init__(self, name, disk_stats, disk_chunks, disk_chunk_size,
             max_mouse_rate=None, is_remote=False):
-        gtk.Window.__init__(self)
+        Gtk.Window.__init__(self)
         self._agrp = VMActionGroup(self)
         for sig in 'user-restart', 'user-quit':
             self._agrp.connect(sig, lambda _obj, s: self.emit(s), sig)
@@ -388,36 +359,38 @@ class VMWindow(gtk.Window):
         self._viewer_width, self._viewer_height = self.INITIAL_VIEWER_SIZE
         self._is_fullscreen = False
 
-        box = gtk.VBox()
+        box = Gtk.VBox()
         self.add(box)
 
         def item(name):
             return self._agrp.get_action(name).create_tool_item()
-        tbar = gtk.Toolbar()
-        tbar.set_style(gtk.TOOLBAR_ICONS)
-        tbar.set_icon_size(gtk.ICON_SIZE_LARGE_TOOLBAR)
+        tbar = Gtk.Toolbar()
+        tbar.set_style(Gtk.ToolbarStyle.ICONS)
+        tbar.set_icon_size(Gtk.IconSize.LARGE_TOOLBAR)
         tbar.insert(item('quit'), -1)
         tbar.insert(item('restart'), -1)
         tbar.insert(item('fullscreen'), -1)
         tbar.insert(item('screenshot'), -1)
-        tbar.insert(gtk.SeparatorToolItem(), -1)
+        tbar.insert(Gtk.SeparatorToolItem(), -1)
         tbar.insert(item('show-activity'), -1)
         tbar.insert(item('show-log'), -1)
-        box.pack_start(tbar, expand=False)
+        box.pack_start(tbar, False, True, 0)
 
         self._viewer = SpiceWidget(max_mouse_rate)
         self._viewer.connect('viewer-get-fd', self._viewer_get_fd)
         self._viewer.connect('viewer-resize', self._viewer_resized)
         self._viewer.connect('viewer-connect', self._viewer_connected)
         self._viewer.connect('viewer-disconnect', self._viewer_disconnected)
-        box.pack_start(self._viewer)
-        self.set_geometry_hints(self._viewer,
-                min_width=self._viewer_width, max_width=self._viewer_width,
-                min_height=self._viewer_height, max_height=self._viewer_height)
+        box.pack_start(self._viewer, True, True, 0)
+
+        hints = Gdk.Geometry()
+        hints.min_width = self._viewer_width
+        hints.min_height = self._viewer_height
+        self.set_geometry_hints(self._viewer, hints, Gdk.WindowHints.MIN_SIZE)
         self._viewer.grab_focus()
 
         self._statusbar = StatusBarWidget(self._viewer, is_remote)
-        box.pack_end(self._statusbar, expand=False)
+        box.pack_end(self._statusbar, False, True, 0)
 
     def set_vm_running(self, running):
         self._agrp.set_vm_running(running)
@@ -468,16 +441,16 @@ class VMWindow(gtk.Window):
     def _update_window_size_constraints(self):
         # If fullscreen, constrain nothing.
         if self._is_fullscreen:
-            self.set_geometry_hints(self._viewer)
+            self.set_geometry_hints(self._viewer, None, 0)
             return
 
         # Update window geometry constraints for the guest screen size.
         # We would like to use min_aspect and max_aspect as well, but they
         # seem to apply to the whole window rather than the geometry widget.
-        self.set_geometry_hints(self._viewer,
-                min_width=int(self._viewer_width * self.MIN_SCALE),
-                min_height=int(self._viewer_height * self.MIN_SCALE),
-                max_width=self._viewer_width, max_height=self._viewer_height)
+        hints = Gdk.Geometry()
+        hints.min_width = self._viewer_width * self.MIN_SCALE
+        hints.min_height = self._viewer_height * self.MIN_SCALE
+        self.set_geometry_hints(self._viewer, hints, Gdk.WindowHints.MIN_SIZE)
 
         # Resize the window to the largest size that can comfortably fit on
         # the screen, constrained by the maximums.
@@ -493,9 +466,9 @@ class VMWindow(gtk.Window):
         self._update_window_size_constraints()
 
     def _window_state_changed(self, _obj, event):
-        if event.changed_mask & gtk.gdk.WINDOW_STATE_FULLSCREEN:
+        if event.changed_mask & Gdk.WindowState.FULLSCREEN:
             self._is_fullscreen = bool(event.new_window_state &
-                    gtk.gdk.WINDOW_STATE_FULLSCREEN)
+                    Gdk.WindowState.FULLSCREEN)
             self._agrp.get_action('fullscreen').set_active(self._is_fullscreen)
             self._update_window_size_constraints()
 
@@ -506,20 +479,20 @@ class VMWindow(gtk.Window):
         self._log.destroy()
         if self._activity is not None:
             self._activity.destroy()
-gobject.type_register(VMWindow)
+GObject.type_register(VMWindow)
 
 
-class VMActionGroup(gtk.ActionGroup):
+class VMActionGroup(Gtk.ActionGroup):
     __gsignals__ = {
-        'user-screenshot': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-        'user-restart': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-        'user-quit': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'user-screenshot': (GObject.SignalFlags.RUN_LAST, None, ()),
+        'user-restart': (GObject.SignalFlags.RUN_LAST, None, ()),
+        'user-quit': (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
     def __init__(self, parent):
-        gtk.ActionGroup.__init__(self, 'vmnetx-global')
+        super(VMActionGroup, self).__init__(self, 'vmnetx-global')
         def add_nonstock(name, label, tooltip, icon, handler):
-            action = gtk.Action(name, label, tooltip, None)
+            action = Gtk.Action(name, label, tooltip, None)
             action.set_icon_name(icon)
             action.connect('activate', handler, parent)
             self.add_action(action)
@@ -554,15 +527,15 @@ class VMActionGroup(gtk.ActionGroup):
             self.get_action(name).set_sensitive(available)
 
     def _confirm(self, parent, signal, message):
-        dlg = gtk.MessageDialog(parent=parent,
-                type=gtk.MESSAGE_WARNING,
-                buttons=gtk.BUTTONS_OK_CANCEL,
-                flags=gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
+        dlg = Gtk.MessageDialog(parent=parent,
+                type=Gtk.MessageType.WARNING,
+                buttons=Gtk.ButtonsType.OK_CANCEL,
+                flags=Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
                 message_format=message)
-        dlg.set_default_response(gtk.RESPONSE_OK)
+        dlg.set_default_response(Gtk.ResponseType.OK)
         result = dlg.run()
         dlg.destroy()
-        if result == gtk.RESPONSE_OK:
+        if result == Gtk.ResponseType.OK:
             self.emit(signal)
 
     def _screenshot(self, _action, _parent):
@@ -587,7 +560,7 @@ class VMActionGroup(gtk.ActionGroup):
 
     def _show_log(self, action, parent):
         parent.show_log(action.get_active())
-gobject.type_register(VMActionGroup)
+GObject.type_register(VMActionGroup)
 
 
 class _MainLoopCallbackHandler(logging.Handler):
@@ -596,25 +569,25 @@ class _MainLoopCallbackHandler(logging.Handler):
         self._callback = callback
 
     def emit(self, record):
-        gobject.idle_add(self._callback, self.format(record))
+        GObject.idle_add(self._callback, self.format(record))
 
 
-class _LogWidget(gtk.ScrolledWindow):
+class _LogWidget(Gtk.ScrolledWindow):
     FONT = 'monospace 8'
     MIN_HEIGHT = 150
 
     def __init__(self):
-        gtk.ScrolledWindow.__init__(self)
-        self.set_policy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
-        self._textview = gtk.TextView()
+        Gtk.ScrolledWindow.__init__(self)
+        self.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self._textview = Gtk.TextView()
         self._textview.set_editable(False)
         self._textview.set_cursor_visible(False)
-        self._textview.set_wrap_mode(gtk.WRAP_WORD_CHAR)
-        font = pango.FontDescription(self.FONT)
+        self._textview.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
+        font = Pango.FontDescription(self.FONT)
         self._textview.modify_font(font)
         width = self._textview.get_pango_context().get_metrics(font,
                 None).get_approximate_char_width()
-        self._textview.set_size_request(80 * width // pango.SCALE,
+        self._textview.set_size_request(80 * width // Pango.SCALE,
                 self.MIN_HEIGHT)
         self.add(self._textview)
         self._handler = _MainLoopCallbackHandler(self._log)
@@ -629,11 +602,11 @@ class _LogWidget(gtk.ScrolledWindow):
         logging.getLogger().removeHandler(self._handler)
 
 
-class LogWindow(gtk.Window):
+class LogWindow(Gtk.Window):
     def __init__(self, name, hide_action):
-        gtk.Window.__init__(self)
+        Gtk.Window.__init__(self)
         self.set_title('Log: %s' % name)
-        self.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_UTILITY)
+        self.set_type_hint(Gdk.WindowTypeHint.UTILITY)
         self.connect('delete-event',
                 lambda _wid, _ev: hide_action.activate() or True)
 
@@ -642,7 +615,7 @@ class LogWindow(gtk.Window):
         widget.show_all()
 
 
-class ImageChunkWidget(gtk.DrawingArea):
+class ImageChunkWidget(Gtk.DrawingArea):
     PATTERNS = {
         ChunkStateArray.INVALID: cairo.SolidPattern(0, 0, 0),
         ChunkStateArray.MISSING: cairo.SolidPattern(.35, .35, .35),
@@ -659,7 +632,7 @@ Light gray: Fetched in previous session
 Dark gray: Not present"""
 
     def __init__(self, chunk_map):
-        gtk.DrawingArea.__init__(self)
+        Gtk.DrawingArea.__init__(self)
         self._map = chunk_map
         self._map_chunk_handler = None
         self._map_resize_handler = None
@@ -668,7 +641,7 @@ Dark gray: Not present"""
         self.connect('realize', self._realize)
         self.connect('unrealize', self._unrealize)
         self.connect('configure-event', self._configure)
-        self.connect('expose-event', self._expose)
+        self.connect('draw', self._draw)
 
     # pylint doesn't understand allocation.width
     # pylint: disable=no-member
@@ -676,7 +649,7 @@ Dark gray: Not present"""
     def valid_rows(self):
         """Return the number of rows where at least one pixel corresponds
         to a chunk."""
-        row_width = self.allocation.width
+        row_width = self.get_allocated_width()
         return (len(self._map) + row_width - 1) // row_width
     # pylint: enable=no-member
 
@@ -697,7 +670,7 @@ Dark gray: Not present"""
                 abs(self._width_history[0] - event.width) > 10):
             # We are cycling between two size allocations with significantly
             # different widths, which probably indicates that a parent
-            # gtk.ScrolledWindow is oscillating adding and removing the
+            # Gtk.ScrolledWindow is oscillating adding and removing the
             # scroll bar.  This can happen when the viewport's size
             # allocation, with scroll bar, is just above the number of
             # pixels we need for the whole image.  Break the loop by
@@ -705,25 +678,30 @@ Dark gray: Not present"""
             return
         self.set_size_request(30, self.valid_rows)
 
-    # pylint doesn't understand allocation.width or window.cairo_create()
-    # pylint: disable=no-member
-    def _expose(self, _widget, event):
+    def _draw(self, _widget, cairo_context):
         # This function is optimized; be careful when changing it.
         # Localize variables for performance (!!)
         patterns = self.PATTERNS
         chunk_states = self._map
         chunks = len(chunk_states)
-        area_x, area_y, area_height, area_width = (event.area.x,
-                event.area.y, event.area.height, event.area.width)
-        row_width = self.allocation.width
+
+        _, rect = Gdk.cairo_get_clip_rectangle(cairo_context)
+        if rect:
+            area_x, area_y, area_height, area_width = (rect.x, rect.y,
+                    rect.height, rect.width)
+        else:
+            area_x, area_y = (0, 0)
+            area_height = _widget.get_allocated_height()
+            area_width = _widget.get_allocated_width()
+
+        row_width = self.get_allocated_width()
         valid_rows = self.valid_rows
         default_state = ChunkStateArray.MISSING
         invalid_state = ChunkStateArray.INVALID
 
-        cr = self.window.cairo_create()
-        set_source = cr.set_source
-        rectangle = cr.rectangle
-        fill = cr.fill
+        set_source = cairo_context.set_source
+        rectangle = cairo_context.rectangle
+        fill = cairo_context.fill
 
         # Draw MISSING as background color in valid rows
         if valid_rows > area_y:
@@ -766,7 +744,7 @@ Dark gray: Not present"""
     # pylint doesn't understand allocation.width
     # pylint: disable=no-member
     def _chunk_changed(self, _map, first, last):
-        width = self.allocation.width
+        width = self.get_allocated_width()
         for row in xrange(first // width, last // width + 1):
             row_first = max(width * row, first) % width
             row_last = min(width * (row + 1) - 1, last) % width
@@ -777,25 +755,26 @@ Dark gray: Not present"""
         self.queue_resize_no_redraw()
 
 
-class ScrollingImageChunkWidget(gtk.ScrolledWindow):
+class ScrollingImageChunkWidget(Gtk.ScrolledWindow):
     def __init__(self, chunk_map):
-        gtk.ScrolledWindow.__init__(self)
+        Gtk.ScrolledWindow.__init__(self)
         self.set_border_width(2)
-        self.set_policy(gtk.POLICY_NEVER, gtk.POLICY_AUTOMATIC)
+        self.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         self.add_with_viewport(ImageChunkWidget(chunk_map))
         viewport = self.get_child()
-        viewport.set_shadow_type(gtk.SHADOW_NONE)
+        viewport.set_shadow_type(Gtk.ShadowType.NONE)
 
 
-class StatWidget(gtk.EventBox):
-    ACTIVITY_FLAG = gtk.gdk.Color('#ff4040')
+class StatWidget(Gtk.EventBox):
+    ACTIVITY_FLAG = Gdk.RGBA()
+    ACTIVITY_FLAG.parse('#ff4040')
 
     def __init__(self, stat, chunk_size=None, tooltip=None):
-        gtk.EventBox.__init__(self)
+        Gtk.EventBox.__init__(self)
         self._chunk_size = chunk_size
         self._stat = stat
         self._stat_handler = None
-        self._label = gtk.Label('--')
+        self._label = Gtk.Label(label='--')
         self._label.set_width_chars(7)
         self._label.set_alignment(1, 0.5)
         self.add(self._label)
@@ -824,14 +803,14 @@ class StatWidget(gtk.EventBox):
 
         # Update activity flag
         if self._timer is None:
-            self.modify_bg(gtk.STATE_NORMAL, self.ACTIVITY_FLAG)
+            self.override_background_color(Gtk.StateFlags.NORMAL, self.ACTIVITY_FLAG)
         else:
             # Clear timer before setting a new one
-            glib.source_remove(self._timer)
-        self._timer = glib.timeout_add(100, self._clear_flag)
+            GLib.source_remove(self._timer)
+        self._timer = GLib.timeout_add(100, self._clear_flag)
 
     def _clear_flag(self):
-        self.modify_bg(gtk.STATE_NORMAL, None)
+        self.override_background_color(Gtk.StateFlags.NORMAL, None)
         self._timer = None
         return False
 
@@ -846,7 +825,7 @@ class ChunkMBStatWidget(StatWidget):
         return '%.1f' % (value * self._chunk_size / (1 << 20))
 
 
-class ImageStatTableWidget(gtk.Table):
+class ImageStatGridWidget(Gtk.Grid):
     FIELDS = (
         ('Guest', (
             ('bytes_read', MBStatWidget,
@@ -863,48 +842,51 @@ class ImageStatTableWidget(gtk.Table):
     )
 
     def __init__(self, stats, chunk_size):
-        gtk.Table.__init__(self, len(self.FIELDS), 3, True)
-        self.set_border_width(2)
-        for row, info in enumerate(self.FIELDS):
-            caption, fields = info
-            label = gtk.Label(caption)
+        Gtk.Grid.__init__(self)
+        self.set_column_spacing(2)
+        self.set_column_homogeneous(True)
+        self.set_row_spacing(2)
+        for row, row_info in enumerate(self.FIELDS):
+            caption, fields = row_info
+            label = Gtk.Label(label=caption)
             label.set_alignment(0, 0.5)
-            self.attach(label, 0, 1, row, row + 1, xoptions=gtk.FILL)
-            for col, info in enumerate(fields, 1):
-                name, cls, tooltip = info
+            self.attach(label, 0, row, 1, 1)
+            for col, col_info in enumerate(fields, 1):
+                name, cls, tooltip = col_info
                 field = cls(stats[name], chunk_size, tooltip)
-                self.attach(field, col, col + 1, row, row + 1,
-                        xoptions=gtk.FILL, xpadding=3, ypadding=2)
+                self.attach(field, col, row, 1, 1)
 
 
-class ImageStatusWidget(gtk.VBox):
+class ImageStatusWidget(Gtk.VBox):
     def __init__(self, stats, chunk_map, chunk_size):
-        gtk.VBox.__init__(self, spacing=5)
+        Gtk.VBox.__init__(self)
+        self.set_homogeneous(False)
+        self.set_spacing(5)
 
         # Stats table
-        frame = gtk.Frame('Statistics')
-        frame.add(ImageStatTableWidget(stats, chunk_size))
-        self.pack_start(frame, expand=False)
+        frame = Gtk.Frame.new('Statistics')
+        frame.add(ImageStatGridWidget(stats, chunk_size))
+        self.pack_start(frame, False, True, 0)
 
         # Chunk bitmap
-        frame = gtk.Frame('Chunk bitmap')
-        vbox = gtk.VBox()
-        label = gtk.Label()
+        frame = Gtk.Frame.new('Chunk bitmap')
+        vbox = Gtk.VBox()
+        label = Gtk.Label()
         label.set_markup('<span size="small">Chunk size: %d KB</span>' %
                 (chunk_size / 1024))
         label.set_alignment(0, 0.5)
         label.set_padding(2, 2)
-        vbox.pack_start(label, expand=False)
-        vbox.pack_start(ScrollingImageChunkWidget(chunk_map))
+        vbox.pack_start(label, False, True, 0)
+        vbox.pack_start(ScrollingImageChunkWidget(chunk_map), True, True, 0)
         frame.add(vbox)
-        self.pack_start(frame)
+        self.pack_start(frame, True, True, 0)
 
 
-class ActivityWindow(gtk.Window):
+class ActivityWindow(Gtk.Window):
     def __init__(self, name, stats, chunk_map, chunk_size, hide_action):
-        gtk.Window.__init__(self)
+        Gtk.Window.__init__(self)
         self.set_title('Activity: %s' % name)
-        self.set_type_hint(gtk.gdk.WINDOW_TYPE_HINT_UTILITY)
+        self.set_type_hint(Gdk.WindowTypeHint.UTILITY)
         self.connect('delete-event',
                 lambda _wid, _ev: hide_action.activate() or True)
 
@@ -914,6 +896,7 @@ class ActivityWindow(gtk.Window):
 
 
 def humanize(seconds):
+    # pylint: disable=no-else-return
     if seconds < 2:
         return "any time now"
 
@@ -930,47 +913,46 @@ def humanize(seconds):
         return "more than a day"
 
 
-class LoadProgressWindow(gtk.Dialog):
+class LoadProgressWindow(Gtk.Dialog):
     __gsignals__ = {
-        'user-cancel': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'user-cancel': (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
     def __init__(self, parent):
-        gtk.Dialog.__init__(self, parent.get_title(), parent, gtk.DIALOG_MODAL,
-                (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL))
+        Gtk.Dialog.__init__(self, parent.get_title(), parent,
+                Gtk.DialogFlags.MODAL, (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL))
         self._parent = parent
         self.set_resizable(False)
         self.connect('response', self._response)
 
-        self._progress = gtk.ProgressBar()
+        self._progress = Gtk.ProgressBar()
         self.connect('destroy', self._destroy)
 
         box = self.get_content_area()
-        hbox = gtk.HBox()
+        hbox = Gtk.HBox()
 
-        label = gtk.Label()
+        label = Gtk.Label()
         label.set_markup('<b>Loading...</b>')
         label.set_alignment(0, 0.5)
         label.set_padding(5, 5)
-        hbox.pack_start(label)
+        hbox.pack_start(label, True, True, 0)
 
-        self._eta_label = gtk.Label()
+        self._eta_label = Gtk.Label()
         self._eta_label.set_alignment(1, 0.5)
         self._eta_label.set_padding(5, 5)
-        hbox.pack_start(self._eta_label)
+        hbox.pack_start(self._eta_label, True, True, 0)
 
-        box.pack_start(hbox)
+        box.pack_start(hbox, True, True, 0)
 
-        bin = gtk.Alignment(xscale=1)
-        bin.add(self._progress)
-        bin.set_padding(5, 5, 3, 3)
-        box.pack_start(bin, expand=True)
+        self._progress.set_property('halign', Gtk.Align.FILL)
+        self._progress.set_property('margin', 4)
+        box.pack_start(self._progress, True, True, 0)
 
         # Ensure a minimum width for the progress bar, without affecting
         # its height
-        label = gtk.Label()
+        label = Gtk.Label()
         label.set_size_request(300, 0)
-        box.pack_start(label)
+        box.pack_start(label, True, True, 0)
 
         # track time elapsed for ETA estimates
         self.start_time = time.time()
@@ -998,42 +980,42 @@ class LoadProgressWindow(gtk.Dialog):
         self.hide()
         set_window_progress(self._parent, None)
         self.emit('user-cancel')
-gobject.type_register(LoadProgressWindow)
+GObject.type_register(LoadProgressWindow)
 
 
-class PasswordWindow(gtk.Dialog):
+class PasswordWindow(Gtk.Dialog):
     def __init__(self, site, realm):
-        gtk.Dialog.__init__(self, 'Log in', None, gtk.DIALOG_MODAL,
-                (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL, gtk.STOCK_OK,
-                gtk.RESPONSE_OK))
-        self.set_default_response(gtk.RESPONSE_OK)
+        Gtk.Dialog.__init__(self, 'Log in', None, Gtk.DialogFlags.MODAL,
+                (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL, Gtk.STOCK_OK,
+                Gtk.ResponseType.OK))
+        self.set_default_response(Gtk.ResponseType.OK)
         self.set_resizable(False)
         self.connect('response', self._response)
 
-        table = gtk.Table()
+        table = Gtk.Table()
         table.set_border_width(5)
-        self.get_content_area().pack_start(table)
+        self.get_content_area().pack_start(table, True, True, 0)
 
         row = 0
         for text in 'Site', 'Realm', 'Username', 'Password':
-            label = gtk.Label(text + ':')
+            label = Gtk.Label(label=text + ':')
             label.set_alignment(1, 0.5)
             table.attach(label, 0, 1, row, row + 1, xpadding=5, ypadding=5)
             row += 1
-        self._invalid = gtk.Label()
+        self._invalid = Gtk.Label()
         self._invalid.set_markup('<span foreground="red">Invalid username' +
                 ' or password.</span>')
         table.attach(self._invalid, 0, 2, row, row + 1, xpadding=5, ypadding=5)
         row += 1
 
-        self._username = gtk.Entry()
+        self._username = Gtk.Entry()
         self._username.connect('activate', self._activate_username)
-        self._password = gtk.Entry()
+        self._password = Gtk.Entry()
         self._password.set_visibility(False)
         self._password.set_activates_default(True)
         row = 0
         for text in site, realm:
-            label = gtk.Label(text)
+            label = Gtk.Label(label=text)
             label.set_alignment(0, 0.5)
             table.attach(label, 1, 2, row, row + 1, xpadding=5, ypadding=5)
             row += 1
@@ -1064,7 +1046,7 @@ class PasswordWindow(gtk.Dialog):
     def _set_sensitive(self, sensitive):
         self._username.set_sensitive(sensitive)
         self._password.set_sensitive(sensitive)
-        for id in gtk.RESPONSE_OK, gtk.RESPONSE_CANCEL:
+        for id in Gtk.ResponseType.OK, Gtk.ResponseType.CANCEL:
             self.set_response_sensitive(id, sensitive)
         self.set_deletable(sensitive)
 
@@ -1072,7 +1054,7 @@ class PasswordWindow(gtk.Dialog):
             self._invalid.hide()
 
     def _response(self, _wid, resp):
-        if resp == gtk.RESPONSE_OK:
+        if resp == Gtk.ResponseType.OK:
             self._set_sensitive(False)
 
     def fail(self):
@@ -1081,54 +1063,54 @@ class PasswordWindow(gtk.Dialog):
         self._password.grab_focus()
 
 
-class SaveMediaWindow(gtk.FileChooserDialog):
+class SaveMediaWindow(Gtk.FileChooserDialog):
     PREVIEW_SIZE = 250
 
     def __init__(self, parent, title, filename, preview):
-        gtk.FileChooserDialog.__init__(self, title, parent,
-                gtk.FILE_CHOOSER_ACTION_SAVE,
-                (gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-                gtk.STOCK_SAVE, gtk.RESPONSE_OK))
+        Gtk.FileChooserDialog.__init__(self, title, parent,
+                Gtk.FileChooserAction.SAVE,
+                (Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
+                Gtk.STOCK_SAVE, Gtk.ResponseType.OK))
         self.set_current_name(filename)
         self.set_do_overwrite_confirmation(True)
 
         w, h = preview.get_width(), preview.get_height()
         scale = min(1, self.PREVIEW_SIZE / w, self.PREVIEW_SIZE / h)
         preview = preview.scale_simple(int(w * scale), int(h * scale),
-                gtk.gdk.INTERP_BILINEAR)
-        image = gtk.Image()
+                GdkPixbuf.InterpType.BILINEAR)
+        image = Gtk.Image()
         image.set_from_pixbuf(preview)
         image.set_padding(5, 5)
-        frame = gtk.Frame('Preview')
+        frame = Gtk.Frame.new('Preview')
         frame.add(image)
         image.show()
         self.set_preview_widget(frame)
         self.set_use_preview_label(False)
 
 
-class UpdateWindow(gtk.MessageDialog):
+class UpdateWindow(Gtk.MessageDialog):
     ICON_SIZE = 64
 
     __gsignals__ = {
-        'user-defer-update': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-        'user-skip-release': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-        'user-update': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'user-defer-update': (GObject.SignalFlags.RUN_LAST, None, ()),
+        'user-skip-release': (GObject.SignalFlags.RUN_LAST, None, ()),
+        'user-update': (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
     def __init__(self, parent, version, date):
-        gtk.MessageDialog.__init__(self, parent,
-                gtk.DIALOG_DESTROY_WITH_PARENT, gtk.MESSAGE_INFO,
-                gtk.BUTTONS_NONE, 'VMNetX update available')
-        theme = gtk.icon_theme_get_default()
+        Gtk.MessageDialog.__init__(self, parent,
+                Gtk.DialogFlags.DESTROY_WITH_PARENT, Gtk.MessageType.INFO,
+                Gtk.ButtonsType.NONE, 'VMNetX update available')
+        theme = Gtk.IconTheme.get_default()
         try:
             icon = theme.load_icon('vmnetx', 256, 0)
             icon = icon.scale_simple(self.ICON_SIZE, self.ICON_SIZE,
-                    gtk.gdk.INTERP_BILINEAR)
-        except glib.GError:
+                    GdkPixbuf.InterpType.BILINEAR)
+        except GLib.GError:
             # VMNetX icon not installed in search path
             icon = theme.load_icon('software-update-available',
                     self.ICON_SIZE, 0)
-        self.set_image(gtk.image_new_from_pixbuf(icon))
+        self.set_image(Gtk.Image.new_from_pixbuf(icon))
         self.set_title('Update Available')
         datestr = '%s %s, %s' % (
             date.strftime('%B'),
@@ -1138,47 +1120,47 @@ class UpdateWindow(gtk.MessageDialog):
         self.format_secondary_markup(
                 'VMNetX <b>%s</b> was released on <b>%s</b>.' % (
                 urllib.quote(version), datestr))
-        self.add_buttons('Skip this version', gtk.RESPONSE_REJECT,
-                'Remind me later', gtk.RESPONSE_CLOSE,
-                'Download update', gtk.RESPONSE_ACCEPT)
-        self.set_default_response(gtk.RESPONSE_ACCEPT)
+        self.add_buttons('Skip this version', Gtk.ResponseType.REJECT,
+                'Remind me later', Gtk.ResponseType.CLOSE,
+                'Download update', Gtk.ResponseType.ACCEPT)
+        self.set_default_response(Gtk.ResponseType.ACCEPT)
         self.connect('response', self._response)
 
     def _response(self, _wid, response):
-        if response == gtk.RESPONSE_ACCEPT:
+        if response == Gtk.ResponseType.ACCEPT:
             self.emit('user-update')
-        elif response == gtk.RESPONSE_REJECT:
+        elif response == Gtk.ResponseType.REJECT:
             self.emit('user-skip-release')
         else:
             self.emit('user-defer-update')
 
 
-class ErrorWindow(gtk.MessageDialog):
+class ErrorWindow(Gtk.MessageDialog):
     def __init__(self, parent, message):
-        gtk.MessageDialog.__init__(self, parent=parent,
-                flags=gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
-                type=gtk.MESSAGE_ERROR, buttons=gtk.BUTTONS_OK,
+        Gtk.MessageDialog.__init__(self, parent=parent,
+                flags=Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+                type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.OK,
                 message_format='Error')
         self.format_secondary_text(message)
 
 
-class IgnorableErrorWindow(gtk.MessageDialog):
+class IgnorableErrorWindow(Gtk.MessageDialog):
     def __init__(self, parent, message):
-        gtk.MessageDialog.__init__(self, parent=parent,
-                flags=gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
-                type=gtk.MESSAGE_ERROR, buttons=gtk.BUTTONS_NONE,
+        Gtk.MessageDialog.__init__(self, parent=parent,
+                flags=Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+                type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.NONE,
                 message_format='Error')
         self.format_secondary_text(message)
-        self.add_buttons('Continue', gtk.RESPONSE_CANCEL,
-                gtk.STOCK_QUIT, gtk.RESPONSE_OK)
-        self.set_default_response(gtk.RESPONSE_OK)
+        self.add_buttons('Continue', Gtk.ResponseType.CANCEL,
+                Gtk.STOCK_QUIT, Gtk.ResponseType.OK)
+        self.set_default_response(Gtk.ResponseType.OK)
 
 
-class FatalErrorWindow(gtk.MessageDialog):
+class FatalErrorWindow(Gtk.MessageDialog):
     def __init__(self, parent, error=None):
-        gtk.MessageDialog.__init__(self, parent=parent,
-                flags=gtk.DIALOG_MODAL | gtk.DIALOG_DESTROY_WITH_PARENT,
-                type=gtk.MESSAGE_ERROR, buttons=gtk.BUTTONS_OK,
+        Gtk.MessageDialog.__init__(self, parent=parent,
+                flags=Gtk.DialogFlags.MODAL | Gtk.DialogFlags.DESTROY_WITH_PARENT,
+                type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.OK,
                 message_format='Fatal Error')
         if error is None:
             error = ErrorBuffer()
@@ -1186,16 +1168,16 @@ class FatalErrorWindow(gtk.MessageDialog):
         content = self.get_content_area()
 
         if error.detail:
-            expander = gtk.Expander('Details')
-            content.pack_start(expander)
+            expander = Gtk.Expander.new('Details')
+            content.pack_start(expander, True, True, 0)
 
-            view = gtk.TextView()
+            view = Gtk.TextView()
             view.get_buffer().set_text(error.detail)
             view.set_editable(False)
-            scroller = gtk.ScrolledWindow()
-            view.set_scroll_adjustments(scroller.get_hadjustment(),
-                    scroller.get_vadjustment())
-            scroller.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
+            scroller = Gtk.ScrolledWindow()
+            view.set_hadjustment(scroller.get_hadjustment())
+            view.set_vadjustment(scroller.get_vadjustment())
+            scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
             scroller.add(view)
             scroller.set_size_request(600, 150)
             expander.add(scroller)

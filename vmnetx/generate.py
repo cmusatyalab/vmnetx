@@ -17,11 +17,11 @@
 
 from __future__ import division
 from contextlib import closing
-import libvirt
 import os
 import subprocess
 import sys
 from tempfile import NamedTemporaryFile
+import libvirt
 
 from .domain import DomainXML, DomainXMLError
 from .memory import LibvirtQemuMemoryHeader
@@ -70,7 +70,7 @@ def copy_memory(in_path, out_path, xml=None, compression='xz', verbose=True,
         compress_out = hdr.COMPRESS_XZ
     elif compression == 'lzop':
         compress_out = hdr.COMPRESS_LZOP
-    elif compression == None:
+    elif compression is None:
         compress_out = hdr.COMPRESS_RAW
     else:
         raise ValueError('Unknown compression: %s' % compression)

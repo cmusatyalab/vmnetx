@@ -17,12 +17,16 @@
 
 import errno
 from functools import wraps
-import glib
-import gobject
 import logging
-import msgpack
 import socket
 import struct
+import msgpack
+
+import gi
+gi.require_version('GObject', '2.0')
+gi.require_version('GLib', '2.0')
+from gi.repository import GLib
+from gi.repository import GObject
 
 _log = logging.getLogger(__name__)
 
@@ -35,16 +39,16 @@ class EndpointStateError(ValueError):
     pass
 
 
-class _AsyncSocket(gobject.GObject):
+class _AsyncSocket(GObject.GObject):
     DEFAULT_RECV_BUF = 65536
     SHUTDOWN_TIMEOUT = 30 # seconds
 
     __gsignals__ = {
-        'close': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'close': (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
     def __init__(self, sock):
-        gobject.GObject.__init__(self)
+        GObject.GObject.__init__(self)
         self._sock = sock
         self._sock.setblocking(0)
         try:
@@ -77,11 +81,11 @@ class _AsyncSocket(gobject.GObject):
                 pass
             self._send_closed = True
             if self._send_close_timeout_source is not None:
-                glib.source_remove(self._send_close_timeout_source)
+                GLib.source_remove(self._send_close_timeout_source)
                 self._send_close_timeout_source = None
         if self._send_closed and self._recv_closed:
             if self._source is not None:
-                glib.source_remove(self._source)
+                GLib.source_remove(self._source)
                 self._source = None
             self._sock.close()
             self._sock = None
@@ -89,15 +93,16 @@ class _AsyncSocket(gobject.GObject):
             return
         cond = 0
         if self._recv_callback is not None and not self._recv_closed:
-            cond |= glib.IO_IN
+            cond |= GLib.IOCondition.IN
         if self._send_buf and not self._send_closed:
-            cond |= glib.IO_OUT
+            cond |= GLib.IOCondition.OUT
         if self._source is not None:
-            glib.source_remove(self._source)
-        self._source = glib.io_add_watch(self._sock, cond, self._io_ready)
+            GLib.source_remove(self._source)
+        self._source = GLib.io_add_watch(self._sock, GLib.PRIORITY_DEFAULT,
+                GLib.IOCondition(cond), self._io_ready)
 
     def _io_ready(self, _source, cond):
-        if cond & glib.IO_IN:
+        if cond & GLib.IOCondition.IN:
             try:
                 buf = self._sock.recv(self._recv_remaining or
                         self.DEFAULT_RECV_BUF)
@@ -119,7 +124,7 @@ class _AsyncSocket(gobject.GObject):
                         self._recv_buf = ''
                         self._update()
 
-        if cond & glib.IO_OUT:
+        if cond & GLib.IOCondition.OUT:
             self._try_send()
 
         return True
@@ -150,7 +155,7 @@ class _AsyncSocket(gobject.GObject):
         # only reports writability once after connect and once after a write
         # returns EWOULDBLOCK.  Attempt to transmit even without an IO_OUT
         # notification.
-        glib.idle_add(self._try_send, priority=glib.PRIORITY_DEFAULT)
+        GLib.idle_add(self._try_send, priority=GLib.PRIORITY_DEFAULT)
 
     def recv(self, callback, count=None):
         '''Call callback when count bytes have been received.  If count is
@@ -175,25 +180,25 @@ class _AsyncSocket(gobject.GObject):
         # is empty
         self._send_closing = True
         if not self._send_closed and self._send_close_timeout_source is None:
-            self._send_close_timeout_source = glib.timeout_add_seconds(
+            self._send_close_timeout_source = GLib.timeout_add_seconds(
                     self.SHUTDOWN_TIMEOUT, self._send_close_timeout)
 
         self._update()
-gobject.type_register(_AsyncSocket)
+GObject.type_register(_AsyncSocket)
 
 
-class _Endpoint(gobject.GObject):
+class _Endpoint(GObject.GObject):
     LENGTH_FMT = '!I'
     MAX_MESSAGE_SIZE = 1 << 20
 
     __gsignals__ = {
-        'error': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_STRING,)),
-        'close': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'error': (GObject.SignalFlags.RUN_LAST, None,
+                (GObject.TYPE_STRING,)),
+        'close': (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
     def __init__(self, sock):
-        gobject.GObject.__init__(self)
+        GObject.GObject.__init__(self)
         self._asock = _AsyncSocket(sock)
         self._asock.connect('close', self._shutdown)
         self._protocol_disabled = False
@@ -303,23 +308,23 @@ class _Endpoint(gobject.GObject):
             peer.shutdown()
         if asock is not None:
             asock.shutdown()
-gobject.type_register(_Endpoint)
+GObject.type_register(_Endpoint)
 
 
 class ServerEndpoint(_Endpoint):
     __gsignals__ = {
-        'authenticate': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN,
-                (gobject.TYPE_STRING,),
-                gobject.signal_accumulator_true_handled),
-        'attach-viewer': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN, (),
-                gobject.signal_accumulator_true_handled),
-        'start-vm': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN, (),
-                gobject.signal_accumulator_true_handled),
-        'stop-vm': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN, (),
-                gobject.signal_accumulator_true_handled),
-        'destroy-vm': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN, (),
-                gobject.signal_accumulator_true_handled),
-        'ping': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'authenticate': (GObject.SignalFlags.RUN_LAST, GObject.TYPE_BOOLEAN,
+                (GObject.TYPE_STRING,),
+                GObject.signal_accumulator_true_handled),
+        'attach-viewer': (GObject.SignalFlags.RUN_LAST, GObject.TYPE_BOOLEAN, (),
+                GObject.signal_accumulator_true_handled),
+        'start-vm': (GObject.SignalFlags.RUN_LAST, GObject.TYPE_BOOLEAN, (),
+                GObject.signal_accumulator_true_handled),
+        'stop-vm': (GObject.SignalFlags.RUN_LAST, GObject.TYPE_BOOLEAN, (),
+                GObject.signal_accumulator_true_handled),
+        'destroy-vm': (GObject.SignalFlags.RUN_LAST, GObject.TYPE_BOOLEAN, (),
+                GObject.signal_accumulator_true_handled),
+        'ping': (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
     def __init__(self, sock):
@@ -402,7 +407,7 @@ class ServerEndpoint(_Endpoint):
 
     def send_vm_destroyed(self):
         self._transmit('vm-destroyed')
-gobject.type_register(ServerEndpoint)
+GObject.type_register(ServerEndpoint)
 
 
 class _Pinger(object):
@@ -410,7 +415,7 @@ class _Pinger(object):
         self._endp = endp
         self._ping_count = count
         self._ping_pending = 0
-        self._source = glib.timeout_add_seconds(interval, self._timer)
+        self._source = GLib.timeout_add_seconds(interval, self._timer)
         self._signal = endp.connect('pong', self._pong)
 
     def _timer(self):
@@ -433,7 +438,7 @@ class _Pinger(object):
 
     def stop(self):
         if self._source is not None:
-            glib.source_remove(self._source)
+            GLib.source_remove(self._source)
             self._endp.disconnect(self._signal)
             self._source = self._signal = None
 
@@ -446,23 +451,23 @@ class ClientEndpoint(_Endpoint):
     STATE_VIEWER = 4
 
     __gsignals__ = {
-        'auth-ok': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_STRING, gobject.TYPE_STRING, gobject.TYPE_UINT,
-                gobject.TYPE_UINT, gobject.TYPE_UINT)),
-        'auth-failed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_STRING,)),
-        'attaching-viewer': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-        'startup-progress': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_DOUBLE,)),
-        'startup-rejected-memory': (gobject.SIGNAL_RUN_LAST,
-                gobject.TYPE_NONE, ()),
-        'startup-failed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_STRING,)),
-        'vm-started': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_BOOLEAN,)),
-        'vm-stopped': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-        'vm-destroyed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-        'pong': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'auth-ok': (GObject.SignalFlags.RUN_LAST, None,
+                (GObject.TYPE_STRING, GObject.TYPE_STRING, GObject.TYPE_UINT,
+                GObject.TYPE_UINT, GObject.TYPE_UINT)),
+        'auth-failed': (GObject.SignalFlags.RUN_LAST, None,
+                (GObject.TYPE_STRING,)),
+        'attaching-viewer': (GObject.SignalFlags.RUN_LAST, None, ()),
+        'startup-progress': (GObject.SignalFlags.RUN_LAST, None,
+                (GObject.TYPE_DOUBLE,)),
+        'startup-rejected-memory': (GObject.SignalFlags.RUN_LAST,
+                None, ()),
+        'startup-failed': (GObject.SignalFlags.RUN_LAST, None,
+                (GObject.TYPE_STRING,)),
+        'vm-started': (GObject.SignalFlags.RUN_LAST, None,
+                (GObject.TYPE_BOOLEAN,)),
+        'vm-stopped': (GObject.SignalFlags.RUN_LAST, None, ()),
+        'vm-destroyed': (GObject.SignalFlags.RUN_LAST, None, ()),
+        'pong': (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
     def __init__(self, sock):
@@ -581,4 +586,4 @@ class ClientEndpoint(_Endpoint):
     @_need_send_state(STATE_RUNNING)
     def send_ping(self):
         self._transmit('ping')
-gobject.type_register(ClientEndpoint)
+GObject.type_register(ClientEndpoint)

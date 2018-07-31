@@ -15,9 +15,9 @@
 # for more details.
 #
 
-from lxml import etree
 import os
 import subprocess
+from lxml import etree
 
 from ...util import DetailException
 

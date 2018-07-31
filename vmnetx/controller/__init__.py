@@ -17,13 +17,17 @@
 
 import errno
 from functools import wraps
-import glib
-import gobject
 import os
 import socket
 import sys
 from urllib import pathname2url, url2pathname
 from urlparse import urlsplit, urlunsplit
+
+import gi
+gi.require_version('GObject', '2.0')
+gi.require_version('GLib', '2.0')
+from gi.repository import GObject
+from gi.repository import GLib
 
 from ..reference import PackageReference, BadReferenceError
 from ..util import ErrorBuffer, RangeConsolidator
@@ -36,20 +40,20 @@ class MachineStateError(Exception):
     pass
 
 
-class Controller(gobject.GObject):
+class Controller(GObject.GObject):
     __gsignals__ = {
-        'startup-progress': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_UINT64, gobject.TYPE_UINT64)),
-        'startup-rejected-memory': (gobject.SIGNAL_RUN_LAST,
-                gobject.TYPE_NONE, ()),
-        'startup-failed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+        'startup-progress': (GObject.SignalFlags.RUN_LAST, None,
+                (GObject.TYPE_UINT64, GObject.TYPE_UINT64)),
+        'startup-rejected-memory': (GObject.SignalFlags.RUN_LAST,
+                None, ()),
+        'startup-failed': (GObject.SignalFlags.RUN_LAST, None,
                 (ErrorBuffer,)),
-        'vm-started': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_BOOLEAN,)),
-        'vm-stopped': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-        'network-disconnect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-        'network-reconnect': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-        'fatal-error': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
+        'vm-started': (GObject.SignalFlags.RUN_LAST, None,
+                (GObject.TYPE_BOOLEAN,)),
+        'vm-stopped': (GObject.SignalFlags.RUN_LAST, None, ()),
+        'network-disconnect': (GObject.SignalFlags.RUN_LAST, None, ()),
+        'network-reconnect': (GObject.SignalFlags.RUN_LAST, None, ()),
+        'fatal-error': (GObject.SignalFlags.RUN_LAST, None,
                 (ErrorBuffer,)),
     }
 
@@ -61,7 +65,7 @@ class Controller(gobject.GObject):
     STATE_DESTROYED = 5
 
     def __init__(self):
-        gobject.GObject.__init__(self)
+        GObject.GObject.__init__(self)
 
         # Publicly readable
         self.vm_name = None
@@ -118,6 +122,7 @@ class Controller(gobject.GObject):
         # Return correct controller
         parsed = urlsplit(url)
         try:
+            # pylint: disable=no-else-return
             if parsed.scheme == 'vmnetx':
                 category = 'Remote'
                 from .remote import RemoteController
@@ -155,7 +160,7 @@ class Controller(gobject.GObject):
     @staticmethod
     def _connect_socket(address, callback):
         def ready(sock, cond):
-            if not cond & (glib.IO_OUT | glib.IO_ERR):
+            if not cond & (GLib.IOCondition.OUT | GLib.IOCondition.ERR):
                 return True
             # Get error code
             err = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
@@ -178,7 +183,8 @@ class Controller(gobject.GObject):
             # EWOULDBLOCK on Windows (actually WSAEWOULDBLOCK)
             if e.errno in (errno.EINPROGRESS, errno.EWOULDBLOCK):
                 # IO_ERR on Windows
-                glib.io_add_watch(sock, glib.IO_OUT | glib.IO_ERR, ready)
+                cond = GLib.IOCondition.OUT | GLib.IOCondition.ERR
+                GLib.io_add_watch(sock, GLib.IOCondition(cond), ready)
             else:
                 callback(error=str(e))
                 sock.close()
@@ -196,7 +202,7 @@ class Controller(gobject.GObject):
                 return func(self, *args, **kwargs)
             return wrapper
         return decorator
-gobject.type_register(Controller)
+GObject.type_register(Controller)
 
 
 # pylint thinks Controller is only subclassed once.  Perhaps it's being
@@ -218,14 +224,14 @@ class _DummyControllerSubclass(Controller):
         raise ValueError
 
 
-class Statistic(gobject.GObject):
+class Statistic(GObject.GObject):
     __gsignals__ = {
-        'stat-changed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_STRING, gobject.TYPE_UINT64)),
+        'stat-changed': (GObject.SignalFlags.RUN_LAST, None,
+                (GObject.TYPE_STRING, GObject.TYPE_UINT64)),
     }
 
     def __init__(self, name):
-        gobject.GObject.__init__(self)
+        GObject.GObject.__init__(self)
         self.name = name
         self._value = 0
 
@@ -237,10 +243,10 @@ class Statistic(gobject.GObject):
     def value(self, value):
         self._value = value
         self.emit('stat-changed', self.name, value)
-gobject.type_register(Statistic)
+GObject.type_register(Statistic)
 
 
-class ChunkStateArray(gobject.GObject):
+class ChunkStateArray(GObject.GObject):
     INVALID = 0  # Beyond EOF.  Never stored in chunks array.
     MISSING = 1
     CACHED = 2
@@ -249,14 +255,14 @@ class ChunkStateArray(gobject.GObject):
     ACCESSED_MODIFIED = 5
 
     __gsignals__ = {
-        'chunk-state-changed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_UINT64, gobject.TYPE_UINT64)),
-        'image-resized': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE,
-                (gobject.TYPE_UINT64,)),
+        'chunk-state-changed': (GObject.SignalFlags.RUN_LAST, None,
+                (GObject.TYPE_UINT64, GObject.TYPE_UINT64)),
+        'image-resized': (GObject.SignalFlags.RUN_LAST, None,
+                (GObject.TYPE_UINT64,)),
     }
 
     def __init__(self):
-        gobject.GObject.__init__(self)
+        GObject.GObject.__init__(self)
         self._chunks = []
 
     def __len__(self):
@@ -299,4 +305,4 @@ class ChunkStateArray(gobject.GObject):
                 if cur_state < state:
                     self._chunks[chunk] = state
                     c.emit(chunk)
-gobject.type_register(ChunkStateArray)
+GObject.type_register(ChunkStateArray)

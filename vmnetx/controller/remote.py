@@ -15,11 +15,16 @@
 # for more details.
 #
 
-import glib
-import gobject
-import gtk
 import logging
 from urlparse import urlsplit
+
+import gi
+gi.require_version('GObject', '2.0')
+gi.require_version('GLib', '2.0')
+gi.require_version('Gtk', '3.0')
+from gi.repository import GLib
+from gi.repository import GObject
+from gi.repository import Gtk
 
 from . import Controller, MachineExecutionError
 from ..protocol import ClientEndpoint, EndpointStateError
@@ -87,7 +92,7 @@ class _TemporaryMainLoop(object):
         # Run gtk main loop
         if not self.finished:
             self.running = True
-            gtk.main()
+            Gtk.main()
             self.running = False
         # Propagate saved error from main loop, if any
         if self._error is not None:
@@ -102,7 +107,7 @@ class _TemporaryMainLoop(object):
     def quit(self):
         self.finished = True
         if self.running:
-            gtk.main_quit()
+            Gtk.main_quit()
 
 
 class RemoteController(Controller):
@@ -149,9 +154,9 @@ class RemoteController(Controller):
 
     def _notify_stable_state(self):
         if self.state == self.STATE_STOPPED:
-            gobject.idle_add(self.emit, 'vm-stopped')
+            GObject.idle_add(self.emit, 'vm-stopped')
         elif self.state == self.STATE_RUNNING:
-            gobject.idle_add(self.emit, 'vm-started', False)
+            GObject.idle_add(self.emit, 'vm-started', False)
 
     def _attempt_connection(self, _backoff):
         self._connect_socket(self._address, self._connected)
@@ -208,7 +213,7 @@ class RemoteController(Controller):
             self._loop.quit()
         elif self._phase == self.PHASE_RUN:
             if self._disconnected_timeout_source is not None:
-                glib.source_remove(self._disconnected_timeout_source)
+                GLib.source_remove(self._disconnected_timeout_source)
                 self._disconnected_timeout_source = None
             self.emit('network-reconnect')
             self._notify_stable_state()
@@ -260,7 +265,7 @@ class RemoteController(Controller):
         elif self._phase == self.PHASE_RUN:
             if (self._disconnected_timeout_source is None and
                     self._disconnected_timeout is not None):
-                self._disconnected_timeout_source = glib.timeout_add_seconds(
+                self._disconnected_timeout_source = GLib.timeout_add_seconds(
                         self._disconnected_timeout, self._reconnection_failed)
             self.emit('network-disconnect')
             self._backoff.attempt()
@@ -328,4 +333,4 @@ class RemoteController(Controller):
                 self._endp.shutdown()
             self._loop = None
         self.state = self.STATE_DESTROYED
-gobject.type_register(RemoteController)
+GObject.type_register(RemoteController)

@@ -15,13 +15,16 @@
 # for more details.
 #
 
-import gobject
 import os
 import socket
 import subprocess
 import sys
 import traceback
 import webbrowser
+
+import gi
+gi.require_version('GObject', '2.0')
+from gi.repository import GObject
 
 from .system import __version__
 
@@ -51,9 +54,9 @@ class NeedAuthentication(Exception):
         self.scheme = scheme
 
 
-class ErrorBuffer(gobject.GObject):
+class ErrorBuffer(GObject.GObject):
     def __init__(self, message=None):
-        gobject.GObject.__init__(self)
+        GObject.GObject.__init__(self)
         exception = sys.exc_info()[1]
         if exception is not None:
             self.exception = str(exception)
@@ -66,7 +69,7 @@ class ErrorBuffer(gobject.GObject):
         else:
             self.exception = message
             self.detail = ''
-gobject.type_register(ErrorBuffer)
+GObject.type_register(ErrorBuffer)
 
 
 class RangeConsolidator(object):
@@ -92,14 +95,14 @@ class RangeConsolidator(object):
         return False
 
 
-class BackoffTimer(gobject.GObject):
+class BackoffTimer(GObject.GObject):
     __gsignals__ = {
-        'attempt': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'attempt': (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
     def __init__(self, schedule=(1000, 2000, 5000, 10000)):
         # schedule is in ms
-        gobject.GObject.__init__(self)
+        GObject.GObject.__init__(self)
         self._schedule = schedule
         self._schedule_index = None
         self._timer = None
@@ -111,12 +114,12 @@ class BackoffTimer(gobject.GObject):
             return
         if self._schedule_index is None:
             self._schedule_index = 0
-            self._timer = gobject.idle_add(self._attempt)
+            self._timer = GObject.idle_add(self._attempt)
         else:
             timeout = self._schedule[self._schedule_index]
             self._schedule_index = min(self._schedule_index + 1,
                     len(self._schedule) - 1)
-            self._timer = gobject.timeout_add(timeout, self._attempt)
+            self._timer = GObject.timeout_add(timeout, self._attempt)
 
     def _attempt(self):
         self._timer = None
@@ -128,9 +131,9 @@ class BackoffTimer(gobject.GObject):
         an explicit connection request.'''
         self._schedule_index = None
         if self._timer is not None:
-            gobject.source_remove(self._timer)
+            GObject.source_remove(self._timer)
             self._timer = None
-gobject.type_register(BackoffTimer)
+GObject.type_register(BackoffTimer)
 
 
 def get_cache_dir():

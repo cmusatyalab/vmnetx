@@ -16,13 +16,13 @@
 #
 
 from collections import namedtuple
-from lxml import etree
-from lxml.builder import ElementMaker
 import os
 import random
 import subprocess
 from tempfile import NamedTemporaryFile
 import uuid
+from lxml import etree
+from lxml.builder import ElementMaker
 
 from .system import schemadir
 from .util import DetailException

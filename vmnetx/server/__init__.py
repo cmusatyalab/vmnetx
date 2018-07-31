@@ -18,16 +18,20 @@
 from __future__ import division
 import base64
 from datetime import datetime
-from dateutil.tz import tzutc
 import errno
 from functools import partial
-import glib
-import gobject
 import logging
 import os
 import socket
 from threading import Thread, Lock, Event
 import time
+from dateutil.tz import tzutc
+
+import gi
+gi.require_version('GObject', '2.0')
+gi.require_version('GLib', '2.0')
+from gi.repository import GLib
+from gi.repository import GObject
 
 from .http import HttpServer, ServerUnavailableError
 from ..controller import Controller, MachineExecutionError, MachineStateError
@@ -37,17 +41,17 @@ from ..protocol import ServerEndpoint
 _log = logging.getLogger(__name__)
 
 
-class _ServerConnection(gobject.GObject):
+class _ServerConnection(GObject.GObject):
     __gsignals__ = {
-        'need-controller': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_BOOLEAN,
-                (gobject.TYPE_STRING,)),
-        'ping': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-        'close': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
-        'destroy-instance': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'need-controller': (GObject.SignalFlags.RUN_LAST, GObject.TYPE_BOOLEAN,
+                (GObject.TYPE_STRING,)),
+        'ping': (GObject.SignalFlags.RUN_LAST, None, ()),
+        'close': (GObject.SignalFlags.RUN_LAST, None, ()),
+        'destroy-instance': (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
     def __init__(self, sock, timeout_min, timeout_max):
-        gobject.GObject.__init__(self)
+        GObject.GObject.__init__(self)
         self._timeout_min = timeout_min
         self._timeout_max = timeout_max
         self._peer = sock.getpeername()[0]
@@ -118,7 +122,7 @@ class _ServerConnection(gobject.GObject):
                 self._controller.max_mouse_rate, self._timeout_min,
                 self._timeout_max)
         _log.info('Authenticated (%s, %s)', self._peer, self._instance_id)
-        return True
+        return
 
     def _client_attach_viewer(self, _endp):
         def done(sock=None, error=None):
@@ -133,6 +137,7 @@ class _ServerConnection(gobject.GObject):
             self._endp.start_forwarding(sock)
             _log.info('Attaching viewer (%s, %s)', self._peer,
                     self._instance_id)
+            return True
         self._endp.protocol_disabled = True
         self._controller.connect_viewer(done)
         return True
@@ -189,7 +194,7 @@ class _ServerConnection(gobject.GObject):
 
     def _ctrl_vm_stopped(self, _obj):
         self._endp.send_vm_stopped()
-gobject.type_register(_ServerConnection)
+GObject.type_register(_ServerConnection)
 
 
 class _WorkerThreadFuture(object):
@@ -227,9 +232,9 @@ class _WorkerThreadFuture(object):
 
     def _fire_callback(self, callback):
         if self._exception is not None:
-            glib.idle_add(partial(callback, exception=self._exception))
+            GLib.idle_add(partial(callback, exception=self._exception))
         else:
-            glib.idle_add(partial(callback, result=self._result))
+            GLib.idle_add(partial(callback, result=self._result))
 
     def get(self, callback):
         # Called from event loop thread
@@ -240,14 +245,14 @@ class _WorkerThreadFuture(object):
                 self._callbacks.append(callback)
 
 
-class _Instance(gobject.GObject):
+class _Instance(GObject.GObject):
     __gsignals__ = {
-        'destroy': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'destroy': (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
     def __init__(self, package, username, password, user_ident):
         # Called from HTTP worker thread
-        gobject.GObject.__init__(self)
+        GObject.GObject.__init__(self)
         self.id = base64.b32encode(os.urandom(10))
         self.authcode = base64.urlsafe_b64encode(os.urandom(15))
         self.token = '%s/%s' % (self.id, self.authcode)
@@ -312,6 +317,7 @@ class _Instance(gobject.GObject):
 
     @property
     def status(self):
+        # pylint: disable=no-else-return
         if self._controller is None:
             if self._destroyed:
                 return 'terminating'
@@ -332,6 +338,8 @@ class _Instance(gobject.GObject):
             return "stopping"
         elif state == LocalController.STATE_DESTROYED:
             return "destroyed"
+        else:
+            return "unknown"
 
     @property
     def vm_name(self):
@@ -369,7 +377,7 @@ class _Instance(gobject.GObject):
             for conn in conns:
                 conn.destroy()
             self._try_destroy()
-gobject.type_register(_Instance)
+GObject.type_register(_Instance)
 
 
 class _MainLoopFuture(object):
@@ -381,7 +389,7 @@ class _MainLoopFuture(object):
         self._func = func
         self._args = args
         self._kwargs = kwargs
-        glib.idle_add(self._run, priority=glib.PRIORITY_DEFAULT)
+        GLib.idle_add(self._run, priority=GLib.PRIORITY_DEFAULT)
 
     # We intentionally catch most exceptions
     # pylint: disable=broad-except
@@ -405,14 +413,14 @@ class _MainLoopFuture(object):
     # pylint: enable=raising-bad-type
 
 
-class VMNetXServer(gobject.GObject):
+class VMNetXServer(GObject.GObject):
     __gsignals__ = {
-        'shutdown': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, ()),
+        'shutdown': (GObject.SignalFlags.RUN_LAST, None, ()),
     }
 
     def __init__(self, options):
-        gobject.threads_init()
-        gobject.GObject.__init__(self)
+        GObject.threads_init()
+        GObject.GObject.__init__(self)
         self._options = options
         self._instances = {}  # id -> _Instance
         self._http = None
@@ -441,11 +449,11 @@ class VMNetXServer(gobject.GObject):
         self._listen.bind((self._options['host'], self._options['port']))
         self._listen.listen(16)
         self._listen.setblocking(0)
-        self._listen_source = glib.io_add_watch(self._listen, glib.IO_IN,
+        self._listen_source = GLib.io_add_watch(self._listen, GLib.IOCondition.IN,
                 self._accept)
 
         # Start garbage collection
-        self._gc_timer = glib.timeout_add_seconds(self._options['gc_interval'],
+        self._gc_timer = GLib.timeout_add_seconds(self._options['gc_interval'],
                 self._gc)
 
         self.running = True
@@ -556,13 +564,13 @@ class VMNetXServer(gobject.GObject):
         self.running = False
         self._shutting_down = True
         if self._listen_source is not None:
-            glib.source_remove(self._listen_source)
+            GLib.source_remove(self._listen_source)
             self._listen_source = None
         if self._listen is not None:
             self._listen.close()
             self._listen = None
         if self._gc_timer is not None:
-            glib.source_remove(self._gc_timer)
+            GLib.source_remove(self._gc_timer)
             self._gc_timer = None
         instances = self._instances.values()
         for instance in instances:
@@ -577,4 +585,4 @@ class VMNetXServer(gobject.GObject):
                 and not self._unauthenticated_conns):
             self._shutting_down = False
             self.emit('shutdown')
-gobject.type_register(VMNetXServer)
+GObject.type_register(VMNetXServer)

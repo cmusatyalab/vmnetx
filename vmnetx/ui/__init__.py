@@ -16,20 +16,25 @@
 #
 
 from datetime import date, datetime, timedelta
-import dateutil.parser
 from distutils.version import LooseVersion
-import glib
-import gobject
-import gtk
 import json
 import logging
 import os
-import requests
 import signal
 import sys
 from tempfile import NamedTemporaryFile
 import time
 from urlparse import urlsplit
+import dateutil.parser
+import requests
+
+import gi
+gi.require_version('GObject', '2.0')
+gi.require_version('GLib', '2.0')
+gi.require_version('Gtk', '3.0')
+from gi.repository import GObject
+from gi.repository import GLib
+from gi.repository import Gtk
 
 from ..controller import Controller
 from ..system import __version__, update_check_url
@@ -158,7 +163,7 @@ class VMNetXUI(object):
     RESUME_CHECK_DELAY = 1000  # ms
 
     def __init__(self, package_ref):
-        gobject.threads_init()
+        GObject.threads_init()
         self._package_ref = package_ref
         self._username_cache = _UsernameCache()
         self._controller = None
@@ -174,9 +179,9 @@ class VMNetXUI(object):
         self._update_wind = None
 
         try:
-            icon = gtk.icon_theme_get_default().load_icon('vmnetx', 256, 0)
-            gtk.window_set_default_icon(icon)
-        except glib.GError:
+            icon = Gtk.IconTheme.get_default().load_icon('vmnetx', 256, 0)
+            Gtk.Window.set_default_icon(icon)
+        except GLib.GError:
             # Icon not installed in search path
             pass
 
@@ -224,7 +229,7 @@ class VMNetXUI(object):
                             pw_wind.username = username
                     else:
                         pw_wind.fail()
-                    if pw_wind.run() != gtk.RESPONSE_OK:
+                    if pw_wind.run() != Gtk.ResponseType.OK:
                         pw_wind.destroy()
                         raise KeyboardInterrupt
                     self._controller.scheme = e.scheme
@@ -259,7 +264,7 @@ class VMNetXUI(object):
                     datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
             # Run main loop
-            gtk.main()
+            Gtk.main()
         except (KeyboardInterrupt, SystemExit):
             pass
         except:
@@ -342,7 +347,7 @@ class VMNetXUI(object):
     def _connect(self, _obj):
         if self._check_display:
             self._check_display = False
-            glib.timeout_add(self.RESUME_CHECK_DELAY,
+            GLib.timeout_add(self.RESUME_CHECK_DELAY,
                     self._startup_check_screenshot)
 
     def _startup_check_screenshot(self):
@@ -383,7 +388,7 @@ class VMNetXUI(object):
                     'errors.')
             response = ew.run()
             ew.destroy()
-            if response == gtk.RESPONSE_OK:
+            if response == Gtk.ResponseType.OK:
                 self._shutdown()
 
     def _user_restart(self, _obj):
@@ -404,15 +409,15 @@ class VMNetXUI(object):
         if self._update_wind:
             self._update_wind.hide()
         self._wind.hide()
-        gobject.idle_add(gtk.main_quit)
+        GObject.idle_add(Gtk.main_quit)
 
     def _screenshot(self, _obj, pixbuf):
         sw = SaveMediaWindow(self._wind, 'Save Screenshot',
                 self._controller.vm_name + '.png', pixbuf)
-        if sw.run() == gtk.RESPONSE_OK:
+        if sw.run() == Gtk.ResponseType.OK:
             try:
-                pixbuf.save(sw.get_filename(), 'png')
-            except gobject.GError, e:
+                pixbuf.savev(sw.get_filename(), 'png', (), ())
+            except GObject.GError, e:
                 ew = ErrorWindow(self._wind, str(e))
                 ew.run()
                 ew.destroy()

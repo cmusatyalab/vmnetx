@@ -16,9 +16,9 @@
 #
 
 from contextlib import closing
-import libvirt
 import os
 import subprocess
+import libvirt
 
 from .domain import DomainXML, DomainXMLError
 from .util import DetailException

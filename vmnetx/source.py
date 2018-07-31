@@ -17,13 +17,13 @@
 
 from cookielib import Cookie
 from datetime import datetime
-import dateutil.parser
-from dateutil.tz import tzutc
 import os
 import re
-import requests
 from urllib import pathname2url
 from urlparse import urlsplit, urlunsplit
+import dateutil.parser
+from dateutil.tz import tzutc
+import requests
 
 from .util import NeedAuthentication, get_requests_session
 

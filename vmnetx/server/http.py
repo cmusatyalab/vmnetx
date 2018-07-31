@@ -16,12 +16,12 @@
 #
 
 from datetime import datetime
-from dateutil.tz import tzutc
-from flask import Flask, Response, request, jsonify
 from functools import wraps
 import json
 import logging
 from urlparse import urlunsplit
+from dateutil.tz import tzutc
+from flask import Flask, Response, request, jsonify
 
 from ..package import Package
 from ..source import source_open

@@ -15,11 +15,6 @@
 # for more details.
 #
 
-# No comtypes on Linux
-# pylint: disable=import-error
-from comtypes import CoClass, COMMETHOD, GUID as COMGUID, IUnknown, wireHWND
-from comtypes.client import CreateObject
-# pylint: enable=import-error
 from ctypes import (windll, c_int, c_uint, c_uint8, c_uint32, c_uint64,
         c_ushort, c_ulong, c_ulonglong, c_wchar_p, Structure, POINTER, byref)
 from ctypes.wintypes import (BYTE, DWORD, WORD, HRESULT, HANDLE, LPVOID,
@@ -29,6 +24,11 @@ import os
 from select import select
 import socket
 import sys
+# No comtypes on Linux
+# pylint: disable=import-error
+from comtypes import CoClass, COMMETHOD, GUID as COMGUID, IUnknown, wireHWND
+from comtypes.client import CreateObject
+# pylint: enable=import-error
 
 # We use the Win32 naming scheme when wrapping its objects
 # comtypes doesn't provide initializers

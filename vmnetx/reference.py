@@ -15,9 +15,9 @@
 # for more details.
 #
 
+import os
 from lxml import etree
 from lxml.builder import ElementMaker
-import os
 
 from .system import schemadir
 from .util import DetailException
